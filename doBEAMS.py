@@ -384,6 +384,7 @@ examples:
     if options.paramfile:
         config = ConfigParser.ConfigParser()
         config.read(options.paramfile)
+    else: config=None
     parser = beam.add_options(usage=usagestring,config=config)
     options,  args = parser.parse_args()
 
