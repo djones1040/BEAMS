@@ -34,5 +34,5 @@ nsteps = 500
 ninit = 50
 
 # files
-inputfile = toymodel_input.txt
+inputfile = BEAMS.input
 outputfile = beamsCosmo.out
