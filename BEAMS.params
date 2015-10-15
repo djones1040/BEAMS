@@ -1,0 +1,37 @@
+# BEAMS example parameter file
+
+# columns names in the input file, identified in the file header
+pacol: PA
+residcol: resid
+residerrcol: resid_err
+
+# params for population A (the one we care about)
+# first the guess, then 2 parameters to describe gaussian prior on the mean (prior centroid and sigma),
+# then 2 parameters to describe gaussian prior on the std. dev (prior centroid and sigma),
+# then give 1 to say if prior is fixed
+
+popAguess: 0.0,0.1
+popAprior_mean: 0.0,0.1
+popAprior_std: 0.1,0.2
+popAfixed: 0,0
+
+# params for pop. B (the contaminating distribution)
+popBguess: 0.0,5.0
+popBprior_mean: 1.0,1.0
+popBprior_std: 1.0,3.0
+popBfixed: 0,0
+
+# params for the fraction of contaminants
+fracBguess: 0.1
+fracBprior: 0.05,0.1
+fracBfixed: 0
+
+# params for the MCMC
+nthreads: 8
+nwalkers: 100
+nsteps: 500
+ninit: 50
+
+# files
+inputfile: toymodel_input.txt
+outputfile: beamsCosmo.out

@@ -1,0 +1,338 @@
+#!/usr/bin/env python
+# D. Jones - 9/1/15
+"""BEAMS method for PS1 data"""
+import numpy as np
+
+class BEAMS:
+    def __init__(self):
+        self.clobber = False
+        self.verbose = False
+
+    def add_options(self, parser=None, usage=None):
+        if parser == None:
+            parser = optparse.OptionParser(usage=usage, conflict_handler="resolve")
+
+        # The basics
+        parser.add_option('-v', '--verbose', action="count", dest="verbose",default=1)
+        parser.add_option('--debug', default=False, action="store_true",
+                          help='debug mode: more output and debug files')
+        parser.add_option('--clobber', default=False, action="store_true",
+                          help='clobber output image')
+
+        # Input file
+        parser.add_option('--pacol', default='PA', type="string",
+                          help='column in input file used as prior P(A)')
+        parser.add_option('--residcol', default='resid', type="string",
+                          help='column name in input file header for residuals')
+        parser.add_option('--residerrcol', default='resid_err', type="string",
+                          help='column name in input file header for residual errors')
+
+        # population A guesses and priors (the pop we care about)
+        parser.add_option('--popAguess', default=(0.0,0.1),type='float',
+                          help='comma-separated initial guesses for population A: mean, standard deviation',nargs=2)
+        parser.add_option('--popAprior_mean', default=(0.0,0.1),type='float',
+                          help="""comma-separated gaussian prior for mean of population A: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+        parser.add_option('--popAprior_std', default=(0.1,0.2),type='float',
+                          help="""comma-separated gaussian prior for std dev. of population A: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+        parser.add_option('--popAfixed', default=(0,0),type='float',
+                          help="""comma-separated values for population A params: mean, standard deviation.  
+For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""",nargs=2)
+
+
+        # population B guesses and priors (the pop we care about)
+        parser.add_option('--popBguess', default=(1.0,1.0),type='float',
+                          help='comma-separated initial guesses for population B: mean, standard deviation',nargs=2)
+        parser.add_option('--popBprior_mean', default=(1.0,1.0),type='float',
+                          help="""comma-separated gaussian prior for mean of population B: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+        parser.add_option('--popBprior_std', default=(1.0,0.5),type='float',
+                          help="""comma-separated gaussian prior for std dev. of population B: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+        parser.add_option('--popBfixed', default=(0,0),type='float',
+                          help="""comma-separated values for population B params: mean, standard deviation.  
+For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""",nargs=2)
+
+
+        # fraction of contaminants: guesses and priors
+        parser.add_option('--fracBguess', default=0.05,type='float',
+                          help='initial guess for fraction of contaminants, set to negative to omit')
+        parser.add_option('--fracBprior', default=(0.05,0.1),type='float',
+                          help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+        parser.add_option('--fracBfixed', default=0,type='int',
+                          help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
+
+        
+        # output and number of threads
+        parser.add_option('--nthreads', default=8, type="int",
+                          help='Number of threads for MCMC')
+        parser.add_option('--nwalkers', default=100, type="int",
+                          help='Number of walkers for MCMC')
+        parser.add_option('--nsteps', default=500, type="int",
+                          help='Number of steps for MCMC')
+        parser.add_option('--ninit', default=50, type="int",
+                          help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
+
+
+        parser.add_option('-i','--inputfile', default='BEAMS.input', type="string",
+                          help='fitres file with the SN Ia data')
+        parser.add_option('-p','--paramfile', default='', type="string",
+                          help='fitres file with the SN Ia data')
+        parser.add_option('-o','--outfile', default='beamsCosmo.out', type="string",
+                          help='Output file with the derived parameters for each redshift bin')
+
+        return(parser)
+
+    def main(self,inputfile):
+        from txtobj import txtobj
+
+        inp = txtobj(inputfile)
+        inp.PA = inp.__dict__[self.options.pacol]
+        inp.resid = inp.__dict__[self.options.residcol]
+        inp.residerr = inp.__dict__[self.options.residerrcol]
+
+        # open the output file
+        if not os.path.exists(self.options.outfile) or self.options.clobber:
+            writeout = True
+            fout = open(self.options.outfile,'w')
+            print >> fout, "# muA muAerr_m muAerr_p sigA sigAerr_m sigAerr_p muB muBerr_m muBerr_p sigB sigBerr_m sigBerr_p fracB fracBerr_m fracBerr_p"""
+            fout.close()
+        else:
+            writeout = False
+            print('Warning : files %s exists!!  Not clobbering'%self.options.outfile)
+
+        # run the MCMC
+        residA,sigA,residB,sigB,fracB = self.mcmc(inp)
+                
+        outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
+
+        outline = outlinefmt%(residA[0],residA[1],residA[2],
+                              sigA[0],sigA[1],sigA[2],
+                              residB[0],residB[1],residB[2],
+                              sigB[0],sigB[1],sigB[2],
+                              fracB[0],fracB[1],fracB[2])
+        fout = open(self.options.outfile,'a')
+        print >> fout, outline
+        fout.close()
+
+        if self.options.verbose:
+            print('muA: %.3f +/- %.3f muB: %.3f +/- %.3f frac. B: %.3f +/- %.3f'%(
+                    residA[0],np.mean([residA[1],residA[2]]),
+                    residB[0],np.mean([residB[1],residB[2]]),
+                    fracB[0],np.mean([fracB[1],fracB[2]])))
+
+    def mcmc(self,inp):
+
+        # minimize, not maximize
+        if self.options.fracBguess >= 0:
+            omitfracB = False
+        else:
+            omitfracB = True
+        nll = lambda *args: -twogausslike_nofrac(*args)
+
+        md = minimize(nll,(self.options.popAguess[0],self.options.popAguess[1],
+                           self.options.popBguess[0],self.options.popBguess[1],
+                           self.options.fracBguess),
+                      args=(inp.PA,inp.resid,inp.residerr))
+        if md.message != 'Optimization terminated successfully.':
+            print("""Warning : Minimization Failed!!!  
+Try some different initial guesses, or let the MCMC try and take care of it""")
+
+        # for the fixed parameters, make really narrow priors
+        md = self.fixedpriors(md)
+
+        ndim, nwalkers = len(md["x"]), int(self.options.nwalkers)
+        pos = [md["x"] + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
+
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, 
+                                        args=(inp.PA,inp.resid,inp.residerr,omitfracB,
+                                              self.options.p_residA,self.options.psig_residA,
+                                              self.options.p_residB,self.options.psig_residB,
+                                              self.options.p_sigA,self.options.psig_sigA,
+                                              self.options.p_sigB,self.options.psig_sigB,
+                                              self.options.p_fracB,self.options.psig_fracB),
+                                        threads=int(self.options.nthreads))
+        sampler.run_mcmc(pos, self.options.nsteps)
+        samples = sampler.chain[:, self.options.ninit:, :].reshape((-1, ndim))
+
+        # get the error bars - should really return the full posterior!
+        import scipy.stats
+        resida_mcmc, siga_mcmc, residb_mcmc, sigb_mcmc, fracB = \
+            map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
+                zip(*np.percentile(samples, [16, 50, 84],
+                                   axis=0)))
+        return(resida_mcmc,siga_mcmc,residb_mcmc,sigb_mcmc,fracB)
+
+    def fixedpriors(self,md):
+        if self.options.popAfixed[0]:
+            self.options.p_residA = self.options.popAguess[0]
+            self.options.psig_residA = 1e-10
+            md["x"][0] = self.options.popAguess[0]
+        if self.options.popAfixed[1]:
+            self.options.p_sigA = self.options.popAguess[1]
+            self.options.psig_sigA = 1e-10
+            md["x"][1] = self.options.popAguess[1]
+        if self.options.popBfixed[0]:
+            self.options.p_residB = self.options.popBguess[0]
+            self.options.psig_residB = 1e-10
+            md["x"][2] = self.options.popBguess[0]
+        if self.options.popBfixed[1]:
+            self.options.p_sigB = self.options.popBguess[1]
+            self.options.psig_sigB = 1e-10
+            md["x"][3] = self.options.popBguess[1]
+        if self.options.fracBfixed:
+            self.options.p_fracB = self.options.fracBguess[0]
+            self.options.psig_fracB = 1e-10
+            md["x"][4] = self.options.fracBguess[0]
+        return(md)
+
+    def transformOptions(self):
+
+        self.options.p_residA = self.options.popAprior_mean[0]
+        self.options.psig_residA = self.options.popAprior_mean[1]
+        self.options.p_residB = self.options.popBprior_mean[0]
+        self.options.psig_residB = self.options.popBprior_mean[1]
+        self.options.p_sigA = self.options.popAprior_std[0]
+        self.options.psig_sigA = self.options.popAprior_std[1]
+        self.options.p_sigB = self.options.popBprior_std[0]
+        self.options.psig_sigB = self.options.popBprior_std[1]
+        self.options.p_fracB = self.options.fracBprior[0]
+        self.options.psig_fracB = self.options.fracBprior[1]
+
+    def readOptions(self,paramfile):
+        fin = open(paramfile,'r')
+        for line in fin:
+            if line.startswith('#') or line.startswith('\n'): continue
+            line = line.replace('\n','')
+            param = line.split(':')[0]; arg = line.split()[1]
+            if ',' in arg:
+                arg = tuple(map(float,arg.split(',')))
+                self.options.__dict__[param] = arg
+            else:
+                try: self.options.__dict__[param] = float(arg)
+                except: self.options.__dict__[param] = arg
+        fin.close()
+
+
+def twogausslike(x,PA=None,resid=None,residerr=None):
+
+    return np.sum(np.logaddexp(-(resid-x[0])**2./(2.0*np.sqrt(residerr**2.+x[1]**2.)) + \
+                                    np.log((1-x[4])*(PA)/(np.sqrt(2*np.pi)*np.abs(x[1]**2.+residerr**2.))),
+                                -(resid-x[2])**2./(2.0*np.sqrt(residerr**2.+x[3]**2.)) + \
+                                    np.log((x[4])*(1-PA)/(np.sqrt(2*np.pi)*np.abs(x[3]**2.+residerr**2.)))))
+
+def twogausslike_nofrac(x,PA=None,resid=None,residerr=None):
+
+    return np.sum(np.logaddexp(-(resid-x[0])**2./(2.0*np.sqrt(residerr**2.+x[1]**2.)) + \
+                                    np.log(PA/(np.sqrt(2*np.pi)*np.abs(x[1]**2.+residerr**2.))),
+                                -(resid-x[2])**2./(2.0*np.sqrt(residerr**2.+x[3]**2.)) + \
+                                    np.log((1-PA)/(np.sqrt(2*np.pi)*np.abs(x[3]**2.+residerr**2.)))))
+
+
+def lnprior(theta,
+            p_residA=None,psig_residA=None,
+            p_residB=None,psig_residB=None,
+            p_sig_A=None,psig_sig_A=None,
+            p_sig_B=None,psig_sig_B=None,
+            p_fracB=None,psig_fracB=None):
+
+    try:
+        residA,sigA,residB,sigB,fracB = theta
+    except:
+        residA,sigA,residB,sigB = theta
+
+    p_theta = 1.0
+
+    if p_residA:
+        p_theta *= gauss(residA,p_residA,psig_residA)
+    if p_residB:
+        p_theta *= gauss(residB,p_residB,psig_residB)
+    if p_sig_A:
+        p_theta *= gauss(sigA,p_sig_A,psig_sig_A)
+    if p_sig_B:
+        p_theta *= gauss(sigB,p_sig_B,psig_sig_B)
+    if p_fracB:
+        p_theta *= gauss(fracB,p_fracB,psig_fracB)
+
+    if fracB > 1 or fracB < 0: return -np.inf
+    else: return(np.log(p_theta))
+
+def lnprob(theta,PA=None,resid=None,residerr=None,
+           omitfracB=False,
+           p_residA=None,psig_residA=None,
+           p_residB=None,psig_residB=None,
+           p_sig_A=None,psig_sig_A=None,
+           p_sig_B=None,psig_sig_B=None,
+           p_fracB=None,psig_fracB=None):
+    lp = lnprior(theta,
+                 p_residA=p_residA,psig_residA=psig_residA,
+                 p_residB=p_residB,psig_residB=psig_residB,
+                 p_sig_A=p_sig_A,psig_sig_A=psig_sig_A,
+                 p_sig_B=p_sig_B,psig_sig_B=psig_sig_B,
+                 p_fracB=p_fracB,psig_fracB=psig_fracB)
+    if not np.isfinite(lp) or np.isnan(lp):
+        return -np.inf
+
+    if omitfracB:
+        post = lp+twogausslike(theta,PA=PA,
+                               resid=resid,residerr=residerr)
+    else:
+        post = lp+twogausslike_nofrac(
+            theta,PA=PA,resid=resid,residerr=residerr)
+
+    if post != post: return -np.inf
+    else: return post
+
+
+def gauss(x,x0,sigma):
+    return(normpdf(x,x0,sigma))
+
+def normpdf(x, mu, sigma):
+    u = (x-mu)/np.abs(sigma)
+    y = (1/(np.sqrt(2*np.pi)*np.abs(sigma)))*np.exp(-u*u/2)
+    return y
+
+if __name__ == "__main__":
+    usagestring="""An implementation of the BEAMS method (Kunz, Bassett, & Hlozek 2006).
+Uses Bayesian methods to estimate the mags of a sample with contaminants.  Takes a
+parameter file or command line options, and a file with the following header/columns:
+
+# PA resid resid_err
+<PA_1> <resid_1> <resid_err_1>
+<PA_2> <resid_2> <resid_err_2>
+<PA_3> <resid_3> <resid_err_3>
+.......
+
+Can specify or fix, with priors:
+
+1. The mean and standard deviation of the population of interest
+2. The mean and standard deviation of the contaminant population
+3. The fraction of contaminants
+
+USAGE: doBEAMS.py -p param_file -i input_file [options]
+
+examples:
+"""
+
+    import exceptions
+    import os
+    import optparse
+
+    beam = BEAMS()
+
+    parser = beam.add_options(usage=usagestring)
+    options,  args = parser.parse_args()
+
+    beam.options = options
+    beam.verbose = options.verbose
+    beam.clobber = options.clobber
+    
+    if options.paramfile: beam.readOptions(options.paramfile)
+    beam.transformOptions()
+
+    from scipy.optimize import minimize
+    import emcee
+
+    beam.main(options.inputfile)
