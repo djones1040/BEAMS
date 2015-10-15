@@ -17,7 +17,9 @@ class BEAMS:
         parser.add_option('--debug', default=False, action="store_true",
                           help='debug mode: more output and debug files')
         parser.add_option('--clobber', default=False, action="store_true",
-                          help='clobber output image')
+                          help='clobber output file')
+        parser.add_option('--append', default=False, action="store_true",
+                          help='open output file in append mode')
 
         # Input file
         parser.add_option('--pacol', default='PA', type="string",
@@ -99,7 +101,7 @@ For flat prior, use empty string""",nargs=2)
             fout = open(self.options.outfile,'w')
             print >> fout, "# muA muAerr_m muAerr_p sigA sigAerr_m sigAerr_p muB muBerr_m muBerr_p sigB sigBerr_m sigBerr_p fracB fracBerr_m fracBerr_p"""
             fout.close()
-        else:
+        elif not self.options.append:
             writeout = False
             print('Warning : files %s exists!!  Not clobbering'%self.options.outfile)
 
@@ -113,9 +115,10 @@ For flat prior, use empty string""",nargs=2)
                               residB[0],residB[1],residB[2],
                               sigB[0],sigB[1],sigB[2],
                               fracB[0],fracB[1],fracB[2])
-        fout = open(self.options.outfile,'a')
-        print >> fout, outline
-        fout.close()
+        if self.options.append or not os.path.exists(self.options.outfile) or self.options.clobber:
+            fout = open(self.options.outfile,'a')
+            print >> fout, outline
+            fout.close()
 
         if self.options.verbose:
             print('muA: %.3f +/- %.3f muB: %.3f +/- %.3f frac. B: %.3f +/- %.3f'%(
