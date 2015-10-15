@@ -8,7 +8,7 @@ class BEAMS:
         self.clobber = False
         self.verbose = False
 
-    def add_options(self, parser=None, usage=None):
+    def add_options(self, parser=None, usage=None, config=None):
         if parser == None:
             parser = optparse.OptionParser(usage=usage, conflict_handler="resolve")
 
@@ -21,69 +21,135 @@ class BEAMS:
         parser.add_option('--append', default=False, action="store_true",
                           help='open output file in append mode')
 
-        # Input file
-        parser.add_option('--pacol', default='PA', type="string",
-                          help='column in input file used as prior P(A)')
-        parser.add_option('--residcol', default='resid', type="string",
-                          help='column name in input file header for residuals')
-        parser.add_option('--residerrcol', default='resid_err', type="string",
-                          help='column name in input file header for residual errors')
+        if config:
+            # Input file
+            parser.add_option('--pacol', default=config.get('all','pacol'), type="string",
+                              help='column in input file used as prior P(A)')
+            parser.add_option('--residcol', default=config.get('all','residcol'), type="string",
+                              help='column name in input file header for residuals')
+            parser.add_option('--residerrcol', default=config.get('all','residerrcol'), type="string",
+                              help='column name in input file header for residual errors')
 
-        # population A guesses and priors (the pop we care about)
-        parser.add_option('--popAguess', default=(0.0,0.1),type='float',
-                          help='comma-separated initial guesses for population A: mean, standard deviation',nargs=2)
-        parser.add_option('--popAprior_mean', default=(0.0,0.1),type='float',
-                          help="""comma-separated gaussian prior for mean of population A: centroid, sigma.  
+            # population A guesses and priors (the pop we care about)
+            parser.add_option('--popAguess', default=map(float,config.get('all','popAguess').split(',')),type='float',
+                              help='comma-separated initial guesses for population A: mean, standard deviation',nargs=2)
+            parser.add_option('--popAprior_mean', default=map(float,config.get('all','popAprior_mean').split(',')),type='float',
+                              help="""comma-separated gaussian prior for mean of population A: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
-        parser.add_option('--popAprior_std', default=(0.1,0.2),type='float',
-                          help="""comma-separated gaussian prior for std dev. of population A: centroid, sigma.  
+            parser.add_option('--popAprior_std', default=map(float,config.get('all','popAprior_std').split(',')),type='float',
+                              help="""comma-separated gaussian prior for std dev. of population A: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
-        parser.add_option('--popAfixed', default=(0,0),type='float',
-                          help="""comma-separated values for population A params: mean, standard deviation.  
+            parser.add_option('--popAfixed', default=map(float,config.get('all','popAfixed').split(',')),type='float',
+                              help="""comma-separated values for population A params: mean, standard deviation.  
 For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""",nargs=2)
 
 
-        # population B guesses and priors (the pop we care about)
-        parser.add_option('--popBguess', default=(1.0,1.0),type='float',
-                          help='comma-separated initial guesses for population B: mean, standard deviation',nargs=2)
-        parser.add_option('--popBprior_mean', default=(1.0,1.0),type='float',
-                          help="""comma-separated gaussian prior for mean of population B: centroid, sigma.  
+            # population B guesses and priors (the pop we care about)
+            parser.add_option('--popBguess', default=map(float,config.get('all','popBguess').split(',')),type='float',
+                              help='comma-separated initial guesses for population B: mean, standard deviation',nargs=2)
+            parser.add_option('--popBprior_mean', default=map(float,config.get('all','popBprior_mean').split(',')),type='float',
+                              help="""comma-separated gaussian prior for mean of population B: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
-        parser.add_option('--popBprior_std', default=(1.0,0.5),type='float',
-                          help="""comma-separated gaussian prior for std dev. of population B: centroid, sigma.  
+            parser.add_option('--popBprior_std', default=map(float,config.get('all','popBprior_std').split(',')),type='float',
+                              help="""comma-separated gaussian prior for std dev. of population B: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
-        parser.add_option('--popBfixed', default=(0,0),type='float',
-                          help="""comma-separated values for population B params: mean, standard deviation.  
+            parser.add_option('--popBfixed', default=map(float,config.get('all','popBfixed').split(',')),type='float',
+                              help="""comma-separated values for population B params: mean, standard deviation.  
 For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""",nargs=2)
 
 
-        # fraction of contaminants: guesses and priors
-        parser.add_option('--fracBguess', default=0.05,type='float',
-                          help='initial guess for fraction of contaminants, set to negative to omit')
-        parser.add_option('--fracBprior', default=(0.05,0.1),type='float',
-                          help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.  
+            # fraction of contaminants: guesses and priors
+            parser.add_option('--fracBguess', default=config.get('all','fracBguess'),type='float',
+                              help='initial guess for fraction of contaminants, set to negative to omit')
+            parser.add_option('--fracBprior', default=map(float,config.get('all','fracBprior').split(',')),type='float',
+                              help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
-        parser.add_option('--fracBfixed', default=0,type='int',
-                          help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
+            parser.add_option('--fracBfixed', default=config.get('all','fracBfixed'),type='int',
+                              help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
 
         
-        # output and number of threads
-        parser.add_option('--nthreads', default=8, type="int",
-                          help='Number of threads for MCMC')
-        parser.add_option('--nwalkers', default=100, type="int",
-                          help='Number of walkers for MCMC')
-        parser.add_option('--nsteps', default=500, type="int",
-                          help='Number of steps for MCMC')
-        parser.add_option('--ninit', default=50, type="int",
-                          help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
+            # output and number of threads
+            parser.add_option('--nthreads', default=config.get('all','nthreads'), type="int",
+                              help='Number of threads for MCMC')
+            parser.add_option('--nwalkers', default=config.get('all','nwalkers'), type="int",
+                              help='Number of walkers for MCMC')
+            parser.add_option('--nsteps', default=config.get('all','nsteps'), type="int",
+                              help='Number of steps for MCMC')
+            parser.add_option('--ninit', default=config.get('all','ninit'), type="int",
+                              help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
 
 
-        parser.add_option('-i','--inputfile', default='BEAMS.input', type="string",
-                          help='fitres file with the SN Ia data')
+            parser.add_option('-i','--inputfile', default=config.get('all','inputfile'), type="string",
+                              help='fitres file with the SN Ia data')
+            parser.add_option('-o','--outputfile', default=config.get('all','outputfile'), type="string",
+                              help='Output file with the derived parameters for each redshift bin')
+
+        else:
+            # Input file
+            parser.add_option('--pacol', default='PA', type="string",
+                              help='column in input file used as prior P(A)')
+            parser.add_option('--residcol', default='resid', type="string",
+                              help='column name in input file header for residuals')
+            parser.add_option('--residerrcol', default='resid_err', type="string",
+                              help='column name in input file header for residual errors')
+
+            # population A guesses and priors (the pop we care about)
+            parser.add_option('--popAguess', default=(0.0,0.1),type='float',
+                              help='comma-separated initial guesses for population A: mean, standard deviation',nargs=2)
+            parser.add_option('--popAprior_mean', default=(0.0,0.1),type='float',
+                              help="""comma-separated gaussian prior for mean of population A: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+            parser.add_option('--popAprior_std', default=(0.1,0.2),type='float',
+                              help="""comma-separated gaussian prior for std dev. of population A: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+            parser.add_option('--popAfixed', default=(0,0),type='float',
+                              help="""comma-separated values for population A params: mean, standard deviation.  
+For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""",nargs=2)
+
+
+            # population B guesses and priors (the pop we care about)
+            parser.add_option('--popBguess', default=(1.0,1.0),type='float',
+                              help='comma-separated initial guesses for population B: mean, standard deviation',nargs=2)
+            parser.add_option('--popBprior_mean', default=(1.0,1.0),type='float',
+                              help="""comma-separated gaussian prior for mean of population B: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+            parser.add_option('--popBprior_std', default=(1.0,0.5),type='float',
+                              help="""comma-separated gaussian prior for std dev. of population B: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+            parser.add_option('--popBfixed', default=(0,0),type='float',
+                              help="""comma-separated values for population B params: mean, standard deviation.  
+For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""",nargs=2)
+
+
+            # fraction of contaminants: guesses and priors
+            parser.add_option('--fracBguess', default=0.05,type='float',
+                              help='initial guess for fraction of contaminants, set to negative to omit')
+            parser.add_option('--fracBprior', default=(0.05,0.1),type='float',
+                              help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+            parser.add_option('--fracBfixed', default=0,type='int',
+                              help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
+
+        
+            # output and number of threads
+            parser.add_option('--nthreads', default=8, type="int",
+                              help='Number of threads for MCMC')
+            parser.add_option('--nwalkers', default=100, type="int",
+                              help='Number of walkers for MCMC')
+            parser.add_option('--nsteps', default=500, type="int",
+                              help='Number of steps for MCMC')
+            parser.add_option('--ninit', default=50, type="int",
+                              help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
+
+
+            parser.add_option('-i','--inputfile', default='BEAMS.input', type="string",
+                              help='fitres file with the SN Ia data')
+            parser.add_option('-o','--outputfile', default='beamsCosmo.out', type="string",
+                              help='Output file with the derived parameters for each redshift bin')
+
+
         parser.add_option('-p','--paramfile', default='', type="string",
                           help='fitres file with the SN Ia data')
-        parser.add_option('-o','--outfile', default='beamsCosmo.out', type="string",
-                          help='Output file with the derived parameters for each redshift bin')
 
         return(parser)
 
@@ -96,14 +162,14 @@ For flat prior, use empty string""",nargs=2)
         inp.residerr = inp.__dict__[self.options.residerrcol]
 
         # open the output file
-        if not os.path.exists(self.options.outfile) or self.options.clobber:
+        if not os.path.exists(self.options.outputfile) or self.options.clobber:
             writeout = True
-            fout = open(self.options.outfile,'w')
+            fout = open(self.options.outputfile,'w')
             print >> fout, "# muA muAerr_m muAerr_p sigA sigAerr_m sigAerr_p muB muBerr_m muBerr_p sigB sigBerr_m sigBerr_p fracB fracBerr_m fracBerr_p"""
             fout.close()
         elif not self.options.append:
             writeout = False
-            print('Warning : files %s exists!!  Not clobbering'%self.options.outfile)
+            print('Warning : files %s exists!!  Not clobbering'%self.options.outputfile)
 
         # run the MCMC
         residA,sigA,residB,sigB,fracB = self.mcmc(inp)
@@ -115,8 +181,8 @@ For flat prior, use empty string""",nargs=2)
                               residB[0],residB[1],residB[2],
                               sigB[0],sigB[1],sigB[2],
                               fracB[0],fracB[1],fracB[2])
-        if self.options.append or not os.path.exists(self.options.outfile) or self.options.clobber:
-            fout = open(self.options.outfile,'a')
+        if self.options.append or not os.path.exists(self.options.outputfile) or self.options.clobber:
+            fout = open(self.options.outputfile,'a')
             print >> fout, outline
             fout.close()
 
@@ -203,21 +269,6 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         self.options.psig_sigB = self.options.popBprior_std[1]
         self.options.p_fracB = self.options.fracBprior[0]
         self.options.psig_fracB = self.options.fracBprior[1]
-
-    def readOptions(self,paramfile):
-        fin = open(paramfile,'r')
-        for line in fin:
-            if line.startswith('#') or line.startswith('\n'): continue
-            line = line.replace('\n','')
-            param = line.split(':')[0]; arg = line.split()[1]
-            if ',' in arg:
-                arg = tuple(map(float,arg.split(',')))
-                self.options.__dict__[param] = arg
-            else:
-                try: self.options.__dict__[param] = float(arg)
-                except: self.options.__dict__[param] = arg
-        fin.close()
-
 
 def twogausslike(x,PA=None,resid=None,residerr=None):
 
@@ -322,17 +373,25 @@ examples:
     import exceptions
     import os
     import optparse
+    import ConfigParser
 
     beam = BEAMS()
 
+    # read in the options from the param file and the command line
+    # some convoluted syntax here, making it so param file is not required
     parser = beam.add_options(usage=usagestring)
     options,  args = parser.parse_args()
+    if options.paramfile:
+        config = ConfigParser.ConfigParser()
+        config.read(options.paramfile)
+    parser = beam.add_options(usage=usagestring,config=config)
+    options,  args = parser.parse_args()
+
 
     beam.options = options
     beam.verbose = options.verbose
     beam.clobber = options.clobber
-    
-    if options.paramfile: beam.readOptions(options.paramfile)
+
     beam.transformOptions()
 
     from scipy.optimize import minimize
