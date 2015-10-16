@@ -235,25 +235,26 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         return(resida_mcmc,siga_mcmc,residb_mcmc,sigb_mcmc,fracB)
 
     def fixedpriors(self,md):
+
         if self.options.popAfixed[0]:
             self.options.p_residA = self.options.popAguess[0]
-            self.options.psig_residA = 1e-10
+            self.options.psig_residA = 1e-3
             md["x"][0] = self.options.popAguess[0]
         if self.options.popAfixed[1]:
             self.options.p_sigA = self.options.popAguess[1]
-            self.options.psig_sigA = 1e-10
+            self.options.psig_sigA = 1e-3
             md["x"][1] = self.options.popAguess[1]
         if self.options.popBfixed[0]:
             self.options.p_residB = self.options.popBguess[0]
-            self.options.psig_residB = 1e-10
+            self.options.psig_residB = 1e-3
             md["x"][2] = self.options.popBguess[0]
         if self.options.popBfixed[1]:
             self.options.p_sigB = self.options.popBguess[1]
-            self.options.psig_sigB = 1e-10
+            self.options.psig_sigB = 1e-3
             md["x"][3] = self.options.popBguess[1]
         if self.options.fracBfixed:
             self.options.p_fracB = self.options.fracBguess[0]
-            self.options.psig_fracB = 1e-10
+            self.options.psig_fracB = 1e-3
             md["x"][4] = self.options.fracBguess[0]
         return(md)
 

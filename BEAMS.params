@@ -1,7 +1,7 @@
-[all]
 # BEAMS example parameter file
 
 # columns names in the input file, identified in the file header
+[all]
 pacol = PA
 residcol = resid
 residerrcol = resid_err
@@ -14,7 +14,7 @@ residerrcol = resid_err
 popAguess = 0.0,0.1
 popAprior_mean = 0.0,0.1
 popAprior_std = 0.1,0.2
-popAfixed = 0,0
+popAfixed = 0,1
 
 # params for pop. B (the contaminating distribution)
 popBguess = 0.0,5.0
