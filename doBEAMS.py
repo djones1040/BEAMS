@@ -360,6 +360,10 @@ parameter file or command line options, and a file with the following header/col
 <PA_3> <resid_3> <resid_err_3>
 .......
 
+The PA column is the prior probability that a data point belongs to population A, P(A).
+Column 2 is some sort of de-trended magnitude measurement (i.e. Hubble residuals), and
+column 3 is the uncertainties on those measurements.
+
 Can specify or fix, with priors:
 
 1. The mean and standard deviation of the population of interest
