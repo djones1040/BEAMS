@@ -29,7 +29,7 @@ fracBfixed = 0
 
 # luminosity step correction
 plcol = PL
-lcorr = 0
+lstep = 0
 lstepguess = 0.07
 lstepprior = 0.07,0.023
 lstepfixed = 0

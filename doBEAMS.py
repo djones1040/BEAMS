@@ -9,6 +9,7 @@ class BEAMS:
         self.verbose = False
 
     def add_options(self, parser=None, usage=None, config=None):
+        import optparse
         if parser == None:
             parser = optparse.OptionParser(usage=usage, conflict_handler="resolve")
 
@@ -71,14 +72,14 @@ For flat prior, use empty string""",nargs=2)
             # This is the host mass bias for SNe.
             parser.add_option('--plcol', default=config.get('all','plcol'), type="string",
                               help='column in input file used as probability for an additional luminosity correction P(L)')
-            parser.add_option('--lcorr', default=config.get('all','lcorr'), type="int",
+            parser.add_option('--lstep', default=config.get('all','lstep'), type="int",
                               help='make step correction if set to 1 (default=%default)')
-            parser.add_option('--lstepguess', default=config.get('all','plguess'),type='float',
+            parser.add_option('--lstepguess', default=config.get('all','lstepguess'),type='float',
                               help='initial guesses for luminosity correction')
-            parser.add_option('--lstepprior', default=map(float,config.get('all','plprior_mean').split(',')),type='float',
+            parser.add_option('--lstepprior', default=map(float,config.get('all','lstepprior').split(',')),type='float',
                               help="""comma-separated gaussian prior for mean of luminosity correction: centroid, sigma.  
 For flat prior, use empty strings""",nargs=2)
-            parser.add_option('--lstepfixed', default=config.get('all','plfixed'),type='float',
+            parser.add_option('--lstepfixed', default=config.get('all','lstepfixed'),type='float',
                               help="""comma-separated values for luminosity correction.
 For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""")
 
@@ -149,7 +150,7 @@ For flat prior, use empty string""",nargs=2)
             # This is the host mass bias for SNe.
             parser.add_option('--plcol', default='PL', type="string",
                               help='column in input file used as probability for an additional luminosity correction P(L) (default=%default)')
-            parser.add_option('--lcorr', default=0, type="int",
+            parser.add_option('--lstep', default=0, type="int",
                               help='make step correction if set to 1 (default=%default)')
             parser.add_option('--lstepguess', default=0.07,type='float',
                               help='initial guesses for luminosity correction')
@@ -185,10 +186,15 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
 
     def main(self,inputfile):
         from txtobj import txtobj
+        import os
 
         inp = txtobj(inputfile)
         inp.PA = inp.__dict__[self.options.pacol]
-        if self.options.plcol: inp.PL = inp.__dict__[self.options.plcol]
+        if self.options.lstep:
+            inp.PL = inp.__dict__[self.options.plcol]
+        else:
+            self.options.lstepfixed = 1
+            self.options.lstepguess = 0.0
         inp.resid = inp.__dict__[self.options.residcol]
         inp.residerr = inp.__dict__[self.options.residerrcol]
 
@@ -226,8 +232,10 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
                     lstep[0],np.mean([lstep[1],lstep[2]])))
 
     def mcmc(self,inp):
+        from scipy.optimize import minimize
+        import emcee
         if not inp.__dict__.has_key('PL'):
-            inp.PL = None
+            inp.PL = 0
 
         # minimize, not maximize
         if self.options.fracBguess >= 0:
@@ -251,7 +259,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         pos = [md["x"] + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
 
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, 
-                                        args=(inp.PL,inp.PL,inp.resid,inp.residerr,omitfracB,
+                                        args=(inp.PA,inp.PL,inp.resid,inp.residerr,omitfracB,
                                               self.options.p_residA,self.options.psig_residA,
                                               self.options.p_residB,self.options.psig_residB,
                                               self.options.p_sigA,self.options.psig_sigA,
@@ -293,9 +301,9 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
             self.options.psig_fracB = 1e-3
             md["x"][4] = self.options.fracBguess[0]
         if self.options.lstepfixed:
-            self.options.p_lstep = self.options.lstepguess[0]
+            self.options.p_lstep = self.options.lstepguess
             self.options.psig_lstep = 1e-3
-            md["x"][5] = self.options.lstepguess[0]
+            md["x"][5] = self.options.lstepguess
 
         return(md)
 
@@ -314,20 +322,20 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         self.options.p_lstep = self.options.lstepprior[0]
         self.options.psig_lstep = self.options.lstepprior[1]
 
-def twogausslike(x,PA=None,resid=None,residerr=None,PL=None):
-    if not PL: PL=0
+def twogausslike(x,PA=None,PL=None,resid=None,residerr=None):
+    
     return np.sum(np.logaddexp(-(resid-x[0]+PL*x[5])**2./(2.0*np.sqrt(residerr**2.+x[1]**2.)) + \
                                     np.log((1-x[4])*(PA)/(np.sqrt(2*np.pi)*np.abs(x[1]**2.+residerr**2.))),
                                 -(resid-x[2])**2./(2.0*np.sqrt(residerr**2.+x[3]**2.)) + \
                                     np.log((x[4])*(1-PA)/(np.sqrt(2*np.pi)*np.abs(x[3]**2.+residerr**2.)))))
 
-def twogausslike_nofrac(x,PA=None,resid=None,residerr=None,PL=None):
-    if not PL: PL=0
+
+def twogausslike_nofrac(x,PA=None,PL=None,resid=None,residerr=None):
+
     return np.sum(np.logaddexp(-(resid-x[0]+PL*x[5])**2./(2.0*np.sqrt(residerr**2.+x[1]**2.)) + \
                                     np.log(PA/(np.sqrt(2*np.pi)*np.abs(x[1]**2.+residerr**2.))),
                                 -(resid-x[2])**2./(2.0*np.sqrt(residerr**2.+x[3]**2.)) + \
                                     np.log((1-PA)/(np.sqrt(2*np.pi)*np.abs(x[3]**2.+residerr**2.)))))
-
 
 def lnprior(theta,
             p_residA=None,psig_residA=None,
@@ -354,7 +362,7 @@ def lnprior(theta,
         p_theta *= gauss(sigB,p_sig_B,psig_sig_B)
     if p_fracB:
         p_theta *= gauss(fracB,p_fracB,psig_fracB)
-    if p_lstep:
+    if type(p_lstep) != None:
         p_lstep *= gauss(lstep,p_lstep,psig_lstep)
 
 
@@ -369,6 +377,7 @@ def lnprob(theta,PA=None,PL=None,resid=None,residerr=None,
            p_sig_B=None,psig_sig_B=None,
            p_fracB=None,psig_fracB=None,
            p_lstep=None,psig_lstep=None):
+
     lp = lnprior(theta,
                  p_residA=p_residA,psig_residA=psig_residA,
                  p_residB=p_residB,psig_residB=psig_residB,

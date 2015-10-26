@@ -3,12 +3,13 @@
 """BEAMS method for PS1 data"""
 import numpy as np
 
-class BEAMS:
+class sncosmo:
     def __init__(self):
         self.clobber = False
         self.verbose = False
 
     def add_options(self, parser=None, usage=None):
+        import optparse
         if parser == None:
             parser = optparse.OptionParser(usage=usage, conflict_handler="resolve")
 
@@ -37,8 +38,7 @@ class BEAMS:
         parser.add_option(
             '--x1range', default=(-3.0,3.0),type="float",
             help='Peculiar velocity error (default=%default)',nargs=2)
-        parser.add_option(
-            '--x1ccircle',action="store_true",
+        parser.add_option('--x1ccircle',default=True,action="store_true",
             help='Circle cut in x1 and c')
         parser.add_option(
             '--zrange', default=(0.023,1.0),type="float",
@@ -69,7 +69,7 @@ class BEAMS:
 
         # Mass options
         parser.add_option(
-            '--masscorr', default=True,type="int",
+            '--masscorr', default=False,type="int",
             help='If true, perform mass correction (default=%default)')
         parser.add_option(
             '--massfile', default='mass.txt',
@@ -88,7 +88,7 @@ class BEAMS:
                           help='bin size in redshift space')
 
 
-        parser.add_option('-f','--fitresfile', default='SALT2mu.fitres', type="string",
+        parser.add_option('-f','--fitresfile', default='ps1_psnidprob.fitres', type="string",
                           help='fitres file with the SN Ia data')
         parser.add_option('-o','--outfile', default='beamsCosmo.out', type="string",
                           help='Output file with the derived parameters for each redshift bin')
@@ -103,32 +103,32 @@ class BEAMS:
 
         return(parser)
 
-    def main(self,fitres,lccuts=False):
+    def main(self,fitres):
         from txtobj import txtobj
         import cosmo
 
         fr = txtobj(fitres,fitresheader=True)
         fr.MU,fr.MUERR = salt2mu(x1=fr.x1,x1err=fr.x1ERR,c=fr.c,cerr=fr.cERR,mb=fr.mB,mberr=fr.mBERR,
-                                 cov_x1_c=fr.COV_x1_c,cov_x0_x1=fr.COV_x0_x1,cov_x0_c=fr.COV_x0_c,
+                                 cov_x1_c=fr.COV_x1_c,cov_x1_x0=fr.COV_x1_x0,cov_c_x0=fr.COV_c_x0,
                                  alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
-                                 beta=self.options.salt2beta,betaerr=self.options.salt2betaerr)
+                                 beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
+                                 x0=fr.x0)
 
         # Light curve cuts
-        if lccuts:
-            if options.x1ccircle:
-                # I'm just going to assume cmax = abs(cmin) and same for x1
-                cols = np.where((fr.x1**2./options.x1range[0]**2. + fr.c**2./options.crange[0]**2. < 1) &
-                                (fr.x1ERR < options.x1errmax) & (fr.PKMJDERR < options.pkmjderrmax/(1+fr.zHD)) &
-                                (fr.FITPROB > options.fitprobmin) &
-                                (fr.z > options.zrange[0]) & (fr.z < options.zrange[1]))
-            else:
-                cols = np.where((fr.x1 > options.x1range[0]) & (fr.x1 < options.x1range[1]) &
-                                (fr.c > options.crange[0]) & (fr.c < options.crange[1]) &
-                                (fr.x1ERR < options.x1errmax) & (fr.PKMJDERR < options.pkmjderrmax) &
-                                (fr.FITPROB > options.fitprobmin) &
-                                (fr.z > options.zrange[0]) & (fr.z < options.zrange[1]))
-            for k in fr.__dict__.keys():
-                fr.__dict__[k] = fr.__dict__[k][cols]
+        if self.options.x1ccircle:
+            # I'm just going to assume cmax = abs(cmin) and same for x1
+            cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
+                            (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax/(1+fr.zHD)) &
+                            (fr.FITPROB > self.options.fitprobmin) &
+                            (fr.z > self.options.zrange[0]) & (fr.z < self.options.zrange[1]))
+        else:
+            cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
+                            (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
+                            (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax) &
+                            (fr.FITPROB > self.options.fitprobmin) &
+                            (fr.z > self.options.zrange[0]) & (fr.z < self.options.zrange[1]))
+        for k in fr.__dict__.keys():
+            fr.__dict__[k] = fr.__dict__[k][cols]
 
         # Prior SN Ia probabilities
         P_Ia = np.zeros(len(fr.CID))
@@ -139,24 +139,32 @@ class BEAMS:
                     P_Ia[i] = 1
 
         from doBEAMS import BEAMS
-        import optparse, ConfigParser
+        import ConfigParser, sys
+        sys.argv = ['./doBEAMS.py']
         beam = BEAMS()
-        arser = beam.add_options(usage=usagestring)
-        options,  args = parser.parse_args()
+        parser = beam.add_options()
+        options,  args = parser.parse_args(args=None,values=None)
         options.paramfile = self.options.paramfile
-        options.inputfile = 'BEAMS_SN.input'
+
         if options.paramfile:
             config = ConfigParser.ConfigParser()
             config.read(options.paramfile)
         else: config=None
-        parser = beam.add_options(usage=usagestring,config=config)
+        parser = beam.add_options(config=config)
         options,  args = parser.parse_args()
+
+        beam.options = options
+        beam.transformOptions()
+        options.inputfile = 'BEAMS_SN.input'
+        if self.options.masscorr: beam.options.lstep = True
 
         # loop over the redshift bins
         append = False
         for zmin,zmax in zip(np.arange(self.options.zmin,self.options.zmax,self.options.zbinsize),
                              np.arange(self.options.zmin+self.options.zbinsize,self.options.zmax+self.options.zbinsize,self.options.zbinsize)):
-            if zmin > self.options.zmin: append = True
+            if zmin > self.options.zmin:
+                append = True; clobber = False
+            else: clobber = True
 
             # make the BEAMS input file
             fout = open('BEAMS_SN.input','w')
@@ -166,10 +174,11 @@ class BEAMS:
                     print >> fout, '%.3f %.4f %.4f'%(P_Ia[i],fr.MU[i]-cosmo.mu(fr.z[i]),fr.MUERR[i])
             fout.close()
 
-            options.append = append
-            beams.main(options)
+            beam.options.append = append
+            beam.options.clobber = clobber
+            beam.main(options.inputfile)
 
-    def mkplot(self,fitresfile=None,lccuts=False):
+    def mkplot(self,fitresfile=None):
         
         import pylab as plt
         from txtobj import txtobj
@@ -177,12 +186,20 @@ class BEAMS:
         fr = txtobj(fitresfile,fitresheader=True)
 
         # Light curve cuts
-        if lccuts:
-            cols = np.where((fr.x1**2./3.0**2. + fr.c**2./0.3**2. < 1) & 
-                            (fr.PKMJDERR < 2) & 
-                            (fr.x1ERR < 1))
-            for k in fr.__dict__.keys():
-                fr.__dict__[k] = fr.__dict__[k][cols]
+        if self.options.x1ccircle:
+            # I'm just going to assume cmax = abs(cmin) and same for x1
+            cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
+                            (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax/(1+fr.zHD)) &
+                            (fr.FITPROB > self.options.fitprobmin) &
+                            (fr.z > self.options.zrange[0]) & (fr.z < self.options.zrange[1]))
+        else:
+            cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
+                            (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
+                            (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax) &
+                            (fr.FITPROB > self.options.fitprobmin) &
+                            (fr.z > self.options.zrange[0]) & (fr.z < self.options.zrange[1]))
+        for k in fr.__dict__.keys():
+            fr.__dict__[k] = fr.__dict__[k][cols]
 
         plt.ion()
         plt.rcParams['figure.figsize'] = (16,8)
@@ -265,21 +282,28 @@ def gausshist(x,sigma=1,peak=1.,center=0):
 def salt2mu(x1=None,x1err=None,
             c=None,cerr=None,
             mb=None,mberr=None,
-            cov_x1_c=None,cov_x0_x1=None,cov_x0_c=None,
+            cov_x1_c=None,cov_x1_x0=None,cov_c_x0=None,
             alpha=None,beta=None,
             alphaerr=None,betaerr=None,
-            M=None):
-    from uncertainties import ufloat, correlated_values
-    alpha,beta = ufloat(alpha,alphaerr),ufloat(beta,betaerr)
+            M=None,x0=None):
+    from uncertainties import ufloat, correlated_values, correlated_values_norm
+    alpha,beta = ufloat(alpha,1e-10),ufloat(beta,1e-10)
 
     sf = -2.5/(x0*np.log(10.0))
-    cov_mb_c = cov_x0_c*sf
-    cov_mb_x1 = cov_x0_x1*sf
+    cov_mb_c = cov_c_x0*sf
+    cov_mb_x1 = cov_x1_x0*sf
 
-    mb,x1,c = correlated_values([mb,x1,c],[[mberr,cov_mb_x1,cov_mb_c],[cov_mb_x1,x1err,cov_x1_c],[cov_mb_c,cov_x1_c,cerr]])
-    mu = mb + x1*alpha - beta*c + 19.3
+    mu_out,muerr_out = np.array([]),np.array([])
+    for i in range(len(x1)):
+        covmat = np.array([[mberr[i]**2.,cov_mb_x1[i],cov_mb_c[i]],
+                           [cov_mb_x1[i],x1err[i]**2.,cov_x1_c[i]],
+                           [cov_mb_c[i],cov_x1_c[i],cerr[i]**2.]])
+        mb_single,x1_single,c_single = correlated_values([mb[i],x1[i],c[i]],covmat)
 
-    return(mu.n,mu.std)
+        mu = mb_single + x1_single*alpha - beta*c_single + 19.3
+        mu_out,muerr_out = np.append(mu_out,mu.n),np.append(muerr_out,mu.std_dev)
+
+    return(mu_out,muerr_out)
 
 
 if __name__ == "__main__":
@@ -300,20 +324,21 @@ examples:
     import os
     import optparse
 
-    beam = BEAMS()
+    sne = sncosmo()
 
-    parser = beam.add_options(usage=usagestring)
+    parser = sne.add_options(usage=usagestring)
     options,  args = parser.parse_args()
 
-    beam.options = options
-    beam.verbose = options.verbose
-    beam.clobber = options.clobber
+    sne.options = options
+    sne.verbose = options.verbose
+    sne.clobber = options.clobber
 
     from scipy.optimize import minimize
     import emcee
     import cosmo
+
     if not options.mkplot:
-        beam.main(options.fitresfile,lccuts=options.lccuts)
+        sne.main(options.fitresfile)
     else:
-        beam.mkplot(fitresfile=options.fitresfile,lccuts=options.lccuts)
+        sne.mkplot(fitresfile=options.fitresfile)
 
