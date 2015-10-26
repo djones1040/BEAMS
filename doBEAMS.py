@@ -80,7 +80,7 @@ For flat prior, use empty string""",nargs=2)
 
 
             parser.add_option('-i','--inputfile', default=config.get('all','inputfile'), type="string",
-                              help='fitres file with the SN Ia data')
+                              help='file with the input data')
             parser.add_option('-o','--outputfile', default=config.get('all','outputfile'), type="string",
                               help='Output file with the derived parameters for each redshift bin')
 
@@ -143,7 +143,7 @@ For flat prior, use empty string""",nargs=2)
 
 
             parser.add_option('-i','--inputfile', default='BEAMS.input', type="string",
-                              help='fitres file with the SN Ia data')
+                              help='file with the input data')
             parser.add_option('-o','--outputfile', default='beamsCosmo.out', type="string",
                               help='Output file with the derived parameters for each redshift bin')
 
@@ -404,3 +404,4 @@ examples:
     import emcee
 
     beam.main(options.inputfile)
+
