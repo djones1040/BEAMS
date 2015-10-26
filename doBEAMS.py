@@ -67,6 +67,21 @@ For flat prior, use empty string""",nargs=2)
             parser.add_option('--fracBfixed', default=config.get('all','fracBfixed'),type='int',
                               help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
 
+            # options to fit to a second-order "step" effect on luminosity.
+            # This is the host mass bias for SNe.
+            parser.add_option('--plcol', default=config.get('all','plcol'), type="string",
+                              help='column in input file used as probability for an additional luminosity correction P(L)')
+            parser.add_option('--lcorr', default=config.get('all','lcorr'), type="int",
+                              help='make step correction if set to 1 (default=%default)')
+            parser.add_option('--lstepguess', default=config.get('all','plguess'),type='float',
+                              help='initial guesses for luminosity correction')
+            parser.add_option('--lstepprior', default=map(float,config.get('all','plprior_mean').split(',')),type='float',
+                              help="""comma-separated gaussian prior for mean of luminosity correction: centroid, sigma.  
+For flat prior, use empty strings""",nargs=2)
+            parser.add_option('--lstepfixed', default=config.get('all','plfixed'),type='float',
+                              help="""comma-separated values for luminosity correction.
+For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""")
+
         
             # output and number of threads
             parser.add_option('--nthreads', default=config.get('all','nthreads'), type="int",
@@ -130,6 +145,21 @@ For flat prior, use empty string""",nargs=2)
             parser.add_option('--fracBfixed', default=0,type='int',
                               help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
 
+            # options to fit to a second-order "step" effect on luminosity.
+            # This is the host mass bias for SNe.
+            parser.add_option('--plcol', default='PL', type="string",
+                              help='column in input file used as probability for an additional luminosity correction P(L) (default=%default)')
+            parser.add_option('--lcorr', default=0, type="int",
+                              help='make step correction if set to 1 (default=%default)')
+            parser.add_option('--lstepguess', default=0.07,type='float',
+                              help='initial guesses for luminosity correction')
+            parser.add_option('--lstepprior', default=(0.07,0.023),type='float',
+                              help="""comma-separated gaussian prior for mean of luminosity correction: centroid, sigma.  
+For flat prior, use empty strings""",nargs=2)
+            parser.add_option('--lstepfixed', default=0,type='float',
+                              help="""comma-separated values for luminosity correction.
+For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""")
+            
         
             # output and number of threads
             parser.add_option('--nthreads', default=8, type="int",
@@ -158,6 +188,7 @@ For flat prior, use empty string""",nargs=2)
 
         inp = txtobj(inputfile)
         inp.PA = inp.__dict__[self.options.pacol]
+        if self.options.plcol: inp.PL = inp.__dict__[self.options.plcol]
         inp.resid = inp.__dict__[self.options.residcol]
         inp.residerr = inp.__dict__[self.options.residerrcol]
 
@@ -165,34 +196,38 @@ For flat prior, use empty string""",nargs=2)
         if not os.path.exists(self.options.outputfile) or self.options.clobber:
             writeout = True
             fout = open(self.options.outputfile,'w')
-            print >> fout, "# muA muAerr_m muAerr_p sigA sigAerr_m sigAerr_p muB muBerr_m muBerr_p sigB sigBerr_m sigBerr_p fracB fracBerr_m fracBerr_p"""
+            print >> fout, "# muA muAerr_m muAerr_p sigA sigAerr_m sigAerr_p muB muBerr_m muBerr_p sigB sigBerr_m sigBerr_p fracB fracBerr_m fracBerr_p lstep lstep_m lstep_p"""
             fout.close()
         elif not self.options.append:
             writeout = False
             print('Warning : files %s exists!!  Not clobbering'%self.options.outputfile)
 
         # run the MCMC
-        residA,sigA,residB,sigB,fracB = self.mcmc(inp)
+        residA,sigA,residB,sigB,fracB,lstep = self.mcmc(inp)
                 
-        outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
+        outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
 
         outline = outlinefmt%(residA[0],residA[1],residA[2],
                               sigA[0],sigA[1],sigA[2],
                               residB[0],residB[1],residB[2],
                               sigB[0],sigB[1],sigB[2],
-                              fracB[0],fracB[1],fracB[2])
+                              fracB[0],fracB[1],fracB[2],
+                              lstep[0],lstep[1],lstep[2])
         if self.options.append or not os.path.exists(self.options.outputfile) or self.options.clobber:
             fout = open(self.options.outputfile,'a')
             print >> fout, outline
             fout.close()
 
         if self.options.verbose:
-            print('muA: %.3f +/- %.3f muB: %.3f +/- %.3f frac. B: %.3f +/- %.3f'%(
+            print('muA: %.3f +/- %.3f muB: %.3f +/- %.3f frac. B: %.3f +/- %.3f Lstep: %.3f +/- %.3f'%(
                     residA[0],np.mean([residA[1],residA[2]]),
                     residB[0],np.mean([residB[1],residB[2]]),
-                    fracB[0],np.mean([fracB[1],fracB[2]])))
+                    fracB[0],np.mean([fracB[1],fracB[2]]),
+                    lstep[0],np.mean([lstep[1],lstep[2]])))
 
     def mcmc(self,inp):
+        if not inp.__dict__.has_key('PL'):
+            inp.PL = None
 
         # minimize, not maximize
         if self.options.fracBguess >= 0:
@@ -203,8 +238,8 @@ For flat prior, use empty string""",nargs=2)
 
         md = minimize(nll,(self.options.popAguess[0],self.options.popAguess[1],
                            self.options.popBguess[0],self.options.popBguess[1],
-                           self.options.fracBguess),
-                      args=(inp.PA,inp.resid,inp.residerr))
+                           self.options.fracBguess,self.options.lstepguess),
+                      args=(inp.PA,inp.PL,inp.resid,inp.residerr))
         if md.message != 'Optimization terminated successfully.':
             print("""Warning : Minimization Failed!!!  
 Try some different initial guesses, or let the MCMC try and take care of it""")
@@ -216,23 +251,24 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         pos = [md["x"] + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
 
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, 
-                                        args=(inp.PA,inp.resid,inp.residerr,omitfracB,
+                                        args=(inp.PL,inp.PL,inp.resid,inp.residerr,omitfracB,
                                               self.options.p_residA,self.options.psig_residA,
                                               self.options.p_residB,self.options.psig_residB,
                                               self.options.p_sigA,self.options.psig_sigA,
                                               self.options.p_sigB,self.options.psig_sigB,
-                                              self.options.p_fracB,self.options.psig_fracB),
+                                              self.options.p_fracB,self.options.psig_fracB,
+                                              self.options.p_lstep,self.options.psig_lstep),
                                         threads=int(self.options.nthreads))
         sampler.run_mcmc(pos, self.options.nsteps)
         samples = sampler.chain[:, self.options.ninit:, :].reshape((-1, ndim))
 
         # get the error bars - should really return the full posterior!
         import scipy.stats
-        resida_mcmc, siga_mcmc, residb_mcmc, sigb_mcmc, fracB = \
+        resida_mcmc, siga_mcmc, residb_mcmc, sigb_mcmc, fracB, lstep = \
             map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
                 zip(*np.percentile(samples, [16, 50, 84],
                                    axis=0)))
-        return(resida_mcmc,siga_mcmc,residb_mcmc,sigb_mcmc,fracB)
+        return(resida_mcmc,siga_mcmc,residb_mcmc,sigb_mcmc,fracB,lstep)
 
     def fixedpriors(self,md):
 
@@ -256,6 +292,11 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
             self.options.p_fracB = self.options.fracBguess[0]
             self.options.psig_fracB = 1e-3
             md["x"][4] = self.options.fracBguess[0]
+        if self.options.lstepfixed:
+            self.options.p_lstep = self.options.lstepguess[0]
+            self.options.psig_lstep = 1e-3
+            md["x"][5] = self.options.lstepguess[0]
+
         return(md)
 
     def transformOptions(self):
@@ -270,17 +311,19 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         self.options.psig_sigB = self.options.popBprior_std[1]
         self.options.p_fracB = self.options.fracBprior[0]
         self.options.psig_fracB = self.options.fracBprior[1]
+        self.options.p_lstep = self.options.lstepprior[0]
+        self.options.psig_lstep = self.options.lstepprior[1]
 
-def twogausslike(x,PA=None,resid=None,residerr=None):
-
-    return np.sum(np.logaddexp(-(resid-x[0])**2./(2.0*np.sqrt(residerr**2.+x[1]**2.)) + \
+def twogausslike(x,PA=None,resid=None,residerr=None,PL=None):
+    if not PL: PL=0
+    return np.sum(np.logaddexp(-(resid-x[0]+PL*x[5])**2./(2.0*np.sqrt(residerr**2.+x[1]**2.)) + \
                                     np.log((1-x[4])*(PA)/(np.sqrt(2*np.pi)*np.abs(x[1]**2.+residerr**2.))),
                                 -(resid-x[2])**2./(2.0*np.sqrt(residerr**2.+x[3]**2.)) + \
                                     np.log((x[4])*(1-PA)/(np.sqrt(2*np.pi)*np.abs(x[3]**2.+residerr**2.)))))
 
-def twogausslike_nofrac(x,PA=None,resid=None,residerr=None):
-
-    return np.sum(np.logaddexp(-(resid-x[0])**2./(2.0*np.sqrt(residerr**2.+x[1]**2.)) + \
+def twogausslike_nofrac(x,PA=None,resid=None,residerr=None,PL=None):
+    if not PL: PL=0
+    return np.sum(np.logaddexp(-(resid-x[0]+PL*x[5])**2./(2.0*np.sqrt(residerr**2.+x[1]**2.)) + \
                                     np.log(PA/(np.sqrt(2*np.pi)*np.abs(x[1]**2.+residerr**2.))),
                                 -(resid-x[2])**2./(2.0*np.sqrt(residerr**2.+x[3]**2.)) + \
                                     np.log((1-PA)/(np.sqrt(2*np.pi)*np.abs(x[3]**2.+residerr**2.)))))
@@ -291,12 +334,13 @@ def lnprior(theta,
             p_residB=None,psig_residB=None,
             p_sig_A=None,psig_sig_A=None,
             p_sig_B=None,psig_sig_B=None,
-            p_fracB=None,psig_fracB=None):
+            p_fracB=None,psig_fracB=None,
+            p_lstep=None,psig_lstep=None):
 
     try:
-        residA,sigA,residB,sigB,fracB = theta
+        residA,sigA,residB,sigB,fracB,lstep = theta
     except:
-        residA,sigA,residB,sigB = theta
+        residA,sigA,residB,sigB,lstep = theta
 
     p_theta = 1.0
 
@@ -310,32 +354,37 @@ def lnprior(theta,
         p_theta *= gauss(sigB,p_sig_B,psig_sig_B)
     if p_fracB:
         p_theta *= gauss(fracB,p_fracB,psig_fracB)
+    if p_lstep:
+        p_lstep *= gauss(lstep,p_lstep,psig_lstep)
+
 
     if fracB > 1 or fracB < 0: return -np.inf
     else: return(np.log(p_theta))
 
-def lnprob(theta,PA=None,resid=None,residerr=None,
+def lnprob(theta,PA=None,PL=None,resid=None,residerr=None,
            omitfracB=False,
            p_residA=None,psig_residA=None,
            p_residB=None,psig_residB=None,
            p_sig_A=None,psig_sig_A=None,
            p_sig_B=None,psig_sig_B=None,
-           p_fracB=None,psig_fracB=None):
+           p_fracB=None,psig_fracB=None,
+           p_lstep=None,psig_lstep=None):
     lp = lnprior(theta,
                  p_residA=p_residA,psig_residA=psig_residA,
                  p_residB=p_residB,psig_residB=psig_residB,
                  p_sig_A=p_sig_A,psig_sig_A=psig_sig_A,
                  p_sig_B=p_sig_B,psig_sig_B=psig_sig_B,
-                 p_fracB=p_fracB,psig_fracB=psig_fracB)
+                 p_fracB=p_fracB,psig_fracB=psig_fracB,
+                 p_lstep=p_lstep,psig_lstep=psig_lstep)
     if not np.isfinite(lp) or np.isnan(lp):
         return -np.inf
 
     if omitfracB:
-        post = lp+twogausslike(theta,PA=PA,
+        post = lp+twogausslike(theta,PA=PA,PL=PL,
                                resid=resid,residerr=residerr)
     else:
         post = lp+twogausslike_nofrac(
-            theta,PA=PA,resid=resid,residerr=residerr)
+            theta,PA=PA,PL=PL,resid=resid,residerr=residerr)
 
     if post != post: return -np.inf
     else: return post
