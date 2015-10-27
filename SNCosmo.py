@@ -38,7 +38,7 @@ class sncosmo:
         parser.add_option(
             '--x1range', default=(-3.0,3.0),type="float",
             help='Peculiar velocity error (default=%default)',nargs=2)
-        parser.add_option('--x1ccircle',default=True,action="store_true",
+        parser.add_option('--x1ccircle',default=False,action="store_true",
             help='Circle cut in x1 and c')
         parser.add_option(
             '--zrange', default=(0.023,1.0),type="float",
@@ -287,7 +287,7 @@ def salt2mu(x1=None,x1err=None,
             alphaerr=None,betaerr=None,
             M=None,x0=None):
     from uncertainties import ufloat, correlated_values, correlated_values_norm
-    alpha,beta = ufloat(alpha,1e-10),ufloat(beta,1e-10)
+    alpha,beta = ufloat(alpha,alphaerr),ufloat(beta,betaerr)
 
     sf = -2.5/(x0*np.log(10.0))
     cov_mb_c = cov_c_x0*sf
