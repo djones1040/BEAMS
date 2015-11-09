@@ -96,10 +96,13 @@ class sncosmo:
         parser.add_option('--mkplot', default=False, action="store_true",
                           help='plot the results')
         parser.add_option('--usefitresmu', default=False, action="store_true",
-                          help='User the distance modulus given in the fitres file')
+                          help='Use the distance modulus given in the fitres file')
 
         parser.add_option('-p','--paramfile', default='', type="string",
                           help='fitres file with the SN Ia data')
+        parser.add_option('--showpriorprobs', default=False, action="store_true",
+                          help='when plotting, show the prior probabilities instead of the (estimated) posterior probs.')
+
 
         return(parser)
 
@@ -179,7 +182,7 @@ class sncosmo:
             beam.options.outputfile = self.options.outfile
             beam.main(options.inputfile)
 
-    def mkplot(self,fitresfile=None):
+    def mkplot(self,fitresfile=None,showpriorprobs=False):
         
         import pylab as plt
         from txtobj import txtobj
@@ -224,18 +227,21 @@ class sncosmo:
                                x0=fr.x0)
             fr.MU,fr.MUERR = mu,muerr
         else: mu,muerr = fr.MU[cols],fr.MUERR[cols]
-
+        mures = mu - cosmo.mu(fr.zHD)
 
         mu_cc_p50,mu_ia_p50,z_ia_p50,z_cc_p50 = np.array([]),np.array([]),np.array([]),np.array([])
         for zmin,zmax,i in zip(np.arange(0,0.7,0.05),np.arange(0.05,0.75,0.05),range(len(np.arange(0.05,0.75,0.05)))):
             cols = np.where((fr.z > zmin) & (fr.z < zmax))
             zbin = np.mean([zmin,zmax])
 
-            P_Ia_post = gauss(mu,bms.muA[i],np.sqrt(muerr**2.+bms.sigA[i]**2.))
-            P_CC_post = gauss(mu,bms.muB[i],np.sqrt(muerr**2.+bms.sigB[i]**2.))
-            P_Ia_final = P_Ia_post/(P_Ia_post+P_CC_post)
-            mu_cc_p50 = np.append(mu_cc_p50,mu[cols][np.where(P_Ia_final[cols] < 0.5)])
-            mu_ia_p50 = np.append(mu_ia_p50,mu[cols][np.where(P_Ia_final[cols] > 0.5)])
+            P_Ia_post = gauss(mu-cosmo.mu(fr.zHD),bms.muA[i],np.sqrt(muerr**2.+bms.sigA[i]**2.))
+            P_CC_post = gauss(mu-cosmo.mu(fr.zHD),bms.muB[i],np.sqrt(muerr**2.+bms.sigB[i]**2.))
+            if not showpriorprobs:
+                P_Ia_final = P_Ia_post/(P_Ia_post+P_CC_post)
+            else:
+                P_Ia_final = fr.__dict__[self.options.piacol]
+            mu_cc_p50 = np.append(mu_cc_p50,mures[cols][np.where(P_Ia_final[cols] < 0.5)])
+            mu_ia_p50 = np.append(mu_ia_p50,mures[cols][np.where(P_Ia_final[cols] > 0.5)])
             z_cc_p50 = np.append(z_cc_p50,fr.zHD[cols][np.where(P_Ia_final[cols] < 0.5)])
             z_ia_p50 = np.append(z_ia_p50,fr.zHD[cols][np.where(P_Ia_final[cols] > 0.5)])
 
@@ -262,9 +268,9 @@ class sncosmo:
         cb = plt.colorbar(sc,cax=cax,orientation='horizontal',ticks=[0,0.2,0.4,0.6,0.8,1.0])
         cax.set_xlabel('$P(Ia)$',labelpad=-65,fontsize='large')
 
-        n_mu = np.histogram(mu_cc_p50-cosmo.mu(z_cc_p50),bins=30,range=[-3,3])
+        n_mu = np.histogram(mu_cc_p50,bins=30,range=[-3,3])
         ax3.plot(n_mu[0]/float(len(fr.MU)),n_mu[1][:-1],color='b',drawstyle='steps',lw=2)
-        n_mu = np.histogram(mu_ia_p50-cosmo.mu(z_ia_p50),bins=30,range=[-3,3])
+        n_mu = np.histogram(mu_ia_p50,bins=30,range=[-3,3])
         ax3.plot(n_mu[0]/float(len(fr.MU)),n_mu[1][:-1],color='lightgreen',drawstyle='steps',lw=2)
 
         ax1.set_xlabel('$z$',fontsize=20)
@@ -350,5 +356,5 @@ examples:
     if not options.mkplot:
         sne.main(options.fitresfile)
     else:
-        sne.mkplot(fitresfile=options.fitresfile)
+        sne.mkplot(fitresfile=options.fitresfile,showpriorprobs=options.showpriorprobs)
 
