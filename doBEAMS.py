@@ -276,6 +276,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
             map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
                 zip(*np.percentile(samples, [16, 50, 84],
                                    axis=0)))
+        import pdb; pdb.set_trace()
         return(resida_mcmc,siga_mcmc,residb_mcmc,sigb_mcmc,fracB,lstep)
 
     def fixedpriors(self,md):
@@ -406,6 +407,15 @@ def normpdf(x, mu, sigma):
     u = (x-mu)/np.abs(sigma)
     y = (1/(np.sqrt(2*np.pi)*np.abs(sigma)))*np.exp(-u*u/2)
     return y
+
+def covmat(samples):
+    cov_shape = np.shape(samples)[1]
+    chain_len = np.shape(samples)[0]
+    covmat = np.zeros([cov_shape,cov_shape])
+    for i in range(cov_shape):
+        for j in range(cov_shape):
+            covmat[j,i] = np.sum(samples[j]*samples[i])/chain_len
+    return(covmat)
 
 if __name__ == "__main__":
     usagestring="""An implementation of the BEAMS method (Kunz, Bassett, & Hlozek 2006).

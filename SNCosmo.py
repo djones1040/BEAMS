@@ -3,6 +3,24 @@
 """BEAMS method for PS1 data"""
 import numpy as np
 
+fitresheader = """# VERSION: PS1_PS1MD
+# FITOPT:  NONE
+# ---------------------------------------- 
+NVAR: 30 
+VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB 
+# VERSION_SNANA      = v10_39i 
+# VERSION_PHOTOMETRY = PS1_PS1MD 
+# TABLE NAME: FITRES 
+# 
+"""
+fitresvars = ["CID","IDSURVEY","TYPE","FIELD",
+              "zHD","zHDERR","z","zERR","HOST_LOGMASS",
+              "HOST_LOGMASS_ERR","SNRMAX1","SNRMAX2",
+              "SNRMAX3","PKMJD","PKMJDERR","x1","x1ERR",
+              "c","cERR","mB","mBERR","x0","x0ERR","COV_x1_c",
+              "COV_x1_x0","COV_c_x0","NDOF","FITCHI2","FITPROB"]
+fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.5f %.5f %i %i %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f'
+
 class sncosmo:
     def __init__(self):
         self.clobber = False
@@ -41,9 +59,6 @@ class sncosmo:
         parser.add_option('--x1ccircle',default=False,action="store_true",
             help='Circle cut in x1 and c')
         parser.add_option(
-            '--zrange', default=(0.023,1.0),type="float",
-            help='allowed redshift range (default=%default)',nargs=2)
-        parser.add_option(
             '--fitprobmin', default=0.001,type="float",
             help='Peculiar velocity error (default=%default)')
         parser.add_option(
@@ -54,17 +69,17 @@ class sncosmo:
             help='Peculiar velocity error (default=%default)')
 
         # SALT2 parameters and intrinsic dispersion
-        parser.add_option('--salt2alpha', default=0.147, type="float",
+        parser.add_option('--salt2alpha', default=0.11, type="float",#0.147
                           help='SALT2 alpha parameter from a spectroscopic sample (default=%default)')
-        parser.add_option('--salt2alphaerr', default=0.010, type="float",
+        parser.add_option('--salt2alphaerr', default=1e-4, type="float",#0.01
                           help='nominal SALT2 alpha uncertainty from a spectroscopic sample (default=%default)')
-        parser.add_option('--salt2beta', default=3.13, type="float",
+        parser.add_option('--salt2beta', default=3.2, type="float",#3.13
                           help='nominal SALT2 beta parameter from a spec. sample (default=%default)')
-        parser.add_option('--salt2betaerr', default=0.12, type="float",
+        parser.add_option('--salt2betaerr', default=1e-4, type="float",#0.12
                           help='nominal SALT2 beta uncertainty from a spec. sample (default=%default)')
         parser.add_option('--fitsalt2pars', default=False, action="store_true",
                           help='If set, determine SALT2 nuisance parameters with MCMC.  Otherwise, use values derived from spec. sample')
-        parser.add_option('--sigint', default=None, type="float",
+        parser.add_option('--sigint', default=0.1, type="float",
                           help='nominal intrinsic dispersion, MCMC fits for this if not specified (default=%default)')
 
         # Mass options
@@ -80,12 +95,16 @@ class sncosmo:
 
         parser.add_option('--nthreads', default=8, type="int",
                           help='Number of threads for MCMC')
-        parser.add_option('--zmin', default=0.0, type="float",
+        parser.add_option('--zmin', default=0.01, type="float",
                           help='minimum redshift')
         parser.add_option('--zmax', default=0.7, type="float",
                           help='maximum redshift')
         parser.add_option('--zbinsize', default=0.05, type="float",
                           help='bin size in redshift space')
+        parser.add_option('--nbins', default=25, type="float",
+                          help='number of bins in log redshift space')
+        parser.add_option('--equalbins', default=False, action="store_true",
+                          help='if set, every bin contains the same number of SNe')
 
 
         parser.add_option('-f','--fitresfile', default='ps1_psnidprob.fitres', type="string",
@@ -115,7 +134,7 @@ class sncosmo:
                                  cov_x1_c=fr.COV_x1_c,cov_x1_x0=fr.COV_x1_x0,cov_c_x0=fr.COV_c_x0,
                                  alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
                                  beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
-                                 x0=fr.x0)
+                                 x0=fr.x0,sigint=self.options.sigint)
 
         # Light curve cuts
         if self.options.x1ccircle:
@@ -123,13 +142,13 @@ class sncosmo:
             cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax/(1+fr.zHD)) &
                             (fr.FITPROB > self.options.fitprobmin) &
-                            (fr.z > self.options.zrange[0]) & (fr.z < self.options.zrange[1]))
+                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax))
         else:
             cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
                             (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax) &
                             (fr.FITPROB > self.options.fitprobmin) &
-                            (fr.z > self.options.zrange[0]) & (fr.z < self.options.zrange[1]))
+                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax))
         for k in fr.__dict__.keys():
             fr.__dict__[k] = fr.__dict__[k][cols]
 
@@ -163,8 +182,14 @@ class sncosmo:
 
         # loop over the redshift bins
         append = False
-        for zmin,zmax in zip(np.arange(self.options.zmin,self.options.zmax,self.options.zbinsize),
-                             np.arange(self.options.zmin+self.options.zbinsize,self.options.zmax+self.options.zbinsize,self.options.zbinsize)):
+#        for zmin,zmax in zip(np.arange(self.options.zmin,self.options.zmax,self.options.zbinsize),
+#                             np.arange(self.options.zmin+self.options.zbinsize,self.options.zmax+self.options.zbinsize,self.options.zbinsize)):
+        z = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nbins)
+        if self.options.equalbins:
+            from scipy import stats
+            z = stats.mstats.mquantiles(fr.zHD,np.arange(0,1,1./self.options.nbins))
+        for zmin,zmax in zip(z[:-1],z[1:]):
+            if self.options.verbose: print('%.3f < z < %.3f'%(zmin,zmax))
             if zmin > self.options.zmin:
                 append = True; clobber = False
             else: clobber = True
@@ -173,14 +198,59 @@ class sncosmo:
             fout = open('BEAMS_SN.input','w')
             print >> fout, '# PA resid resid_err'
             for i in range(len(fr.MU)):
-                if fr.z[i] > zmin and fr.z[i] <= zmax:
-                    print >> fout, '%.3f %.4f %.4f'%(P_Ia[i],fr.MU[i]-cosmo.mu(fr.z[i]),fr.MUERR[i])
+                if fr.zHD[i] > zmin and fr.zHD[i] <= zmax:
+                    print >> fout, '%.3f %.4f %.4f'%(P_Ia[i],fr.MU[i]-cosmo.mu(fr.zHD[i]),fr.MUERR[i])
             fout.close()
 
             beam.options.append = append
             beam.options.clobber = clobber
             beam.options.outputfile = self.options.outfile
             beam.main(options.inputfile)
+
+        bms = txtobj(self.options.outfile)
+        self.writeBinFitres('%s.fitres'%self.options.outfile.split('.')[0],bms)
+
+    def writeBinFitres(self,outfile,bms):
+        import os,cosmo
+
+        from txtobj import txtobj
+        fr = txtobj('ps1_sim_v3_1000_prob.fitres',fitresheader=True)
+        fr.MU,fr.MUERR = salt2mu(x1=fr.x1,x1err=fr.x1ERR,c=fr.c,cerr=fr.cERR,mb=fr.mB,mberr=fr.mBERR,
+                                 cov_x1_c=fr.COV_x1_c,cov_x1_x0=fr.COV_x1_x0,cov_c_x0=fr.COV_c_x0,
+                                 alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
+                                 beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
+                                 x0=fr.x0,sigint=self.options.sigint)
+        from iterstat import iterstat
+
+        fout = open(outfile,'w')
+        print >> fout, fitresheader
+#        for zmin,zmax,i in zip(np.arange(self.options.zmin,self.options.zmax,self.options.zbinsize),
+#                               np.arange(self.options.zmin+self.options.zbinsize,self.options.zmax+self.options.zbinsize,self.options.zbinsize),
+#                               range(len(np.arange(self.options.zmin,self.options.zmax,self.options.zbinsize)))):
+        z = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nbins)
+        if self.options.equalbins:
+            from scipy import stats
+            z = stats.mstats.mquantiles(fr.zHD,np.arange(0,1,1./self.options.nbins))
+        for zmin,zmax,i in zip(z[:-1],z[1:],range(len(z[:-1]))):
+
+#        for zmin,zmax,i in zip(np.arange(0,0.7,0.05),np.arange(0.05,0.75,0.05),range(len(np.arange(0.05,0.75,0.05)))):
+            cols = np.where((fr.zHD > zmin) & (fr.zHD < zmax) & (fr.TYPE == 1))[0]
+            md,std = iterstat(fr.MU[cols]-cosmo.mu(fr.zHD[cols]))
+            std = std/np.sqrt(len(fr.MU[cols]))
+
+            outvars = ()
+            for v in fitresvars:
+                if v == 'zHD':
+                    outvars += ((zmin+zmax)/2.,)
+                elif v == 'z':
+                    outvars += ((zmin+zmax)/2.,)
+                elif v == 'mB':
+                    outvars += (md+cosmo.mu((zmin+zmax)/2.)-19.3,)#(bms.muA[i]+cosmo.mu((zmin+zmax)/2.)-19.3,)#
+                elif v == 'mBERR':
+                    outvars += (std,)#((bms.muAerr_m[i]+bms.muAerr_p[i])/2.,)
+                else:
+                    outvars += (0,)
+            print >> fout, fitresfmt%outvars
 
     def mkplot(self,fitresfile=None,showpriorprobs=False):
         
@@ -195,13 +265,13 @@ class sncosmo:
             cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax/(1+fr.zHD)) &
                             (fr.FITPROB > self.options.fitprobmin) &
-                            (fr.z > self.options.zrange[0]) & (fr.z < self.options.zrange[1]))
+                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax))
         else:
             cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
                             (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax) &
                             (fr.FITPROB > self.options.fitprobmin) &
-                            (fr.z > self.options.zrange[0]) & (fr.z < self.options.zrange[1]))
+                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax))
         for k in fr.__dict__.keys():
             fr.__dict__[k] = fr.__dict__[k][cols]
 
@@ -224,7 +294,7 @@ class sncosmo:
                                cov_x1_c=fr.COV_x1_c,cov_x1_x0=fr.COV_x1_x0,cov_c_x0=fr.COV_c_x0,
                                alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
                                beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
-                               x0=fr.x0)
+                               x0=fr.x0,sigint=self.options.sigint)
             fr.MU,fr.MUERR = mu,muerr
         else: mu,muerr = fr.MU[cols],fr.MUERR[cols]
         mures = mu - cosmo.mu(fr.zHD)
@@ -301,7 +371,7 @@ def salt2mu(x1=None,x1err=None,
             cov_x1_c=None,cov_x1_x0=None,cov_c_x0=None,
             alpha=None,beta=None,
             alphaerr=None,betaerr=None,
-            M=None,x0=None):
+            M=None,x0=None,sigint=None):
     from uncertainties import ufloat, correlated_values, correlated_values_norm
     alpha,beta = ufloat(alpha,alphaerr),ufloat(beta,betaerr)
 
@@ -317,6 +387,7 @@ def salt2mu(x1=None,x1err=None,
         mb_single,x1_single,c_single = correlated_values([mb[i],x1[i],c[i]],covmat)
 
         mu = mb_single + x1_single*alpha - beta*c_single + 19.3
+        if sigint: mu = mu + ufloat(0,sigint)
         mu_out,muerr_out = np.append(mu_out,mu.n),np.append(muerr_out,mu.std_dev)
 
     return(mu_out,muerr_out)
