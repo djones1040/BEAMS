@@ -209,29 +209,46 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
             print('Warning : files %s exists!!  Not clobbering'%self.options.outputfile)
 
         # run the MCMC
-        residA,sigA,residB,sigB,fracB,lstep = self.mcmc(inp)
-                
-        outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
-
-        outline = outlinefmt%(residA[0],residA[1],residA[2],
-                              sigA[0],sigA[1],sigA[2],
-                              residB[0],residB[1],residB[2],
-                              sigB[0],sigB[1],sigB[2],
-                              fracB[0],fracB[1],fracB[2],
-                              lstep[0],lstep[1],lstep[2])
-        if self.options.append or not os.path.exists(self.options.outputfile) or self.options.clobber:
-            fout = open(self.options.outputfile,'a')
-            print >> fout, outline
+        cov,params = self.mcmc(inp)
+        if self.options.covmatfile:
+            fout = open(covmatfile,'w')
+            shape = np.shape(cov)[0]
+            for j in range(shape):
+                outline = ''
+                for i in range(shape):
+                    outline += '%.8e5 '%cov[j,i]
+                print >> fout, outline
             fout.close()
 
-        if self.options.verbose:
-            print('muA: %.3f +/- %.3f muB: %.3f +/- %.3f frac. B: %.3f +/- %.3f Lstep: %.3f +/- %.3f'%(
-                    residA[0],np.mean([residA[1],residA[2]]),
-                    residB[0],np.mean([residB[1],residB[2]]),
-                    fracB[0],np.mean([fracB[1],fracB[2]]),
-                    lstep[0],np.mean([lstep[1],lstep[2]])))
+        # residA,sigA,residB,sigB,fracB,lstep = self.mcmc(inp)
+        params = \
+            map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
+                zip(*np.percentile(samples, [16, 50, 84],
+                                   axis=0)))
+        sigA,residB,sigB,fracB,lstep = params[:5]
+        mupar = params[5:]
 
-    def mcmc(self,inp):
+        outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
+        for par,zcntrl in zip(mupar,zcontrol):
+            outline = outlinefmt%(par[0],par[1],par[2],
+                                  sigA[0],sigA[1],sigA[2],
+                                  residB[0],residB[1],residB[2],
+                                  sigB[0],sigB[1],sigB[2],
+                                  fracB[0],fracB[1],fracB[2],
+                                  lstep[0],lstep[1],lstep[2])
+            if self.options.append or not os.path.exists(self.options.outputfile) or self.options.clobber:
+                fout = open(self.options.outputfile,'a')
+                print >> fout, outline
+                fout.close()
+
+            if self.options.verbose:
+                print('z: %.3f muA: %.3f +/- %.3f muB: %.3f +/- %.3f frac. B: %.3f +/- %.3f Lstep: %.3f +/- %.3f'%(
+                        zcntrl,par[0],np.mean([par[1],par[2]]),
+                        residB[0],np.mean([residB[1],residB[2]]),
+                        fracB[0],np.mean([fracB[1],fracB[2]]),
+                        lstep[0],np.mean([lstep[1],lstep[2]])))
+
+    def mcmc(self,inp,zcontrol):
         from scipy.optimize import minimize
         import emcee
         if not inp.__dict__.has_key('PL'):
@@ -244,10 +261,12 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
             omitfracB = True
         nll = lambda *args: -twogausslike_nofrac(*args)
 
-        md = minimize(nll,(self.options.popAguess[0],self.options.popAguess[1],
-                           self.options.popBguess[0],self.options.popBguess[1],
-                           self.options.fracBguess,self.options.lstepguess),
-                      args=(inp.PA,inp.PL,inp.resid,inp.residerr))
+        guess = (self.options.popAguess[1],
+                 self.options.popBguess[0],self.options.popBguess[1],
+                 self.options.fracBguess,self.options.lstepguess,) + \
+                 (self.options.popAguess[0],)*len(zcontrol)
+        md = minimize(nll,guess,
+                      args=(inp.PA,inp.PL,inp.mu,inp.muerr,inp.z,zcontrol))
         if md.message != 'Optimization terminated successfully.':
             print("""Warning : Minimization Failed!!!  
 Try some different initial guesses, or let the MCMC try and take care of it""")
@@ -259,7 +278,8 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         pos = [md["x"] + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
 
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, 
-                                        args=(inp.PA,inp.PL,inp.resid,inp.residerr,omitfracB,
+                                        args=(inp.PA,inp.PL,inp.mu,inp.muerr,inp.z,zcontrol,
+                                              omitfracB,
                                               self.options.p_residA,self.options.psig_residA,
                                               self.options.p_residB,self.options.psig_residB,
                                               self.options.p_sigA,self.options.psig_sigA,
@@ -270,14 +290,15 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         sampler.run_mcmc(pos, self.options.nsteps)
         samples = sampler.chain[:, self.options.ninit:, :].reshape((-1, ndim))
 
-        # get the error bars - should really return the full posterior!
-        import scipy.stats
-        resida_mcmc, siga_mcmc, residb_mcmc, sigb_mcmc, fracB, lstep = \
+        # get the error bars - should really return the full posterior
+        cov = covmat(samples)
+
+        params = \
             map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
                 zip(*np.percentile(samples, [16, 50, 84],
                                    axis=0)))
-        import pdb; pdb.set_trace()
-        return(resida_mcmc,siga_mcmc,residb_mcmc,sigb_mcmc,fracB,lstep)
+
+        return(cov,params)
 
     def fixedpriors(self,md):
 
@@ -323,20 +344,24 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         self.options.p_lstep = self.options.lstepprior[0]
         self.options.psig_lstep = self.options.lstepprior[1]
 
-def twogausslike(x,PA=None,PL=None,resid=None,residerr=None):
+def twogausslike(x,PA=None,PL=None,mu=None,muerr=None,z=None,zcontrol=None):
+
+    logzpoints = np.interp(np.log10(z),np.log10(zcontrol),x[5:])
     
-    return np.sum(np.logaddexp(-(resid-x[0]+PL*x[5])**2./(2.0*np.sqrt(residerr**2.+x[1]**2.)) + \
-                                    np.log((1-x[4])*(PA)/(np.sqrt(2*np.pi)*np.abs(x[1]**2.+residerr**2.))),
-                                -(resid-x[2])**2./(2.0*np.sqrt(residerr**2.+x[3]**2.)) + \
-                                    np.log((x[4])*(1-PA)/(np.sqrt(2*np.pi)*np.abs(x[3]**2.+residerr**2.)))))
+    return np.sum(np.logaddexp(-(mu-logzpoints+PL*x[4])**2./(2.0*np.sqrt(muerr**2.+x[0]**2.)) + \
+                                    np.log((1-x[3])*(PA)/(np.sqrt(2*np.pi)*np.abs(x[0]**2.+muerr**2.))),
+                                -(mu-logzpoints-x[1])**2./(2.0*np.sqrt(muerr**2.+x[2]**2.)) + \
+                                    np.log((x[3])*(1-PA)/(np.sqrt(2*np.pi)*np.abs(x[2]**2.+muerr**2.)))))
 
 
-def twogausslike_nofrac(x,PA=None,PL=None,resid=None,residerr=None):
+def twogausslike_nofrac(x,PA=None,PL=None,mu=None,muerr=None,z=None,zcontrol=None):
 
-    return np.sum(np.logaddexp(-(resid-x[0]+PL*x[5])**2./(2.0*np.sqrt(residerr**2.+x[1]**2.)) + \
-                                    np.log(PA/(np.sqrt(2*np.pi)*np.abs(x[1]**2.+residerr**2.))),
-                                -(resid-x[2])**2./(2.0*np.sqrt(residerr**2.+x[3]**2.)) + \
-                                    np.log((1-PA)/(np.sqrt(2*np.pi)*np.abs(x[3]**2.+residerr**2.)))))
+    logzpoints = np.interp(np.log10(z),np.log10(zcontrol),x[5:])
+
+    return np.sum(np.logaddexp(-(mu-logzpoints+PL*x[3])**2./(2.0*np.sqrt(muerr**2.+x[0]**2.)) + \
+                                    np.log(PA/(np.sqrt(2*np.pi)*np.abs(x[0]**2.+muerr**2.))),
+                                -(mu-logzpoints-x[1])**2./(2.0*np.sqrt(muerr**2.+x[2]**2.)) + \
+                                    np.log((1-PA)/(np.sqrt(2*np.pi)*np.abs(x[2]**2.+muerr**2.)))))
 
 def lnprior(theta,
             p_residA=None,psig_residA=None,
@@ -344,17 +369,21 @@ def lnprior(theta,
             p_sig_A=None,psig_sig_A=None,
             p_sig_B=None,psig_sig_B=None,
             p_fracB=None,psig_fracB=None,
-            p_lstep=None,psig_lstep=None):
+            p_lstep=None,psig_lstep=None,
+            use_frac=False):
 
-    try:
-        residA,sigA,residB,sigB,fracB,lstep = theta
-    except:
-        residA,sigA,residB,sigB,lstep = theta
+    if use_frac:
+        sigA,residB,sigB,fracB,lstep = theta[:5]
+        residAlist = theta[5:]
+    else:
+        sigA,residB,sigB,lstep = theta[:4]
+        residAlist = theta[4:]
 
     p_theta = 1.0
 
     if p_residA:
-        p_theta *= gauss(residA,p_residA,psig_residA)
+        for residA in residAlist:
+            p_theta *= gauss(residA,p_residA,psig_residA)
     if p_residB:
         p_theta *= gauss(residB,p_residB,psig_residB)
     if p_sig_A:
@@ -370,7 +399,7 @@ def lnprior(theta,
     if fracB > 1 or fracB < 0: return -np.inf
     else: return(np.log(p_theta))
 
-def lnprob(theta,PA=None,PL=None,resid=None,residerr=None,
+def lnprob(theta,PA=None,PL=None,mu=None,muerr=None,
            omitfracB=False,
            p_residA=None,psig_residA=None,
            p_residB=None,psig_residB=None,
@@ -385,7 +414,8 @@ def lnprob(theta,PA=None,PL=None,resid=None,residerr=None,
                  p_sig_A=p_sig_A,psig_sig_A=psig_sig_A,
                  p_sig_B=p_sig_B,psig_sig_B=psig_sig_B,
                  p_fracB=p_fracB,psig_fracB=psig_fracB,
-                 p_lstep=p_lstep,psig_lstep=psig_lstep)
+                 p_lstep=p_lstep,psig_lstep=psig_lstep,
+                 use_frac=omitfracB)
     if not np.isfinite(lp) or np.isnan(lp):
         return -np.inf
 
