@@ -105,7 +105,10 @@ class sncosmo:
                           help='number of bins in log redshift space')
         parser.add_option('--equalbins', default=False, action="store_true",
                           help='if set, every bin contains the same number of SNe')
-
+        parser.add_option('--corrzbins', default=False, action="store_true",
+                          help='if set, run doSNBEAMS to get correlated measurements at log-spaced z control points')
+        parser.add_option('--nzskip', default=0, type="int",
+                          help='This is a hack - don\t write the first x bins to the output files')
 
         parser.add_option('-f','--fitresfile', default='ps1_psnidprob.fitres', type="string",
                           help='fitres file with the SN Ia data')
@@ -122,6 +125,9 @@ class sncosmo:
         parser.add_option('--showpriorprobs', default=False, action="store_true",
                           help='when plotting, show the prior probabilities instead of the (estimated) posterior probs.')
 
+
+        parser.add_option('--covmatfile', default='BEAMS.covmat', type="string",
+                          help='Output covariance matrix')
 
         return(parser)
 
@@ -160,7 +166,10 @@ class sncosmo:
                 if fr.__dict__[self.options.specconfcol][i] == 1:
                     P_Ia[i] = 1
 
-        from doBEAMS import BEAMS
+        if self.options.corrzbins:
+            from doSNBEAMS import BEAMS
+        else:
+            from doBEAMS import BEAMS
         import ConfigParser, sys
         sys.argv = ['./doBEAMS.py']
         beam = BEAMS()
@@ -180,10 +189,33 @@ class sncosmo:
         options.inputfile = 'BEAMS_SN.input'
         if self.options.masscorr: beam.options.lstep = True
 
+        if self.options.corrzbins:
+            beam.options.zmin = self.options.zmin
+            beam.options.zmax = self.options.zmax
+            beam.options.nzbins = self.options.nbins
+
+            # make the BEAMS input file
+            fout = open('BEAMS_SN.input','w')
+            print >> fout, '# PA z mu mu_err'
+            for i in range(len(fr.MU)):
+                if fr.zHD[i] > self.options.zmin and fr.zHD[i] <= self.options.zmax:
+                    print >> fout, '%.3f %.4f %.4f %.4f'%(P_Ia[i],fr.zHD[i],fr.MU[i],fr.MUERR[i])
+            fout.close()
+
+            beam.options.append = False
+            beam.options.clobber = self.options.clobber
+            beam.options.outputfile = self.options.outfile
+            beam.options.equalbins = self.options.equalbins
+            beam.options.covmatfile = self.options.covmatfile
+            beam.options.nzskip = self.options.nzskip
+            beam.main(options.inputfile)
+            bms = txtobj(self.options.outfile)
+            self.writeBinCorrFitres('%s.fitres'%self.options.outfile.split('.')[0],bms,skip=self.options.nzskip,fr=fr)
+            return
+
         # loop over the redshift bins
         append = False
-#        for zmin,zmax in zip(np.arange(self.options.zmin,self.options.zmax,self.options.zbinsize),
-#                             np.arange(self.options.zmin+self.options.zbinsize,self.options.zmax+self.options.zbinsize,self.options.zbinsize)):
+
         z = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nbins)
         if self.options.equalbins:
             from scipy import stats
@@ -214,12 +246,12 @@ class sncosmo:
         import os,cosmo
 
         from txtobj import txtobj
-        fr = txtobj('ps1_sim_v3_1000_prob.fitres',fitresheader=True)
-        fr.MU,fr.MUERR = salt2mu(x1=fr.x1,x1err=fr.x1ERR,c=fr.c,cerr=fr.cERR,mb=fr.mB,mberr=fr.mBERR,
-                                 cov_x1_c=fr.COV_x1_c,cov_x1_x0=fr.COV_x1_x0,cov_c_x0=fr.COV_c_x0,
-                                 alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
-                                 beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
-                                 x0=fr.x0,sigint=self.options.sigint)
+        #fr = txtobj('ps1_sim_v3_1000_prob.fitres',fitresheader=True)
+        #fr.MU,fr.MUERR = salt2mu(x1=fr.x1,x1err=fr.x1ERR,c=fr.c,cerr=fr.cERR,mb=fr.mB,mberr=fr.mBERR,
+        #                         cov_x1_c=fr.COV_x1_c,cov_x1_x0=fr.COV_x1_x0,cov_c_x0=fr.COV_c_x0,
+        #                         alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
+        #                         beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
+        #                         x0=fr.x0,sigint=self.options.sigint)
         from iterstat import iterstat
 
         fout = open(outfile,'w')
@@ -234,9 +266,9 @@ class sncosmo:
         for zmin,zmax,i in zip(z[:-1],z[1:],range(len(z[:-1]))):
 
 #        for zmin,zmax,i in zip(np.arange(0,0.7,0.05),np.arange(0.05,0.75,0.05),range(len(np.arange(0.05,0.75,0.05)))):
-            cols = np.where((fr.zHD > zmin) & (fr.zHD < zmax) & (fr.TYPE == 1))[0]
-            md,std = iterstat(fr.MU[cols]-cosmo.mu(fr.zHD[cols]))
-            std = std/np.sqrt(len(fr.MU[cols]))
+#            cols = np.where((fr.zHD > zmin) & (fr.zHD < zmax) & (fr.TYPE == 1))[0]
+#            md,std = iterstat(fr.MU[cols]-cosmo.mu(fr.zHD[cols]))
+#            std = std/np.sqrt(len(fr.MU[cols]))
 
             outvars = ()
             for v in fitresvars:
@@ -251,6 +283,36 @@ class sncosmo:
                 else:
                     outvars += (0,)
             print >> fout, fitresfmt%outvars
+
+    def writeBinCorrFitres(self,outfile,bms,skip=0,fr=None):
+        import os,cosmo
+
+        from txtobj import txtobj
+        from iterstat import iterstat
+
+        fout = open(outfile,'w')
+        print >> fout, fitresheader
+        z = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nbins)
+        if self.options.equalbins:
+            from scipy import stats
+            z = stats.mstats.mquantiles(fr.zHD,np.arange(0,1,1./self.options.nbins))
+
+        for zcntrl,i in zip(z[skip:],range(len(z[skip:]))):
+
+            outvars = ()
+            for v in fitresvars:
+                if v == 'zHD':
+                    outvars += (zcntrl,)
+                elif v == 'z':
+                    outvars += (zcntrl,)
+                elif v == 'mB':
+                    outvars += (bms.muA[i]-19.3,)
+                elif v == 'mBERR':
+                    outvars += (bms.muAerr[i],)
+                else:
+                    outvars += (0,)
+            print >> fout, fitresfmt%outvars
+
 
     def mkplot(self,fitresfile=None,showpriorprobs=False):
         

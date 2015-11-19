@@ -26,10 +26,13 @@ class BEAMS:
             # Input file
             parser.add_option('--pacol', default=config.get('all','pacol'), type="string",
                               help='column in input file used as prior P(A)')
-            parser.add_option('--residcol', default=config.get('all','residcol'), type="string",
-                              help='column name in input file header for residuals')
-            parser.add_option('--residerrcol', default=config.get('all','residerrcol'), type="string",
-                              help='column name in input file header for residual errors')
+            parser.add_option('--mucol', default=config.get('all','mucol'), type="string",
+                              help='column name in input file header for distance modulus')
+            parser.add_option('--muerrcol', default=config.get('all','muerrcol'), type="string",
+                              help='column name in input file header for distance modulus errors')
+            parser.add_option('--zcol', default=config.get('all','zcol'), type="string",
+                              help='column name in input file header for z')
+
 
             # population A guesses and priors (the pop we care about)
             parser.add_option('--popAguess', default=map(float,config.get('all','popAguess').split(',')),type='float',
@@ -95,24 +98,41 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
 
 
+            parser.add_option('--nzbins', default=config.get('all','nzbins'), type="int",
+                              help='Number of z bins')
+            parser.add_option('--nzskip', default=config.get('all','nzbins'), type="int",
+                              help='This is a hack - don\t write the first x bins to the output files')
+            parser.add_option('--zmin', default=config.get('all','zmin'), type="float",
+                              help='min redshift')
+            parser.add_option('--zmax', default=config.get('all','zmax'), type="float",
+                              help='max redshift')
+            parser.add_option('--equalbins', default=config.get('all','equalbins'), action="store_true",
+                              help='if set, divide bins so that there are the same number of SNe in each bin')
+
+
             parser.add_option('-i','--inputfile', default=config.get('all','inputfile'), type="string",
                               help='file with the input data')
             parser.add_option('-o','--outputfile', default=config.get('all','outputfile'), type="string",
                               help='Output file with the derived parameters for each redshift bin')
+            parser.add_option('--covmatfile', default=config.get('all','covmatfile'), type="string",
+                              help='Output file with the derived parameters for each redshift bin')
+
 
         else:
             # Input file
             parser.add_option('--pacol', default='PA', type="string",
                               help='column in input file used as prior P(A)')
-            parser.add_option('--residcol', default='resid', type="string",
+            parser.add_option('--mucol', default='mu', type="string",
                               help='column name in input file header for residuals')
-            parser.add_option('--residerrcol', default='resid_err', type="string",
+            parser.add_option('--muerrcol', default='mu_err', type="string",
                               help='column name in input file header for residual errors')
+            parser.add_option('--zcol', default='z', type="string",
+                              help='column name in input file header for z')
 
             # population A guesses and priors (the pop we care about)
             parser.add_option('--popAguess', default=(0.0,0.1),type='float',
                               help='comma-separated initial guesses for population A: mean, standard deviation',nargs=2)
-            parser.add_option('--popAprior_mean', default=(0.0,0.1),type='float',
+            parser.add_option('--popAprior_mean', default=(0.0,0.2),type='float',
                               help="""comma-separated gaussian prior for mean of population A: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
             parser.add_option('--popAprior_std', default=(0.1,0.2),type='float',
@@ -165,6 +185,8 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
             # output and number of threads
             parser.add_option('--nthreads', default=8, type="int",
                               help='Number of threads for MCMC')
+            parser.add_option('--nzskip', default=0, type="int",
+                              help='This is a hack - don\t write the first x bins to the output files')
             parser.add_option('--nwalkers', default=100, type="int",
                               help='Number of walkers for MCMC')
             parser.add_option('--nsteps', default=500, type="int",
@@ -173,10 +195,21 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
 
 
+            parser.add_option('--nzbins', default=30, type="int",
+                              help='Number of z bins')
+            parser.add_option('--zmin', default=0.02, type="float",
+                              help='min redshift')
+            parser.add_option('--zmax', default=0.7, type="float",
+                              help='max redshift')
+            parser.add_option('--equalbins', default=False, action="store_true",
+                              help='if set, divide bins so that there are the same number of SNe in each bin')
+
             parser.add_option('-i','--inputfile', default='BEAMS.input', type="string",
                               help='file with the input data')
             parser.add_option('-o','--outputfile', default='beamsCosmo.out', type="string",
                               help='Output file with the derived parameters for each redshift bin')
+            parser.add_option('--covmatfile', default='BEAMS.covmat', type="string",
+                              help='Output covariance matrix')
 
 
         parser.add_option('-p','--paramfile', default='', type="string",
@@ -195,42 +228,44 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
         else:
             self.options.lstepfixed = 1
             self.options.lstepguess = 0.0
-        inp.resid = inp.__dict__[self.options.residcol]
-        inp.residerr = inp.__dict__[self.options.residerrcol]
+        inp.mu = inp.__dict__[self.options.mucol]
+        inp.muerr = inp.__dict__[self.options.muerrcol]
 
         # open the output file
         if not os.path.exists(self.options.outputfile) or self.options.clobber:
             writeout = True
             fout = open(self.options.outputfile,'w')
-            print >> fout, "# muA muAerr_m muAerr_p sigA sigAerr_m sigAerr_p muB muBerr_m muBerr_p sigB sigBerr_m sigBerr_p fracB fracBerr_m fracBerr_p lstep lstep_m lstep_p"""
+            print >> fout, "# muA muAerr sigA sigAerr_m sigAerr_p muB muBerr_m muBerr_p sigB sigBerr_m sigBerr_p fracB fracBerr_m fracBerr_p lstep lstep_m lstep_p"""
             fout.close()
         elif not self.options.append:
             writeout = False
             print('Warning : files %s exists!!  Not clobbering'%self.options.outputfile)
 
         # run the MCMC
-        cov,params = self.mcmc(inp)
+        zcontrol = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nzbins)
+        if self.options.equalbins:
+            from scipy import stats
+            zcontrol = stats.mstats.mquantiles(inp.z,np.arange(0,1,1./self.options.nzbins))
+
+        cov,params = self.mcmc(inp,zcontrol)
         if self.options.covmatfile:
-            fout = open(covmatfile,'w')
+            fout = open(self.options.covmatfile,'w')
+            print >> fout, '%i'%len(cov)
             shape = np.shape(cov)[0]
             for j in range(shape):
                 outline = ''
                 for i in range(shape):
-                    outline += '%.8e5 '%cov[j,i]
-                print >> fout, outline
+                    outline += '%8.5e '%cov[j,i]
+                    print >> fout, '%8.5e'%cov[j,i]#outline
             fout.close()
 
         # residA,sigA,residB,sigB,fracB,lstep = self.mcmc(inp)
-        params = \
-            map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
-                zip(*np.percentile(samples, [16, 50, 84],
-                                   axis=0)))
         sigA,residB,sigB,fracB,lstep = params[:5]
         mupar = params[5:]
 
-        outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
-        for par,zcntrl in zip(mupar,zcontrol):
-            outline = outlinefmt%(par[0],par[1],par[2],
+        outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
+        for par,zcntrl,i in zip(mupar[self.options.nzskip:],zcontrol[self.options.nzskip:],range(len(mupar[self.options.nzskip:]))):
+            outline = outlinefmt%(par[0],np.sqrt(cov[i,i]),
                                   sigA[0],sigA[1],sigA[2],
                                   residB[0],residB[1],residB[2],
                                   sigB[0],sigB[1],sigB[2],
@@ -248,9 +283,11 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
                         fracB[0],np.mean([fracB[1],fracB[2]]),
                         lstep[0],np.mean([lstep[1],lstep[2]])))
 
+
     def mcmc(self,inp,zcontrol):
         from scipy.optimize import minimize
         import emcee
+        import cosmo
         if not inp.__dict__.has_key('PL'):
             inp.PL = 0
 
@@ -263,8 +300,9 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
 
         guess = (self.options.popAguess[1],
                  self.options.popBguess[0],self.options.popBguess[1],
-                 self.options.fracBguess,self.options.lstepguess,) + \
-                 (self.options.popAguess[0],)*len(zcontrol)
+                 self.options.fracBguess,self.options.lstepguess,)
+        for z in zcontrol:
+            guess += (self.options.popAguess[0]+cosmo.mu(z),)
         md = minimize(nll,guess,
                       args=(inp.PA,inp.PL,inp.mu,inp.muerr,inp.z,zcontrol))
         if md.message != 'Optimization terminated successfully.':
@@ -273,6 +311,8 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
 
         # for the fixed parameters, make really narrow priors
         md = self.fixedpriors(md)
+        for i in range(len(md["x"])):
+            if i >= 5: md["x"][i] = cosmo.mu(zcontrol[i-5])
 
         ndim, nwalkers = len(md["x"]), int(self.options.nwalkers)
         pos = [md["x"] + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
@@ -291,13 +331,13 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         samples = sampler.chain[:, self.options.ninit:, :].reshape((-1, ndim))
 
         # get the error bars - should really return the full posterior
-        cov = covmat(samples)
 
         params = \
             map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
                 zip(*np.percentile(samples, [16, 50, 84],
                                    axis=0)))
 
+        cov = covmat(samples[:,np.shape(samples)[1] - self.options.nzbins + self.options.nzskip:])
         return(cov,params)
 
     def fixedpriors(self,md):
@@ -346,21 +386,33 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
 
 def twogausslike(x,PA=None,PL=None,mu=None,muerr=None,z=None,zcontrol=None):
 
-    logzpoints = np.interp(np.log10(z),np.log10(zcontrol),x[5:])
-    
-    return np.sum(np.logaddexp(-(mu-logzpoints+PL*x[4])**2./(2.0*np.sqrt(muerr**2.+x[0]**2.)) + \
+    mumodel = np.interp(np.log10(z),np.log10(zcontrol),x[5:])
+
+#    mumodel = np.zeros(len(z))
+#    for mub,mub1,zb,zb1 in zip(x[5:-1],x[6:],zcontrol[:-1],zcontrol[1:]):
+#        cols = np.where((z >= zb) & (z < zb1))[0]
+#        alpha = np.log10(z[cols]/zb)/np.log10(zb1/zb)
+#        mumodel[cols] = (1-alpha)*mub + alpha*mub1
+
+    return np.sum(np.logaddexp(-(mu-mumodel+PL*x[4])**2./(2.0*np.sqrt(muerr**2.+x[0]**2.)) + \
                                     np.log((1-x[3])*(PA)/(np.sqrt(2*np.pi)*np.abs(x[0]**2.+muerr**2.))),
-                                -(mu-logzpoints-x[1])**2./(2.0*np.sqrt(muerr**2.+x[2]**2.)) + \
+                                -(mu-mumodel-x[1])**2./(2.0*np.sqrt(muerr**2.+x[2]**2.)) + \
                                     np.log((x[3])*(1-PA)/(np.sqrt(2*np.pi)*np.abs(x[2]**2.+muerr**2.)))))
 
 
 def twogausslike_nofrac(x,PA=None,PL=None,mu=None,muerr=None,z=None,zcontrol=None):
 
-    logzpoints = np.interp(np.log10(z),np.log10(zcontrol),x[5:])
+    mumodel = np.interp(np.log10(z),np.log10(zcontrol),x[5:])
 
-    return np.sum(np.logaddexp(-(mu-logzpoints+PL*x[3])**2./(2.0*np.sqrt(muerr**2.+x[0]**2.)) + \
+#    mumodel = np.zeros(len(z))
+#    for mub,mub1,zb,zb1 in zip(x[5:-1],x[6:],zcontrol[:-1],zcontrol[1:]):
+#        cols = np.where((z >= zb) & (z < zb1))[0]
+#        alpha = np.log10(z[cols]/zb)/np.log10(zb1/zb)
+#        mumodel[cols] = (1-alpha)*mub + alpha*mub1
+
+    return np.sum(np.logaddexp(-(mu-mumodel+PL*x[3])**2./(2.0*np.sqrt(muerr**2.+x[0]**2.)) + \
                                     np.log(PA/(np.sqrt(2*np.pi)*np.abs(x[0]**2.+muerr**2.))),
-                                -(mu-logzpoints-x[1])**2./(2.0*np.sqrt(muerr**2.+x[2]**2.)) + \
+                                -(mu-mumodel-x[1])**2./(2.0*np.sqrt(muerr**2.+x[2]**2.)) + \
                                     np.log((1-PA)/(np.sqrt(2*np.pi)*np.abs(x[2]**2.+muerr**2.)))))
 
 def lnprior(theta,
@@ -370,9 +422,10 @@ def lnprior(theta,
             p_sig_B=None,psig_sig_B=None,
             p_fracB=None,psig_fracB=None,
             p_lstep=None,psig_lstep=None,
-            use_frac=False):
+            omitfracB=False,zcntrl=None):
+    import cosmo
 
-    if use_frac:
+    if not omitfracB:
         sigA,residB,sigB,fracB,lstep = theta[:5]
         residAlist = theta[5:]
     else:
@@ -381,9 +434,13 @@ def lnprior(theta,
 
     p_theta = 1.0
 
-    if p_residA:
-        for residA in residAlist:
-            p_theta *= gauss(residA,p_residA,psig_residA)
+    if p_residA or p_residA == 0.0:
+        for residA,z in zip(residAlist,zcntrl):
+            #print 'hi'
+            #print p_theta,residA,p_residA,cosmo.mu(z),psig_residA
+            p_theta *= gauss(residA,p_residA+cosmo.mu(z),psig_residA)
+            #print residA,p_residA+cosmo.mu(z),p_theta,gauss(residA,p_residA+cosmo.mu(z),psig_residA)
+        #print 'done',p_theta
     if p_residB:
         p_theta *= gauss(residB,p_residB,psig_residB)
     if p_sig_A:
@@ -400,6 +457,7 @@ def lnprior(theta,
     else: return(np.log(p_theta))
 
 def lnprob(theta,PA=None,PL=None,mu=None,muerr=None,
+           z=None,zcontrol=None,
            omitfracB=False,
            p_residA=None,psig_residA=None,
            p_residB=None,psig_residB=None,
@@ -415,16 +473,19 @@ def lnprob(theta,PA=None,PL=None,mu=None,muerr=None,
                  p_sig_B=p_sig_B,psig_sig_B=psig_sig_B,
                  p_fracB=p_fracB,psig_fracB=psig_fracB,
                  p_lstep=p_lstep,psig_lstep=psig_lstep,
-                 use_frac=omitfracB)
+                 omitfracB=omitfracB,zcntrl=zcontrol)
+
     if not np.isfinite(lp) or np.isnan(lp):
         return -np.inf
 
     if omitfracB:
         post = lp+twogausslike(theta,PA=PA,PL=PL,
-                               resid=resid,residerr=residerr)
+                               mu=mu,muerr=muerr,
+                               z=z,zcontrol=zcontrol)
     else:
         post = lp+twogausslike_nofrac(
-            theta,PA=PA,PL=PL,resid=resid,residerr=residerr)
+            theta,PA=PA,PL=PL,mu=mu,muerr=muerr,
+            z=z,zcontrol=zcontrol)
 
     if post != post: return -np.inf
     else: return post
@@ -444,7 +505,8 @@ def covmat(samples):
     covmat = np.zeros([cov_shape,cov_shape])
     for i in range(cov_shape):
         for j in range(cov_shape):
-            covmat[j,i] = np.sum(samples[j]*samples[i])/chain_len
+            covmat[j,i] = np.sum((samples[:,j]-np.mean(samples[:,j]))*(samples[:,i]-np.mean(samples[:,i])))/chain_len
+
     return(covmat)
 
 if __name__ == "__main__":
@@ -457,10 +519,10 @@ the full covariance matrix.
 Takes a
 parameter file or command line options, and a file with the following header/columns:
 
-# PA resid resid_err
-<PA_1> <resid_1> <resid_err_1>
-<PA_2> <resid_2> <resid_err_2>
-<PA_3> <resid_3> <resid_err_3>
+# PA z mu mu_err
+<PA_1> <z> <resid_1> <resid_err_1>
+<PA_2> <z> <resid_2> <resid_err_2>
+<PA_3> <z> <resid_3> <resid_err_3>
 .......
 
 The PA column is the prior probability that a data point belongs to population A, P(A).

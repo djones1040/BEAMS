@@ -249,7 +249,7 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
                            self.options.fracBguess,self.options.lstepguess),
                       args=(inp.PA,inp.PL,inp.resid,inp.residerr))
         if md.message != 'Optimization terminated successfully.':
-            print("""Warning : Minimization Failed!!!  
+            print("""Warning : Minimization Failed!!!
 Try some different initial guesses, or let the MCMC try and take care of it""")
 
         # for the fixed parameters, make really narrow priors
@@ -258,7 +258,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         ndim, nwalkers = len(md["x"]), int(self.options.nwalkers)
         pos = [md["x"] + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
 
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, 
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob,
                                         args=(inp.PA,inp.PL,inp.resid,inp.residerr,omitfracB,
                                               self.options.p_residA,self.options.psig_residA,
                                               self.options.p_residB,self.options.psig_residB,
@@ -276,7 +276,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
             map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
                 zip(*np.percentile(samples, [16, 50, 84],
                                    axis=0)))
-        import pdb; pdb.set_trace()
+
         return(resida_mcmc,siga_mcmc,residb_mcmc,sigb_mcmc,fracB,lstep)
 
     def fixedpriors(self,md):
@@ -473,3 +473,7 @@ examples:
 
     beam.main(options.inputfile)
 
+        resida_mcmc, siga_mcmc, residb_mcmc, sigb_mcmc, fracB, lstep = \
+            map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
+                zip(*np.percentile(samples, [16, 50, 84],
+                                   axis=0)))
