@@ -394,10 +394,10 @@ def twogausslike(x,PA=None,PL=None,mu=None,muerr=None,z=None,zcontrol=None):
 #        alpha = np.log10(z[cols]/zb)/np.log10(zb1/zb)
 #        mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
-    return np.sum(np.logaddexp(-(mu-mumodel+PL*x[4])**2./(2.0*np.sqrt(muerr**2.+x[0]**2.)) + \
-                                    np.log((1-x[3])*(PA)/(np.sqrt(2*np.pi)*np.abs(x[0]**2.+muerr**2.))),
-                                -(mu-mumodel-x[1])**2./(2.0*np.sqrt(muerr**2.+x[2]**2.)) + \
-                                    np.log((x[3])*(1-PA)/(np.sqrt(2*np.pi)*np.abs(x[2]**2.+muerr**2.)))))
+    return np.sum(np.logaddexp(-(mu-mumodel+PL*x[4])**2./(2.0*(muerr**2.+x[0]**2.)) + \
+                                    np.log((1-x[3])*(PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+                                -(mu-mumodel-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
+                                    np.log((x[3])*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.)))))
 
 
 def twogausslike_nofrac(x,PA=None,PL=None,mu=None,muerr=None,z=None,zcontrol=None):
@@ -410,10 +410,10 @@ def twogausslike_nofrac(x,PA=None,PL=None,mu=None,muerr=None,z=None,zcontrol=Non
 #        alpha = np.log10(z[cols]/zb)/np.log10(zb1/zb)
 #        mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
-    return np.sum(np.logaddexp(-(mu-mumodel+PL*x[3])**2./(2.0*np.sqrt(muerr**2.+x[0]**2.)) + \
-                                    np.log(PA/(np.sqrt(2*np.pi)*np.abs(x[0]**2.+muerr**2.))),0))
-#                                -(mu-mumodel-x[1])**2./(2.0*np.sqrt(muerr**2.+x[2]**2.)) + \
-#                                    np.log((1-PA)/(np.sqrt(2*np.pi)*np.abs(x[2]**2.+muerr**2.)))))
+    return np.sum(np.logaddexp(-(mu-mumodel+PL*x[3])**2./(2.0*(muerr**2.+x[0]**2.)) + \
+                                    np.log(PA/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),0))
+#                                -(mu-mumodel-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
+#                                    np.log((1-PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.)))))
 
 def lnprior(theta,
             p_residA=None,psig_residA=None,

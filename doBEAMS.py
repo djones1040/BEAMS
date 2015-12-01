@@ -267,8 +267,10 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                                               self.options.p_fracB,self.options.psig_fracB,
                                               self.options.p_lstep,self.options.psig_lstep),
                                         threads=int(self.options.nthreads))
-        sampler.run_mcmc(pos, self.options.nsteps)
-        samples = sampler.chain[:, self.options.ninit:, :].reshape((-1, ndim))
+        pos, prob, state = sampler.run_mcmc(pos, 200)
+        sampler.reset()
+        sampler.run_mcmc(pos, self.options.nsteps, thin=1)
+        samples = sampler.flatchain#[:, self.options.ninit:, :].reshape((-1, ndim))
 
         # get the error bars - should really return the full posterior!
         import scipy.stats
@@ -276,7 +278,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
             map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
                 zip(*np.percentile(samples, [16, 50, 84],
                                    axis=0)))
-
+#        import pdb; pdb.set_trace()
         return(resida_mcmc,siga_mcmc,residb_mcmc,sigb_mcmc,fracB,lstep)
 
     def fixedpriors(self,md):
@@ -325,18 +327,18 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
 
 def twogausslike(x,PA=None,PL=None,resid=None,residerr=None):
     
-    return np.sum(np.logaddexp(-(resid-x[0]+PL*x[5])**2./(2.0*np.sqrt(residerr**2.+x[1]**2.)) + \
-                                    np.log((1-x[4])*(PA)/(np.sqrt(2*np.pi)*np.abs(x[1]**2.+residerr**2.))),
-                                -(resid-x[2])**2./(2.0*np.sqrt(residerr**2.+x[3]**2.)) + \
-                                    np.log((x[4])*(1-PA)/(np.sqrt(2*np.pi)*np.abs(x[3]**2.+residerr**2.)))))
+    return np.sum(np.logaddexp(-(resid-x[0]+PL*x[5])**2./(2.0*(residerr**2.+x[1]**2.)) + \
+                                    np.log((1-x[4])*(PA)/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+residerr**2.))),
+                                -(resid-x[2])**2./(2.0*(residerr**2.+x[3]**2.)) + \
+                                    np.log((x[4])*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+residerr**2.)))))
 
 
 def twogausslike_nofrac(x,PA=None,PL=None,resid=None,residerr=None):
 
-    return np.sum(np.logaddexp(-(resid-x[0]+PL*x[5])**2./(2.0*np.sqrt(residerr**2.+x[1]**2.)) + \
-                                    np.log(PA/(np.sqrt(2*np.pi)*np.abs(x[1]**2.+residerr**2.))),
-                                -(resid-x[2])**2./(2.0*np.sqrt(residerr**2.+x[3]**2.)) + \
-                                    np.log((1-PA)/(np.sqrt(2*np.pi)*np.abs(x[3]**2.+residerr**2.)))))
+    return np.sum(np.logaddexp(-(resid-x[0]+PL*x[5])**2./(2.0*(residerr**2.+x[1]**2.)) + \
+                                    np.log(PA/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+residerr**2.))),
+                                -(resid-x[2])**2./(2.0*(residerr**2.+x[3]**2.)) + \
+                                    np.log((1-PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+residerr**2.)))))
 
 def lnprior(theta,
             p_residA=None,psig_residA=None,
@@ -472,8 +474,3 @@ examples:
     import emcee
 
     beam.main(options.inputfile)
-
-        resida_mcmc, siga_mcmc, residb_mcmc, sigb_mcmc, fracB, lstep = \
-            map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
-                zip(*np.percentile(samples, [16, 50, 84],
-                                   axis=0)))
