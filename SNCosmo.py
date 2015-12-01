@@ -69,17 +69,17 @@ class sncosmo:
             help='Peculiar velocity error (default=%default)')
 
         # SALT2 parameters and intrinsic dispersion
-        parser.add_option('--salt2alpha', default=0.11, type="float",#0.147
+        parser.add_option('--salt2alpha', default=0.147, type="float",#0.147
                           help='SALT2 alpha parameter from a spectroscopic sample (default=%default)')
         parser.add_option('--salt2alphaerr', default=1e-4, type="float",#0.01
                           help='nominal SALT2 alpha uncertainty from a spectroscopic sample (default=%default)')
-        parser.add_option('--salt2beta', default=3.2, type="float",#3.13
+        parser.add_option('--salt2beta', default=3.13, type="float",#3.13
                           help='nominal SALT2 beta parameter from a spec. sample (default=%default)')
         parser.add_option('--salt2betaerr', default=1e-4, type="float",#0.12
                           help='nominal SALT2 beta uncertainty from a spec. sample (default=%default)')
         parser.add_option('--fitsalt2pars', default=False, action="store_true",
                           help='If set, determine SALT2 nuisance parameters with MCMC.  Otherwise, use values derived from spec. sample')
-        parser.add_option('--sigint', default=0.1, type="float",
+        parser.add_option('--sigint', default=None, type="float",
                           help='nominal intrinsic dispersion, MCMC fits for this if not specified (default=%default)')
 
         # Mass options
@@ -154,7 +154,7 @@ class sncosmo:
                             (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax) &
                             (fr.FITPROB > self.options.fitprobmin) &
-                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax))
+                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax) & (fr.TYPE == 1))
         for k in fr.__dict__.keys():
             fr.__dict__[k] = fr.__dict__[k][cols]
 
@@ -240,9 +240,9 @@ class sncosmo:
             beam.main(options.inputfile)
 
         bms = txtobj(self.options.outfile)
-        self.writeBinFitres('%s.fitres'%self.options.outfile.split('.')[0],bms)
+        self.writeBinFitres('%s.fitres'%self.options.outfile.split('.')[0],bms,fr=fr)
 
-    def writeBinFitres(self,outfile,bms):
+    def writeBinFitres(self,outfile,bms,fr=None):
         import os,cosmo
 
         from txtobj import txtobj
@@ -266,10 +266,13 @@ class sncosmo:
         for zmin,zmax,i in zip(z[:-1],z[1:],range(len(z[:-1]))):
 
 #        for zmin,zmax,i in zip(np.arange(0,0.7,0.05),np.arange(0.05,0.75,0.05),range(len(np.arange(0.05,0.75,0.05)))):
-#            cols = np.where((fr.zHD > zmin) & (fr.zHD < zmax) & (fr.TYPE == 1))[0]
+            cols = np.where((fr.zHD > zmin) & (fr.zHD < zmax) & (fr.TYPE == 1))[0]
 #            md,std = iterstat(fr.MU[cols]-cosmo.mu(fr.zHD[cols]))
 #            std = std/np.sqrt(len(fr.MU[cols]))
-
+            from doSNBEAMS import weighted_avg_and_std
+            md,std = weighted_avg_and_std(fr.MU[cols]-cosmo.mu(fr.zHD[cols]),1/fr.MUERR[cols]**2.)
+            std = 1/np.sqrt(np.sum(1/fr.MUERR[cols]**2.))
+#            print std
             outvars = ()
             for v in fitresvars:
                 if v == 'zHD':
@@ -277,9 +280,9 @@ class sncosmo:
                 elif v == 'z':
                     outvars += ((zmin+zmax)/2.,)
                 elif v == 'mB':
-                    outvars += (md+cosmo.mu((zmin+zmax)/2.)-19.3,)#(bms.muA[i]+cosmo.mu((zmin+zmax)/2.)-19.3,)#
+                    outvars += (bms.muA[i]+cosmo.mu((zmin+zmax)/2.)-19.3,)#(md+cosmo.mu((zmin+zmax)/2.)-19.3,)
                 elif v == 'mBERR':
-                    outvars += (std,)#((bms.muAerr_m[i]+bms.muAerr_p[i])/2.,)
+                    outvars += ((bms.muAerr_m[i]+bms.muAerr_p[i])/2.,)#(std,)
                 else:
                     outvars += (0,)
             print >> fout, fitresfmt%outvars
