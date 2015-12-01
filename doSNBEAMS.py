@@ -187,7 +187,7 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
                               help='Number of threads for MCMC')
             parser.add_option('--nzskip', default=0, type="int",
                               help='This is a hack - don\t write the first x bins to the output files')
-            parser.add_option('--nwalkers', default=100, type="int",
+            parser.add_option('--nwalkers', default=200, type="int",
                               help='Number of walkers for MCMC')
             parser.add_option('--nsteps', default=500, type="int",
                               help='Number of steps for MCMC')
@@ -411,9 +411,9 @@ def twogausslike_nofrac(x,PA=None,PL=None,mu=None,muerr=None,z=None,zcontrol=Non
 #        mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
     return np.sum(np.logaddexp(-(mu-mumodel+PL*x[3])**2./(2.0*np.sqrt(muerr**2.+x[0]**2.)) + \
-                                    np.log(PA/(np.sqrt(2*np.pi)*np.abs(x[0]**2.+muerr**2.))),
-                                -(mu-mumodel-x[1])**2./(2.0*np.sqrt(muerr**2.+x[2]**2.)) + \
-                                    np.log((1-PA)/(np.sqrt(2*np.pi)*np.abs(x[2]**2.+muerr**2.)))))
+                                    np.log(PA/(np.sqrt(2*np.pi)*np.abs(x[0]**2.+muerr**2.))),0))
+#                                -(mu-mumodel-x[1])**2./(2.0*np.sqrt(muerr**2.+x[2]**2.)) + \
+#                                    np.log((1-PA)/(np.sqrt(2*np.pi)*np.abs(x[2]**2.+muerr**2.)))))
 
 def lnprior(theta,
             p_residA=None,psig_residA=None,
@@ -508,6 +508,12 @@ def covmat(samples):
             covmat[j,i] = np.sum((samples[:,j]-np.mean(samples[:,j]))*(samples[:,i]-np.mean(samples[:,i])))/chain_len
 
     return(covmat)
+
+def weighted_avg_and_std(values, weights):
+    import numpy
+    average = numpy.average(values, weights=weights)
+    variance = numpy.average((values-average)**2, weights=weights)  # Fast and numerically precise
+    return (average, numpy.sqrt(variance))
 
 if __name__ == "__main__":
     usagestring="""An implementation of the BEAMS method (Kunz, Bassett, & Hlozek 2006).
