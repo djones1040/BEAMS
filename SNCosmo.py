@@ -220,6 +220,7 @@ class sncosmo:
         if self.options.equalbins:
             from scipy import stats
             z = stats.mstats.mquantiles(fr.zHD,np.arange(0,1,1./self.options.nbins))
+        os.system('rm %s'%self.options.outfile)
         for zmin,zmax in zip(z[:-1],z[1:]):
             if self.options.verbose: print('%.3f < z < %.3f'%(zmin,zmax))
             if zmin > self.options.zmin:
