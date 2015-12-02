@@ -283,7 +283,7 @@ class sncosmo:
                 elif v == 'mB':
                     outvars += (bms.muA[i]+cosmo.mu((zmin+zmax)/2.)-19.3,)#(md+cosmo.mu((zmin+zmax)/2.)-19.3,)
                 elif v == 'mBERR':
-                    outvars += ((bms.muAerr_m[i]+bms.muAerr_p[i])/2.,)#(std,)
+                    outvars += (bms.muAerr[i],)#(std,)
                 else:
                     outvars += (0,)
             print >> fout, fitresfmt%outvars

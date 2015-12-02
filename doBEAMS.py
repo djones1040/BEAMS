@@ -202,23 +202,43 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
         if not os.path.exists(self.options.outputfile) or self.options.clobber:
             writeout = True
             fout = open(self.options.outputfile,'w')
-            print >> fout, "# muA muAerr_m muAerr_p sigA sigAerr_m sigAerr_p muB muBerr_m muBerr_p sigB sigBerr_m sigBerr_p fracB fracBerr_m fracBerr_p lstep lstep_m lstep_p"""
+            print >> fout, "# muA muAerr muAerr_m muAerr_p sigA sigAerr sigAerr_m sigAerr_p muB muBerr muBerr_m muBerr_p sigB sigBerr sigBerr_m sigBerr_p fracB fracBerr fracBerr_m fracBerr_p lstep lsteperr lsteperr_m lsteperr_p"""
             fout.close()
         elif not self.options.append:
             writeout = False
             print('Warning : files %s exists!!  Not clobbering'%self.options.outputfile)
 
         # run the MCMC
-        residA,sigA,residB,sigB,fracB,lstep = self.mcmc(inp)
+        residA,sigA,residB,sigB,fracB,lstep,samples = self.mcmc(inp)
                 
-        outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
+        outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
 
-        outline = outlinefmt%(residA[0],residA[1],residA[2],
-                              sigA[0],sigA[1],sigA[2],
-                              residB[0],residB[1],residB[2],
-                              sigB[0],sigB[1],sigB[2],
-                              fracB[0],fracB[1],fracB[2],
-                              lstep[0],lstep[1],lstep[2])
+        chain_len = len(samples[:,0])
+        residAmean = np.sqrt(np.sum((samples[:,0]-np.mean(samples[:,0]))*(samples[:,0]-np.mean(samples[:,0])))/chain_len)
+        residAerr = np.sqrt(np.sum((samples[:,0]-np.mean(samples[:,0]))*(samples[:,0]-np.mean(samples[:,0])))/chain_len)
+
+        sigAmean = np.sqrt(np.sum((samples[:,1]-np.mean(samples[:,1]))*(samples[:,1]-np.mean(samples[:,1])))/chain_len)
+        sigAerr = np.sqrt(np.sum((samples[:,1]-np.mean(samples[:,1]))*(samples[:,1]-np.mean(samples[:,1])))/chain_len)
+
+        residBmean = np.sqrt(np.sum((samples[:,2]-np.mean(samples[:,2]))*(samples[:,2]-np.mean(samples[:,2])))/chain_len)
+        residBerr = np.sqrt(np.sum((samples[:,2]-np.mean(samples[:,2]))*(samples[:,2]-np.mean(samples[:,2])))/chain_len)
+
+        sigBmean = np.sqrt(np.sum((samples[:,3]-np.mean(samples[:,3]))*(samples[:,3]-np.mean(samples[:,3])))/chain_len)
+        sigBerr = np.sqrt(np.sum((samples[:,3]-np.mean(samples[:,3]))*(samples[:,3]-np.mean(samples[:,3])))/chain_len)
+
+        fracBmean = np.sqrt(np.sum((samples[:,4]-np.mean(samples[:,4]))*(samples[:,4]-np.mean(samples[:,4])))/chain_len)
+        fracBerr = np.sqrt(np.sum((samples[:,4]-np.mean(samples[:,4]))*(samples[:,4]-np.mean(samples[:,4])))/chain_len)
+
+        lstepmean = np.sqrt(np.sum((samples[:,5]-np.mean(samples[:,5]))*(samples[:,5]-np.mean(samples[:,5])))/chain_len)
+        residAerr = np.sqrt(np.sum((samples[:,5]-np.mean(samples[:,5]))*(samples[:,5]-np.mean(samples[:,5])))/chain_len)
+
+
+        outline = outlinefmt%(residAmean,residAerr,residA[1],residA[2],
+                              sigAmean,sigAerr,sigA[1],sigA[2],
+                              residBmean,residBerr,residB[1],residB[2],
+                              sigBmean,sigBerr,sigB[1],sigB[2],
+                              fracBmean,fracBerr,fracB[1],fracB[2],
+                              lstepmean,lsteperr,lstep[1],lstep[2])
         if self.options.append or not os.path.exists(self.options.outputfile) or self.options.clobber:
             fout = open(self.options.outputfile,'a')
             print >> fout, outline
@@ -226,10 +246,10 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
 
         if self.options.verbose:
             print('muA: %.3f +/- %.3f muB: %.3f +/- %.3f frac. B: %.3f +/- %.3f Lstep: %.3f +/- %.3f'%(
-                    residA[0],np.mean([residA[1],residA[2]]),
-                    residB[0],np.mean([residB[1],residB[2]]),
-                    fracB[0],np.mean([fracB[1],fracB[2]]),
-                    lstep[0],np.mean([lstep[1],lstep[2]])))
+                    residAmean,residAerr,
+                    residBmean,residBerr,
+                    fracBmean,fracBerr,
+                    lstepmean,lsteperr))
 
     def mcmc(self,inp):
         from scipy.optimize import minimize
@@ -391,7 +411,7 @@ def lnprob(theta,PA=None,PL=None,resid=None,residerr=None,
     if not np.isfinite(lp) or np.isnan(lp):
         return -np.inf
 
-    if omitfracB:
+    if not omitfracB:
         post = lp+twogausslike(theta,PA=PA,PL=PL,
                                resid=resid,residerr=residerr)
     else:
