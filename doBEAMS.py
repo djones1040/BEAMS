@@ -214,22 +214,22 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
         outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
 
         chain_len = len(samples[:,0])
-        residAmean = np.sqrt(np.sum((samples[:,0]-np.mean(samples[:,0]))*(samples[:,0]-np.mean(samples[:,0])))/chain_len)
+        residAmean = np.mean(samples[:,0])
         residAerr = np.sqrt(np.sum((samples[:,0]-np.mean(samples[:,0]))*(samples[:,0]-np.mean(samples[:,0])))/chain_len)
 
-        sigAmean = np.sqrt(np.sum((samples[:,1]-np.mean(samples[:,1]))*(samples[:,1]-np.mean(samples[:,1])))/chain_len)
+        sigAmean = np.mean(samples[:,1])
         sigAerr = np.sqrt(np.sum((samples[:,1]-np.mean(samples[:,1]))*(samples[:,1]-np.mean(samples[:,1])))/chain_len)
 
-        residBmean = np.sqrt(np.sum((samples[:,2]-np.mean(samples[:,2]))*(samples[:,2]-np.mean(samples[:,2])))/chain_len)
+        residBmean = np.mean(samples[:,2])
         residBerr = np.sqrt(np.sum((samples[:,2]-np.mean(samples[:,2]))*(samples[:,2]-np.mean(samples[:,2])))/chain_len)
 
-        sigBmean = np.sqrt(np.sum((samples[:,3]-np.mean(samples[:,3]))*(samples[:,3]-np.mean(samples[:,3])))/chain_len)
+        sigBmean = np.mean(samples[:,3])
         sigBerr = np.sqrt(np.sum((samples[:,3]-np.mean(samples[:,3]))*(samples[:,3]-np.mean(samples[:,3])))/chain_len)
 
-        fracBmean = np.sqrt(np.sum((samples[:,4]-np.mean(samples[:,4]))*(samples[:,4]-np.mean(samples[:,4])))/chain_len)
+        fracBmean = np.mean(samples[:,4])
         fracBerr = np.sqrt(np.sum((samples[:,4]-np.mean(samples[:,4]))*(samples[:,4]-np.mean(samples[:,4])))/chain_len)
 
-        lstepmean = np.sqrt(np.sum((samples[:,5]-np.mean(samples[:,5]))*(samples[:,5]-np.mean(samples[:,5])))/chain_len)
+        lstepmean = np.mean(samples[:,5])
         lsteperr = np.sqrt(np.sum((samples[:,5]-np.mean(samples[:,5]))*(samples[:,5]-np.mean(samples[:,5])))/chain_len)
 
 
