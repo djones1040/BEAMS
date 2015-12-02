@@ -154,7 +154,7 @@ class sncosmo:
                             (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax) &
                             (fr.FITPROB > self.options.fitprobmin) &
-                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax) & (fr.TYPE == 1))
+                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax))
         for k in fr.__dict__.keys():
             fr.__dict__[k] = fr.__dict__[k][cols]
 
@@ -247,33 +247,22 @@ class sncosmo:
         import os,cosmo
 
         from txtobj import txtobj
-        #fr = txtobj('ps1_sim_v3_1000_prob.fitres',fitresheader=True)
-        #fr.MU,fr.MUERR = salt2mu(x1=fr.x1,x1err=fr.x1ERR,c=fr.c,cerr=fr.cERR,mb=fr.mB,mberr=fr.mBERR,
-        #                         cov_x1_c=fr.COV_x1_c,cov_x1_x0=fr.COV_x1_x0,cov_c_x0=fr.COV_c_x0,
-        #                         alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
-        #                         beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
-        #                         x0=fr.x0,sigint=self.options.sigint)
         from iterstat import iterstat
 
         fout = open(outfile,'w')
         print >> fout, fitresheader
-#        for zmin,zmax,i in zip(np.arange(self.options.zmin,self.options.zmax,self.options.zbinsize),
-#                               np.arange(self.options.zmin+self.options.zbinsize,self.options.zmax+self.options.zbinsize,self.options.zbinsize),
-#                               range(len(np.arange(self.options.zmin,self.options.zmax,self.options.zbinsize)))):
+
         z = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nbins)
         if self.options.equalbins:
             from scipy import stats
             z = stats.mstats.mquantiles(fr.zHD,np.arange(0,1,1./self.options.nbins))
         for zmin,zmax,i in zip(z[:-1],z[1:],range(len(z[:-1]))):
 
-#        for zmin,zmax,i in zip(np.arange(0,0.7,0.05),np.arange(0.05,0.75,0.05),range(len(np.arange(0.05,0.75,0.05)))):
-            cols = np.where((fr.zHD > zmin) & (fr.zHD < zmax) & (fr.TYPE == 1))[0]
-#            md,std = iterstat(fr.MU[cols]-cosmo.mu(fr.zHD[cols]))
-#            std = std/np.sqrt(len(fr.MU[cols]))
-            from doSNBEAMS import weighted_avg_and_std
-            md,std = weighted_avg_and_std(fr.MU[cols]-cosmo.mu(fr.zHD[cols]),1/fr.MUERR[cols]**2.)
-            std = 1/np.sqrt(np.sum(1/fr.MUERR[cols]**2.))
-#            print std
+            #cols = np.where((fr.zHD > zmin) & (fr.zHD < zmax) & (fr.TYPE == 1))[0]
+            #from doSNBEAMS import weighted_avg_and_std
+            #md,std = weighted_avg_and_std(fr.MU[cols]-cosmo.mu(fr.zHD[cols]),1/fr.MUERR[cols]**2.)
+            #std = 1/np.sqrt(np.sum(1/fr.MUERR[cols]**2.))
+
             outvars = ()
             for v in fitresvars:
                 if v == 'zHD':
