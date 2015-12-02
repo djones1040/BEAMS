@@ -71,11 +71,11 @@ class sncosmo:
         # SALT2 parameters and intrinsic dispersion
         parser.add_option('--salt2alpha', default=0.147, type="float",#0.147
                           help='SALT2 alpha parameter from a spectroscopic sample (default=%default)')
-        parser.add_option('--salt2alphaerr', default=1e-4, type="float",#0.01
+        parser.add_option('--salt2alphaerr', default=0.01, type="float",#0.01
                           help='nominal SALT2 alpha uncertainty from a spectroscopic sample (default=%default)')
         parser.add_option('--salt2beta', default=3.13, type="float",#3.13
                           help='nominal SALT2 beta parameter from a spec. sample (default=%default)')
-        parser.add_option('--salt2betaerr', default=1e-4, type="float",#0.12
+        parser.add_option('--salt2betaerr', default=0.12, type="float",#0.12
                           help='nominal SALT2 beta uncertainty from a spec. sample (default=%default)')
         parser.add_option('--fitsalt2pars', default=False, action="store_true",
                           help='If set, determine SALT2 nuisance parameters with MCMC.  Otherwise, use values derived from spec. sample')
