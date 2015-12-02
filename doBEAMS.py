@@ -230,7 +230,7 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
         fracBerr = np.sqrt(np.sum((samples[:,4]-np.mean(samples[:,4]))*(samples[:,4]-np.mean(samples[:,4])))/chain_len)
 
         lstepmean = np.sqrt(np.sum((samples[:,5]-np.mean(samples[:,5]))*(samples[:,5]-np.mean(samples[:,5])))/chain_len)
-        residAerr = np.sqrt(np.sum((samples[:,5]-np.mean(samples[:,5]))*(samples[:,5]-np.mean(samples[:,5])))/chain_len)
+        lsteperr = np.sqrt(np.sum((samples[:,5]-np.mean(samples[:,5]))*(samples[:,5]-np.mean(samples[:,5])))/chain_len)
 
 
         outline = outlinefmt%(residAmean,residAerr,residA[1],residA[2],
