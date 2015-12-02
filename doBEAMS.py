@@ -299,7 +299,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                 zip(*np.percentile(samples, [16, 50, 84],
                                    axis=0)))
 #        import pdb; pdb.set_trace()
-        return(resida_mcmc,siga_mcmc,residb_mcmc,sigb_mcmc,fracB,lstep)
+        return(resida_mcmc,siga_mcmc,residb_mcmc,sigb_mcmc,fracB,lstep,samples)
 
     def fixedpriors(self,md):
 
