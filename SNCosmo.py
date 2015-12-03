@@ -140,7 +140,7 @@ class sncosmo:
                                  cov_x1_c=fr.COV_x1_c,cov_x1_x0=fr.COV_x1_x0,cov_c_x0=fr.COV_c_x0,
                                  alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
                                  beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
-                                 x0=fr.x0,sigint=self.options.sigint)
+                                 x0=fr.x0,sigint=self.options.sigint,z=fr.zHD)
 
         # Light curve cuts
         if self.options.x1ccircle:
@@ -349,7 +349,7 @@ class sncosmo:
                                cov_x1_c=fr.COV_x1_c,cov_x1_x0=fr.COV_x1_x0,cov_c_x0=fr.COV_c_x0,
                                alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
                                beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
-                               x0=fr.x0,sigint=self.options.sigint)
+                               x0=fr.x0,sigint=self.options.sigint,z=fr.zHD)
             fr.MU,fr.MUERR = mu,muerr
         else: mu,muerr = fr.MU[cols],fr.MUERR[cols]
         mures = mu - cosmo.mu(fr.zHD)
@@ -426,7 +426,7 @@ def salt2mu(x1=None,x1err=None,
             cov_x1_c=None,cov_x1_x0=None,cov_c_x0=None,
             alpha=None,beta=None,
             alphaerr=None,betaerr=None,
-            M=None,x0=None,sigint=None):
+            M=None,x0=None,sigint=None,z=None,zerr=0.0005):
     from uncertainties import ufloat, correlated_values, correlated_values_norm
     alpha,beta = ufloat(alpha,alphaerr),ufloat(beta,betaerr)
 
@@ -443,6 +443,7 @@ def salt2mu(x1=None,x1err=None,
 
         mu = mb_single + x1_single*alpha - beta*c_single + 19.3
         if sigint: mu = mu + ufloat(0,sigint)
+        mu = mu + ufloat(0,np.sqrt(zerr**2. + 0.055**2.*z[i]**2.)
         mu_out,muerr_out = np.append(mu_out,mu.n),np.append(muerr_out,mu.std_dev)
 
     return(mu_out,muerr_out)
