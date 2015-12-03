@@ -443,6 +443,7 @@ def salt2mu(x1=None,x1err=None,
 
         mu = mb_single + x1_single*alpha - beta*c_single + 19.3
         if sigint: mu = mu + ufloat(0,sigint)
+        zerr = zerr*5.0/np.log(10)*(1.0+z[i])/(z[i]*(1.0+fr.z[i]/2.0))
         mu = mu + ufloat(0,np.sqrt(zerr**2. + 0.055**2.*z[i]**2.))
         mu_out,muerr_out = np.append(mu_out,mu.n),np.append(muerr_out,mu.std_dev)
 
