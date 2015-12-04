@@ -97,10 +97,12 @@ class sncosmo:
                           help='Number of threads for MCMC')
         parser.add_option('--zmin', default=0.01, type="float",
                           help='minimum redshift')
-        parser.add_option('--zmax', default=0.7, type="float",
+        parser.add_option('--zmax', default=0.75, type="float",
                           help='maximum redshift')
         parser.add_option('--zbinsize', default=0.05, type="float",
                           help='bin size in redshift space')
+        parser.add_option('--finalzbinsize', default=0.0, type="float",
+                          help='final bin size in redshift space for final z bin')
         parser.add_option('--nbins', default=25, type="float",
                           help='number of bins in log redshift space')
         parser.add_option('--equalbins', default=False, action="store_true",
@@ -220,6 +222,8 @@ class sncosmo:
         if self.options.equalbins:
             from scipy import stats
             z = stats.mstats.mquantiles(fr.zHD,np.arange(0,1,1./self.options.nbins))
+            if self.options.finalzbinsize:
+                z = np.append(z,self.options.zmax-self.options.finalzbinsize)
             z = np.append(z,self.options.zmax)
         os.system('rm %s'%self.options.outfile)
         for zmin,zmax in zip(z[:-1],z[1:]):
@@ -257,12 +261,15 @@ class sncosmo:
         if self.options.equalbins:
             from scipy import stats
             z = stats.mstats.mquantiles(fr.zHD,np.arange(0,1,1./self.options.nbins))
+            if self.options.finalzbinsize:
+                z = np.append(z,self.options.zmax-self.options.finalzbinsize)
+            z = np.append(z,self.options.zmax)
         for zmin,zmax,i in zip(z[:-1],z[1:],range(len(z[:-1]))):
 
-            #cols = np.where((fr.zHD > zmin) & (fr.zHD < zmax) & (fr.TYPE == 1))[0]
-            #from doSNBEAMS import weighted_avg_and_std
-            #md,std = weighted_avg_and_std(fr.MU[cols]-cosmo.mu(fr.zHD[cols]),1/fr.MUERR[cols]**2.)
-            #std = 1/np.sqrt(np.sum(1/fr.MUERR[cols]**2.))
+            cols = np.where((fr.zHD > zmin) & (fr.zHD < zmax) & (fr.TYPE == 1))[0]
+            from doSNBEAMS import weighted_avg_and_std
+            md,std = weighted_avg_and_std(fr.MU[cols]-cosmo.mu(fr.zHD[cols]),1/fr.MUERR[cols]**2.)
+            std = 1/np.sqrt(np.sum(1/fr.MUERR[cols]**2.))
 
             outvars = ()
             for v in fitresvars:
@@ -445,6 +452,7 @@ def salt2mu(x1=None,x1err=None,
         mu = mb_single + x1_single*alpha - beta*c_single + 19.3
         if sigint: mu = mu + ufloat(0,sigint)
         zerr = peczerr*5.0/np.log(10)*(1.0+z[i])/(z[i]*(1.0+z[i]/2.0))
+
         mu = mu + ufloat(0,np.sqrt(zerr**2. + 0.055**2.*z[i]**2.))
         mu_out,muerr_out = np.append(mu_out,mu.n),np.append(muerr_out,mu.std_dev)
 
