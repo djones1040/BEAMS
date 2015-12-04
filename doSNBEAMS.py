@@ -158,7 +158,7 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
 
 
             # fraction of contaminants: guesses and priors
-            parser.add_option('--fracBguess', default=0.05,type='float',
+            parser.add_option('--fracBguess', default=0.0,type='float',
                               help='initial guess for fraction of contaminants, set to negative to omit')
             parser.add_option('--fracBprior', default=(0.05,0.1),type='float',
                               help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.  
@@ -189,7 +189,7 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
                               help='This is a hack - don\t write the first x bins to the output files')
             parser.add_option('--nwalkers', default=200, type="int",
                               help='Number of walkers for MCMC')
-            parser.add_option('--nsteps', default=500, type="int",
+            parser.add_option('--nsteps', default=1000, type="int",
                               help='Number of steps for MCMC')
             parser.add_option('--ninit', default=50, type="int",
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
@@ -246,7 +246,7 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
         if self.options.equalbins:
             from scipy import stats
             zcontrol = stats.mstats.mquantiles(inp.z,np.arange(0,1,1./self.options.nzbins))
-
+        print zcontrol
         cov,params = self.mcmc(inp,zcontrol)
         if self.options.covmatfile:
             fout = open(self.options.covmatfile,'w')
@@ -292,7 +292,7 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
             inp.PL = 0
 
         # minimize, not maximize
-        if self.options.fracBguess >= 0:
+        if self.options.fracBguess > 0:
             omitfracB = False
         else:
             omitfracB = True
@@ -327,8 +327,10 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                                               self.options.p_fracB,self.options.psig_fracB,
                                               self.options.p_lstep,self.options.psig_lstep),
                                         threads=int(self.options.nthreads))
-        sampler.run_mcmc(pos, self.options.nsteps)
-        samples = sampler.chain[:, self.options.ninit:, :].reshape((-1, ndim))
+        pos, prob, state = sampler.run_mcmc(pos, 200)
+        sampler.reset()
+        sampler.run_mcmc(pos, self.options.nsteps, thin=1)
+        samples = sampler.flatchain
 
         # get the error bars - should really return the full posterior
 
@@ -388,32 +390,43 @@ def twogausslike(x,PA=None,PL=None,mu=None,muerr=None,z=None,zcontrol=None):
 
     mumodel = np.interp(np.log10(z),np.log10(zcontrol),x[5:])
 
-#    mumodel = np.zeros(len(z))
-#    for mub,mub1,zb,zb1 in zip(x[5:-1],x[6:],zcontrol[:-1],zcontrol[1:]):
-#        cols = np.where((z >= zb) & (z < zb1))[0]
-#        alpha = np.log10(z[cols]/zb)/np.log10(zb1/zb)
-#        mumodel[cols] = (1-alpha)*mub + alpha*mub1
+    mumodel = np.zeros(len(z))
+    for mub,mub1,zb,zb1 in zip(x[5:-1],x[6:],zcontrol[:-1],zcontrol[1:]):
+        cols = np.where((z >= zb) & (z < zb1))[0]
+        alpha = np.log10(z[cols]/zb)/np.log10(zb1/zb)
+        mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
     return np.sum(np.logaddexp(-(mu-mumodel+PL*x[4])**2./(2.0*(muerr**2.+x[0]**2.)) + \
                                     np.log((1-x[3])*(PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
                                 -(mu-mumodel-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
                                     np.log((x[3])*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.)))))
 
+def chilike(x,PA=None,PL=None,mu=None,muerr=None,z=None,zcontrol=None):
+
+#    mumodel = np.interp(np.log10(z),np.log10(zcontrol),x[5:])
+    mumodel = np.zeros(len(z))
+    for mub,mub1,zb,zb1 in zip(x[5:-1],x[6:],zcontrol[:-1],zcontrol[1:]):
+        cols = np.where((z >= zb) & (z < zb1))[0]
+        alpha = np.log10(z[cols]/zb)/np.log10(zb1/zb)
+        mumodel[cols] = (1-alpha)*mub + alpha*mub1
+
+    return np.sum(-(mu-mumodel)**2./(muerr**2.+0.1**2.)/2.)
+
 
 def twogausslike_nofrac(x,PA=None,PL=None,mu=None,muerr=None,z=None,zcontrol=None):
 
     mumodel = np.interp(np.log10(z),np.log10(zcontrol),x[5:])
 
-#    mumodel = np.zeros(len(z))
-#    for mub,mub1,zb,zb1 in zip(x[5:-1],x[6:],zcontrol[:-1],zcontrol[1:]):
-#        cols = np.where((z >= zb) & (z < zb1))[0]
-#        alpha = np.log10(z[cols]/zb)/np.log10(zb1/zb)
-#        mumodel[cols] = (1-alpha)*mub + alpha*mub1
+    mumodel = np.zeros(len(z))
+    for mub,mub1,zb,zb1 in zip(x[5:-1],x[6:],zcontrol[:-1],zcontrol[1:]):
+        cols = np.where((z >= zb) & (z < zb1))[0]
+        alpha = np.log10(z[cols]/zb)/np.log10(zb1/zb)
+        mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
     return np.sum(np.logaddexp(-(mu-mumodel+PL*x[3])**2./(2.0*(muerr**2.+x[0]**2.)) + \
-                                    np.log(PA/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),0))
-#                                -(mu-mumodel-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
-#                                    np.log((1-PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.)))))
+                                    np.log(PA/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+                                -(mu-mumodel-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
+                                    np.log((1-PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.)))))
 
 def lnprior(theta,
             p_residA=None,psig_residA=None,
@@ -478,12 +491,12 @@ def lnprob(theta,PA=None,PL=None,mu=None,muerr=None,
     if not np.isfinite(lp) or np.isnan(lp):
         return -np.inf
 
-    if omitfracB:
-        post = lp+twogausslike(theta,PA=PA,PL=PL,
-                               mu=mu,muerr=muerr,
-                               z=z,zcontrol=zcontrol)
+    if not omitfracB:
+        post = twogausslike_nofrac(theta,PA=PA,PL=PL,
+                       mu=mu,muerr=muerr,
+                       z=z,zcontrol=zcontrol)
     else:
-        post = lp+twogausslike_nofrac(
+        post = twogausslike_nofrac(
             theta,PA=PA,PL=PL,mu=mu,muerr=muerr,
             z=z,zcontrol=zcontrol)
 
