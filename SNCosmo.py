@@ -131,6 +131,16 @@ class sncosmo:
         parser.add_option('--covmatfile', default='BEAMS.covmat', type="string",
                           help='Output covariance matrix')
 
+        parser.add_option('--mcsubset', default=False, action="store_true",
+                          help='generate a random subset of SNe from the fitres file')
+        parser.add_option('--subsetsize', default=112, type="int",
+                          help='number of SNe in each MC subset ')
+        parser.add_option('--nmc', default=100, type="int",
+                          help='number of MC samples ')
+        parser.add_option('--mclowz', default="", type="string",
+                          help='low-z SNe, to be appended to the MC sample')
+
+
         return(parser)
 
     def main(self,fitres):
@@ -150,13 +160,15 @@ class sncosmo:
             cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax/(1+fr.zHD)) &
                             (fr.FITPROB > self.options.fitprobmin) &
-                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax))
+                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
+                            (fr.__dict__[self.options.piacol] >= 0))
         else:
             cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
                             (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax) &
                             (fr.FITPROB > self.options.fitprobmin) &
-                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax))
+                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
+                            (fr.__dict__[self.options.piacol] >= 0))
         for k in fr.__dict__.keys():
             fr.__dict__[k] = fr.__dict__[k][cols]
 
@@ -458,6 +470,59 @@ def salt2mu(x1=None,x1err=None,
 
     return(mu_out,muerr_out)
 
+def mcsamp(fitresfile,mciter,lowzfile,nsne):
+    import os
+    from txtobj import txtobj
+    import numpy as np
+
+    fitresheader = """# VERSION: PS1_PS1MD
+# FITOPT:  NONE
+# ---------------------------------------- 
+NVAR: 31 
+VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PBAYES_Ia PGAL_Ia
+# VERSION_SNANA      = v10_39i 
+# VERSION_PHOTOMETRY = PS1_PS1MD 
+# TABLE NAME: FITRES 
+# 
+"""
+    fitresvars = ["CID","IDSURVEY","TYPE","FIELD",
+                     "zHD","zHDERR","z","zERR","HOST_LOGMASS",
+                     "HOST_LOGMASS_ERR","SNRMAX1","SNRMAX2",
+                     "SNRMAX3","PKMJD","PKMJDERR","x1","x1ERR",
+                     "c","cERR","mB","mBERR","x0","x0ERR","COV_x1_c",
+                     "COV_x1_x0","COV_c_x0","NDOF","FITCHI2","FITPROB",
+                     "PBAYES_Ia","PGAL_Ia"]
+    fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.5f %.5f %i %i %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f'
+
+    name,ext = os.path.splitext(fitresfile)
+    fitresoutfile = '%s_mc%i.fitres'%(name,mciter,ext)
+
+    fr = txtobj(fitresfile,fitresheader=True)
+    frlowz = txtobj(fitresfile,fitresheader=True)    
+
+    writefitres(fr,np.random.randint(len(fr.CID),size=nsne),fitresoutfile,fitresheader=fitresheader,
+                fitresvars=fitresvars,fitresfmt=fitresfmt)
+    writefitres(frlowz,range(len(frlowz.CID)),fitresoutfile,append=True,fitresheader=fitresheader,
+                fitresvars=fitresvars,fitresfmt=fitresfmt)
+
+    return(fitresoutfile)
+
+def writefitres(fitresobj,cols,outfile,append=False,,fitresheader=None,
+                fitresvars=None,fitresfmt=None):
+    import os
+    if not append:
+        fout = open(outfile,'w')
+        print >> fout, fitresheader
+    else:
+        fout = open(outfile,'a')
+
+    for c in cols:
+        outvars = ()
+        for v in fitresvars:
+            outvars += (fitresobj.__dict__[v][c],)
+        print >> fout, fitresfmt%outvars
+
+    fout.close()                
 
 if __name__ == "__main__":
     usagestring="""BEAMS method (Kunz et al. 2006) for PS1 data.
@@ -490,6 +555,10 @@ examples:
     import emcee
     import cosmo
 
+    if options.mcsubset:
+        for i in range(options.nmc):
+            frfile = mcsamp(options.fitresfile,i,options.mclowz,options.nsubset)
+            sne.main(frfile)
     if not options.mkplot:
         sne.main(options.fitresfile)
     else:
