@@ -133,7 +133,7 @@ class sncosmo:
 
         parser.add_option('--mcsubset', default=False, action="store_true",
                           help='generate a random subset of SNe from the fitres file')
-        parser.add_option('--subsetsize', default=112, type="int",
+        parser.add_option('--subsetsize', default=125, type="int",
                           help='number of SNe in each MC subset ')
         parser.add_option('--nmc', default=100, type="int",
                           help='number of MC samples ')
@@ -143,7 +143,7 @@ class sncosmo:
 
         return(parser)
 
-    def main(self,fitres):
+    def main(self,fitres,mkcuts=True):
         from txtobj import txtobj
         import cosmo
 
@@ -154,23 +154,24 @@ class sncosmo:
                                  beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
                                  x0=fr.x0,sigint=self.options.sigint,z=fr.zHD)
 
-        # Light curve cuts
-        if self.options.x1ccircle:
-            # I'm just going to assume cmax = abs(cmin) and same for x1
-            cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
-                            (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax/(1+fr.zHD)) &
-                            (fr.FITPROB > self.options.fitprobmin) &
-                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
-                            (fr.__dict__[self.options.piacol] >= 0))
-        else:
-            cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
-                            (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
-                            (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax) &
-                            (fr.FITPROB > self.options.fitprobmin) &
-                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
-                            (fr.__dict__[self.options.piacol] >= 0))
-        for k in fr.__dict__.keys():
-            fr.__dict__[k] = fr.__dict__[k][cols]
+        if mkcuts:
+            # Light curve cuts
+            if self.options.x1ccircle:
+                # I'm just going to assume cmax = abs(cmin) and same for x1
+                cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
+                                (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax/(1+fr.zHD)) &
+                                (fr.FITPROB > self.options.fitprobmin) &
+                                (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
+                                (fr.__dict__[self.options.piacol] >= 0))
+            else:
+                cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
+                                (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
+                                (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax) &
+                                (fr.FITPROB > self.options.fitprobmin) &
+                                (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
+                                (fr.__dict__[self.options.piacol] >= 0))
+            for k in fr.__dict__.keys():
+                fr.__dict__[k] = fr.__dict__[k][cols]
 
         # Prior SN Ia probabilities
         P_Ia = np.zeros(len(fr.CID))
@@ -229,7 +230,6 @@ class sncosmo:
 
         # loop over the redshift bins
         append = False
-
         z = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nbins)
         if self.options.equalbins:
             from scipy import stats
@@ -278,10 +278,10 @@ class sncosmo:
             z = np.append(z,self.options.zmax)
         for zmin,zmax,i in zip(z[:-1],z[1:],range(len(z[:-1]))):
 
-            cols = np.where((fr.zHD > zmin) & (fr.zHD < zmax) & (fr.TYPE == 1))[0]
-            from doSNBEAMS import weighted_avg_and_std
-            md,std = weighted_avg_and_std(fr.MU[cols]-cosmo.mu(fr.zHD[cols]),1/fr.MUERR[cols]**2.)
-            std = 1/np.sqrt(np.sum(1/fr.MUERR[cols]**2.))
+            #cols = np.where((fr.zHD > zmin) & (fr.zHD < zmax) & (fr.TYPE == 1))[0]
+            #from doSNBEAMS import weighted_avg_and_std
+            #md,std = weighted_avg_and_std(fr.MU[cols]-cosmo.mu(fr.zHD[cols]),1/fr.MUERR[cols]**2.)
+            #std = 1/np.sqrt(np.sum(1/fr.MUERR[cols]**2.))
 
             outvars = ()
             for v in fitresvars:
@@ -435,7 +435,7 @@ class sncosmo:
 # FITOPT:  NONE
 # ---------------------------------------- 
 NVAR: 31 
-VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PBAYES_Ia PGAL_Ia
+VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PBAYES_Ia PGAL_Ia PFITPROB_Ia
 # VERSION_SNANA      = v10_39i 
 # VERSION_PHOTOMETRY = PS1_PS1MD 
 # TABLE NAME: FITRES 
@@ -447,8 +447,8 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_E
                       "SNRMAX3","PKMJD","PKMJDERR","x1","x1ERR",
                       "c","cERR","mB","mBERR","x0","x0ERR","COV_x1_c",
                       "COV_x1_x0","COV_c_x0","NDOF","FITCHI2","FITPROB",
-                      "PBAYES_Ia","PGAL_Ia"]
-        fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.5f %.5f %i %i %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f'
+                      "PBAYES_Ia","PGAL_Ia","PFITPROB_Ia"]
+        fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.5f %.5f %i %i %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f %.4f'
 
         name,ext = os.path.splitext(fitresfile)
         fitresoutfile = '%s_mc%i%s'%(name,mciter,ext)
@@ -461,13 +461,15 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_E
             cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax/(1+fr.zHD)) &
                             (fr.FITPROB > self.options.fitprobmin) &
-                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax))
+                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
+                            (fr.__dict__[self.options.piacol] >= 0))
         else:
             cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
                             (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax) &
                             (fr.FITPROB > self.options.fitprobmin) &
-                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax))
+                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
+                            (fr.__dict__[self.options.piacol] >= 0))
         for k in fr.__dict__.keys():
             fr.__dict__[k] = fr.__dict__[k][cols]
 
@@ -574,9 +576,12 @@ examples:
     import cosmo
 
     if options.mcsubset:
+        outfile_orig = options.outfile[:]
         for i in range(options.nmc):
             frfile = sne.mcsamp(options.fitresfile,i,options.mclowz,options.subsetsize)
-            sne.main(frfile)
+            name,ext = os.path.splitext(outfile_orig)
+            options.outfile = '%s_mc%i%s'%(name,i,ext)
+            sne.main(frfile,mkcuts=False)
     if not options.mkplot:
         sne.main(options.fitresfile)
     else:
