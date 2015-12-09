@@ -182,6 +182,8 @@ class sncosmo:
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
 
+        root = os.path.splitext(fitres)[0]
+        
         # Prior SN Ia probabilities
         P_Ia = np.zeros(len(fr.CID))
         for i in range(len(fr.CID)):
@@ -210,7 +212,7 @@ class sncosmo:
 
         beam.options = options
         beam.transformOptions()
-        options.inputfile = 'BEAMS_SN.input'
+        options.inputfile = '%s.input'%root
         if self.options.masscorr: beam.options.lstep = True
 
         if self.options.corrzbins:
@@ -219,7 +221,7 @@ class sncosmo:
             beam.options.nzbins = self.options.nbins
 
             # make the BEAMS input file
-            fout = open('BEAMS_SN.input','w')
+            fout = open('%s.input'%root,'w')
             print >> fout, '# PA z mu mu_err'
             for i in range(len(fr.MU)):
                 if fr.zHD[i] > self.options.zmin and fr.zHD[i] <= self.options.zmax:
@@ -254,7 +256,7 @@ class sncosmo:
             else: clobber = True
 
             # make the BEAMS input file
-            fout = open('BEAMS_SN.input','w')
+            fout = open('%s.input'%root,'w')
             print >> fout, '# PA resid resid_err'
             for i in range(len(fr.MU)):
                 if fr.zHD[i] > zmin and fr.zHD[i] <= zmax:
@@ -273,7 +275,6 @@ class sncosmo:
                 elif str(beam.options.__dict__[o]) == 'True':
                     config.set('all',o,1)
     
-            root = os.path.splitext(fitres)[0]
             fout = open('%s.params'%root,'w')
             config.write(fout); fout.close()
             os.system('./doBEAMS.py -p %s.params -o %s'%(root,self.options.outfile))
