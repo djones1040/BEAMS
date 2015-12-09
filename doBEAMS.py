@@ -17,12 +17,13 @@ class BEAMS:
         parser.add_option('-v', '--verbose', action="count", dest="verbose",default=1)
         parser.add_option('--debug', default=False, action="store_true",
                           help='debug mode: more output and debug files')
-        parser.add_option('--clobber', default=False, action="store_true",
-                          help='clobber output file')
-        parser.add_option('--append', default=False, action="store_true",
-                          help='open output file in append mode')
 
         if config:
+            parser.add_option('--clobber', default=map(int,config.get('all','clobber'))[0], action="store_true",
+                              help='clobber output file')
+            parser.add_option('--append', default=map(int,config.get('all','append'))[0], action="store_true",
+                              help='open output file in append mode')
+
             # Input file
             parser.add_option('--pacol', default=config.get('all','pacol'), type="string",
                               help='column in input file used as prior P(A)')
@@ -101,6 +102,11 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
                               help='Output file with the derived parameters for each redshift bin')
 
         else:
+            parser.add_option('--clobber', default=False, action="store_true",
+                              help='clobber output file')
+            parser.add_option('--append', default=False, action="store_true",
+                              help='open output file in append mode')
+
             # Input file
             parser.add_option('--pacol', default='PA', type="string",
                               help='column in input file used as prior P(A)')
@@ -254,6 +260,7 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
     def mcmc(self,inp):
         from scipy.optimize import minimize
         import emcee
+
         if not inp.__dict__.has_key('PL'):
             inp.PL = 0
 

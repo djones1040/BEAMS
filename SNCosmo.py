@@ -124,6 +124,8 @@ class sncosmo:
 
         parser.add_option('-p','--paramfile', default='', type="string",
                           help='fitres file with the SN Ia data')
+        parser.add_option('-p','--paramdefaultfile', default='BEAMS.params', type="string",
+                          help='default parameter file to populate with SNCosmo options')
         parser.add_option('--showpriorprobs', default=False, action="store_true",
                           help='when plotting, show the prior probabilities instead of the (estimated) posterior probs.')
 
@@ -262,7 +264,20 @@ class sncosmo:
             beam.options.append = append
             beam.options.clobber = clobber
             beam.options.outputfile = self.options.outfile
-            beam.main(options.inputfile)
+            config = ConfigParser.ConfigParser()
+            config.read(self.options.paramdefaultfile)
+            for o in beam.options.__dict__.keys():
+                config.set('all',o,str(beam.options.__dict__[o]).replace('(','').replace(')',''))
+                if str(beam.options.__dict__[o]) == 'False':
+                    config.set('all',o,0)
+                elif str(beam.options.__dict__[o]) == 'True':
+                    config.set('all',o,1)
+    
+            fout = open('SNCosmo_BEAMS.params','w')
+            config.write(fout); fout.close()
+            os.system('./doBEAMS.py -p SNCosmo_BEAMS.params -o %s'%self.options.outfile)
+
+            #beam.main(options.inputfile)
 
         bms = txtobj(self.options.outfile)
         self.writeBinFitres('%s.fitres'%self.options.outfile.split('.')[0],bms,fr=fr)
@@ -589,6 +604,7 @@ examples:
             name,ext = os.path.splitext(outfile_orig)
             options.outfile = '%s_mc%i%s'%(name,i,ext)
             sne.main(frfile,mkcuts=False)
+            print('Done.  Now taking a nap to let old processes die...')
     if not options.mkplot:
         sne.main(options.fitresfile)
     else:
