@@ -273,9 +273,10 @@ class sncosmo:
                 elif str(beam.options.__dict__[o]) == 'True':
                     config.set('all',o,1)
     
-            fout = open('SNCosmo_BEAMS.params','w')
+            root = os.path.splitext(fitres)[0]
+            fout = open('%s.params'%root,'w')
             config.write(fout); fout.close()
-            os.system('./doBEAMS.py -p SNCosmo_BEAMS.params -o %s'%self.options.outfile)
+            os.system('./doBEAMS.py -p %s.params -o %s'%(root,self.options.outfile))
 
             #beam.main(options.inputfile)
 
