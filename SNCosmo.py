@@ -140,6 +140,9 @@ class sncosmo:
         parser.add_option('--mclowz', default="", type="string",
                           help='low-z SNe, to be appended to the MC sample')
 
+        parser.add_option('--onlyIa', default=False, action="store_true",
+                          help='remove the TYPE != 1 SNe from the bunch')
+
 
         return(parser)
 
@@ -170,6 +173,10 @@ class sncosmo:
                                 (fr.FITPROB > self.options.fitprobmin) &
                                 (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
                                 (fr.__dict__[self.options.piacol] >= 0))
+            for k in fr.__dict__.keys():
+                fr.__dict__[k] = fr.__dict__[k][cols]
+        if self.options.onlyIa:
+            cols = np.where(fr.TYPE == 1)
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
 
