@@ -604,7 +604,6 @@ examples:
             name,ext = os.path.splitext(outfile_orig)
             options.outfile = '%s_mc%i%s'%(name,i,ext)
             sne.main(frfile,mkcuts=False)
-            print('Done.  Now taking a nap to let old processes die...')
     if not options.mkplot:
         sne.main(options.fitresfile)
     else:
