@@ -83,7 +83,8 @@ class txtobj:
                                 self.__dict__[c] = np.loadtxt(filename,unpack=True,usecols=[i+1],dtype='string',delimiter=',',skiprows=skiprows)
                             else:
                                 self.__dict__[c] = np.loadtxt(filename,unpack=True,usecols=[i],dtype='string',delimiter=',',skiprows=skiprows)
-            self.filename = np.array([filename]*len(self.__dict__[c]))
+            if len(self.__dict__[c]):
+                self.filename = np.array([filename]*len(self.__dict__[c]))
 
         else:
             fin = open(filename,'r')
