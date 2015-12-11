@@ -59,7 +59,7 @@ class sncosmo:
         parser.add_option('--x1ccircle',default=False,action="store_true",
             help='Circle cut in x1 and c')
         parser.add_option(
-            '--fitprobmin', default=0.001,type="float",
+            '--fitprobmin', default=0.0,type="float",
             help='Peculiar velocity error (default=%default)')
         parser.add_option(
             '--x1errmax', default=1.0,type="float",
@@ -101,6 +101,8 @@ class sncosmo:
                           help='maximum redshift')
         parser.add_option('--zbinsize', default=0.05, type="float",
                           help='bin size in redshift space')
+        parser.add_option('--evenbins', default=False, action="store_true",
+                          help='make bins even in redshift space (default is logz bins')
         parser.add_option('--finalzbinsize', default=0.0, type="float",
                           help='final bin size in redshift space for final z bin')
         parser.add_option('--nbins', default=25, type="float",
@@ -159,22 +161,27 @@ class sncosmo:
                                  beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
                                  x0=fr.x0,sigint=self.options.sigint,z=fr.zHD)
 
+        # HACK FOR REST+14 DATA
+        # self.options.piacol = 'PTRUE_Ia'
+        # fr.PTRUE_Ia = np.ones(len(fr.MU))
+
         if mkcuts:
             # Light curve cuts
             if self.options.x1ccircle:
                 # I'm just going to assume cmax = abs(cmin) and same for x1
                 cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
                                 (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax/(1+fr.zHD)) &
-                                (fr.FITPROB > self.options.fitprobmin) &
+                                (fr.FITPROB >= self.options.fitprobmin) &
                                 (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
                                 (fr.__dict__[self.options.piacol] >= 0))
             else:
                 cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
                                 (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
                                 (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax) &
-                                (fr.FITPROB > self.options.fitprobmin) &
+                                (fr.FITPROB >= self.options.fitprobmin) &
                                 (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
                                 (fr.__dict__[self.options.piacol] >= 0))
+
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
         if self.options.onlyIa:
@@ -248,6 +255,8 @@ class sncosmo:
             if self.options.finalzbinsize:
                 z = np.append(z,self.options.zmax-self.options.finalzbinsize)
             z = np.append(z,self.options.zmax)
+        elif self.options.evenbins:
+            z = np.arange(self.options.zmin,self.options.zmax,self.options.zbinsize)
         os.system('rm %s'%self.options.outfile)
         for zmin,zmax in zip(z[:-1],z[1:]):
             if self.options.verbose: print('%.3f < z < %.3f'%(zmin,zmax))
@@ -300,6 +309,9 @@ class sncosmo:
             if self.options.finalzbinsize:
                 z = np.append(z,self.options.zmax-self.options.finalzbinsize)
             z = np.append(z,self.options.zmax)
+        elif self.options.evenbins:
+            z = np.arange(self.options.zmin,self.options.zmax,self.options.zbinsize)
+
         for zmin,zmax,i in zip(z[:-1],z[1:],range(len(z[:-1]))):
 
             #cols = np.where((fr.zHD > zmin) & (fr.zHD < zmax) & (fr.TYPE == 1))[0]
@@ -484,14 +496,14 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_E
             # I'm just going to assume cmax = abs(cmin) and same for x1
             cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax/(1+fr.zHD)) &
-                            (fr.FITPROB > self.options.fitprobmin) &
+                            (fr.FITPROB >= self.options.fitprobmin) &
                             (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
                             (fr.__dict__[self.options.piacol] >= 0))
         else:
             cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
                             (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax) &
-                            (fr.FITPROB > self.options.fitprobmin) &
+                            (fr.FITPROB >= self.options.fitprobmin) &
                             (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
                             (fr.__dict__[self.options.piacol] >= 0))
         for k in fr.__dict__.keys():
@@ -529,14 +541,19 @@ def salt2mu(x1=None,x1err=None,
             alphaerr=None,betaerr=None,
             M=None,x0=None,sigint=None,z=None,peczerr=0.0005):
     from uncertainties import ufloat, correlated_values, correlated_values_norm
+    alphatmp,betatmp = alpha,beta
     alpha,beta = ufloat(alpha,alphaerr),ufloat(beta,betaerr)
 
     sf = -2.5/(x0*np.log(10.0))
     cov_mb_c = cov_c_x0*sf
     cov_mb_x1 = cov_x1_x0*sf
+    invvars = 1.0 / (mberr**2.+ alphatmp**2. * x1err**2. + betatmp**2. * cerr**2. + \
+                         2.0 * alphatmp * (cov_x1_x0*sf) - 2.0 * betatmp * (cov_c_x0*sf) - \
+                         2.0 * alphatmp*betatmp * (cov_x1_c) )
 
     mu_out,muerr_out = np.array([]),np.array([])
     for i in range(len(x1)):
+
         covmat = np.array([[mberr[i]**2.,cov_mb_x1[i],cov_mb_c[i]],
                            [cov_mb_x1[i],x1err[i]**2.,cov_x1_c[i]],
                            [cov_mb_c[i],cov_x1_c[i],cerr[i]**2.]])
@@ -549,6 +566,7 @@ def salt2mu(x1=None,x1err=None,
         mu = mu + ufloat(0,np.sqrt(zerr**2. + 0.055**2.*z[i]**2.))
         mu_out,muerr_out = np.append(mu_out,mu.n),np.append(muerr_out,mu.std_dev)
 
+#    muerr_out = 1/np.sqrt(invvars)
     return(mu_out,muerr_out)
 
 def writefitres(fitresobj,cols,outfile,append=False,fitresheader=None,
