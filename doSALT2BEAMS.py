@@ -256,7 +256,7 @@ For flat prior, use empty string""",nargs=2)
             print('Warning : files %s exists!!  Not clobbering'%self.options.outputfile)
 
         # run the MCMC
-        residA,sigA,residB,sigB,fracB,lstep,samples = self.mcmc(inp)
+        residA,sigA,residB,sigB,fracB,lstep,alpha,beta,samples = self.mcmc(inp)
                 
         outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f "
         outlinefmt += "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
@@ -275,10 +275,11 @@ For flat prior, use empty string""",nargs=2)
         sigBerr = np.sqrt(np.sum((samples[:,3]-np.mean(samples[:,3]))*(samples[:,3]-np.mean(samples[:,3])))/chain_len)
 
         count = 4
-        if self.options.fracBguess == 0:
+        if self.options.fracBguess != 0:
             fracBmean = np.mean(samples[:,4])
             fracBerr = np.sqrt(np.sum((samples[:,4]-np.mean(samples[:,4]))*(samples[:,4]-np.mean(samples[:,4])))/chain_len)
             count += 1
+        else: fracBmean,fracBerr = -99,-99
 
         lstepmean = np.mean(samples[:,count])
         lsteperr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
@@ -298,8 +299,8 @@ For flat prior, use empty string""",nargs=2)
                               sigBmean,sigBerr,sigB[1],sigB[2],
                               fracBmean,fracBerr,fracB[1],fracB[2],
                               lstepmean,lsteperr,lstep[1],lstep[2],
-                              alpha[0],alpha[1],alpha[2],
-                              beta[0],beta[1],beta[2])
+                              salt2alphamean,salt2alphaerr,alpha[1],alpha[2],
+                              salt2betamean,salt2betaerr,beta[1],beta[2])
         if self.options.append or not os.path.exists(self.options.outputfile) or self.options.clobber:
             fout = open(self.options.outputfile,'a')
             print >> fout, outline
@@ -367,10 +368,18 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
 
         # get the error bars - should really return the full posterior!
         import scipy.stats
-        resida_mcmc, siga_mcmc, residb_mcmc, sigb_mcmc, fracB, lstep, alpha, beta = \
-            map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
-                zip(*np.percentile(samples, [16, 50, 84],
-                                   axis=0)))
+        if not omitfracB:
+            resida_mcmc, siga_mcmc, residb_mcmc, sigb_mcmc, fracB, lstep, alpha, beta = \
+                map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
+                    zip(*np.percentile(samples, [16, 50, 84],
+                                       axis=0)))
+        else:
+            resida_mcmc, siga_mcmc, residb_mcmc, sigb_mcmc, lstep, alpha, beta = \
+                map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
+                    zip(*np.percentile(samples, [16, 50, 84],
+                                       axis=0)))
+            fracB = (-99,-99,-99)
+
 #        import pdb; pdb.set_trace()
         return(resida_mcmc,siga_mcmc,residb_mcmc,sigb_mcmc,fracB,lstep,alpha,beta,samples)
 
@@ -432,32 +441,31 @@ def twogausslike_nofrac(x,PA=None,PL=None,resid=None,residerr=None):
 def twogausslike_snpars(x,inp=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
     
     muA,residAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
-                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                         alpha=theta[-2],alphaerr=1e-10,
-                         beta=theta[-1],betaerr=1e-10,
-                         x0=inp.x0,z=inp.zHD)
+                            cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                            alpha=x[-2],alphaerr=1e-10,
+                            beta=x[-1],betaerr=1e-10,
+                            x0=inp.x0,z=inp.zHD)
     residA = muA - cosmo.mu(inp.zHD)
 
     muB,residBerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
-                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                         alpha=alpha,alphaerr=alphaerr,
-                         beta=beta,betaerr=betaerr,
-                         x0=inp.x0,z=inp.zHD)
+                            cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                            alpha=alpha,alphaerr=alphaerr,
+                            beta=beta,betaerr=betaerr,
+                            x0=inp.x0,z=inp.zHD)
     residB = muB - cosmo.mu(inp.zHD)
-
     
-    return np.sum(np.logaddexp(-(residA-x[0]+PL*x[5])**2./(2.0*(residAerr**2.+x[1]**2.)) + \
-                                    np.log((1-x[4])*(PA)/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+residAerr**2.))),
+    return np.sum(np.logaddexp(-(residA-x[0]+inp.PL*x[5])**2./(2.0*(residAerr**2.+x[1]**2.)) + \
+                                    np.log((1-x[4])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+residAerr**2.))),
                                 -(residB-x[2])**2./(2.0*(residBerr**2.+x[3]**2.)) + \
-                                    np.log((x[4])*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+residBerr**2.)))))
+                                    np.log((x[4])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+residBerr**2.)))))
 
 
 def twogausslike_snpars_nofrac(x,inp=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
 
     muA,residAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                          cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                         alpha=theta[-2],alphaerr=1e-10,
-                         beta=theta[-1],betaerr=1e-10,
+                         alpha=x[-2],alphaerr=1e-10,
+                         beta=x[-1],betaerr=1e-10,
                          x0=inp.x0,z=inp.zHD)
     residA = muA - cosmo.mu(inp.zHD)
 
@@ -468,10 +476,10 @@ def twogausslike_snpars_nofrac(x,inp=None,alpha=None,beta=None,alphaerr=None,bet
                          x0=inp.x0,z=inp.zHD)
     residB = muB - cosmo.mu(inp.zHD)
 
-    return np.sum(np.logaddexp(-(residA-x[0]+PL*x[5])**2./(2.0*(residAerr**2.+x[1]**2.)) + \
-                                    np.log(PA/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+residAerr**2.))),
+    return np.sum(np.logaddexp(-(residA-x[0]+inp.PL*x[5])**2./(2.0*(residAerr**2.+x[1]**2.)) + \
+                                    np.log(inp.PA/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+residAerr**2.))),
                                 -(residB-x[2])**2./(2.0*(residBerr**2.+x[3]**2.)) + \
-                                    np.log((1-PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+residBerr**2.)))))
+                                    np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+residBerr**2.)))))
 
 def lnprior(theta,
             p_residA=None,psig_residA=None,
@@ -563,6 +571,29 @@ def covmat(samples):
             covmat[j,i] = np.sum(samples[j]*samples[i])/chain_len
     return(covmat)
 
+def salt2mu(x1=None,x1err=None,
+            c=None,cerr=None,
+            mb=None,mberr=None,
+            cov_x1_c=None,cov_x1_x0=None,cov_c_x0=None,
+            alpha=None,beta=None,
+            alphaerr=None,betaerr=None,
+            M=None,x0=None,sigint=None,z=None,peczerr=0.0005):
+    from uncertainties import ufloat, correlated_values, correlated_values_norm
+
+    sf = -2.5/(x0*np.log(10.0))
+    cov_mb_c = cov_c_x0*sf
+    cov_mb_x1 = cov_x1_x0*sf
+    mu_out = mb + x1*alpha - beta*c + 19.3
+    invvars = 1.0 / (mberr**2.+ alpha**2. * x1err**2. + beta**2. * cerr**2. + \
+                         2.0 * alpha * (cov_x1_x0*sf) - 2.0 * beta * (cov_c_x0*sf) - \
+                         2.0 * alpha*beta * (cov_x1_c) )
+
+    zerr = peczerr*5.0/np.log(10)*(1.0+z)/(z*(1.0+z/2.0))
+    muerr_out = np.sqrt(1/invvars + zerr**2. + 0.055**2.*z**2.)
+    if sigint: muerr_out = np.sqrt(muerr_out**2. + sigint**2.)
+    return(mu_out,muerr_out)
+
+
 if __name__ == "__main__":
     usagestring="""An implementation of the BEAMS method that constrains the SN 
 parameters alpha and beta (Kunz, Bassett, & Hlozek 2006).  Uses Bayesian methods 
@@ -595,7 +626,6 @@ examples:
     import optparse
     import ConfigParser
     import cosmo
-    from SNCosmo import salt2mu
     
     beam = BEAMS()
 

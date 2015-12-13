@@ -13,15 +13,16 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_E
 # TABLE NAME: FITRES 
 # 
 """
-fitresheaderbeams = """CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PA
+fitresheaderbeams = """# CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PA
 """
-fitresfmtbeams = 'SN: %s %i %i %s %.5f %.5f %.5f %.5f %i %i %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f'
+fitresfmtbeams = '%s %i %i %s %.5f %.5f %.5f %.5f %i %i %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f'
 fitresvarsbeams = ["CID","IDSURVEY","TYPE","FIELD",
                    "zHD","zHDERR","z","zERR","HOST_LOGMASS",
                    "HOST_LOGMASS_ERR","SNRMAX1","SNRMAX2",
                    "SNRMAX3","PKMJD","PKMJDERR","x1","x1ERR",
                    "c","cERR","mB","mBERR","x0","x0ERR","COV_x1_c",
-                   "COV_x1_x0","COV_c_x0","NDOF","FITCHI2","FITPROB","PA"]
+                   "COV_x1_x0","COV_c_x0","NDOF","FITCHI2","FITPROB",
+                   "PA"]
 
 
 fitresvars = ["CID","IDSURVEY","TYPE","FIELD",
@@ -70,7 +71,7 @@ class sncosmo:
         parser.add_option('--x1ccircle',default=False,action="store_true",
             help='Circle cut in x1 and c')
         parser.add_option(
-            '--fitprobmin', default=0.0,type="float",
+            '--fitprobmin', default=0.001,type="float",
             help='Peculiar velocity error (default=%default)')
         parser.add_option(
             '--x1errmax', default=1.0,type="float",
@@ -151,7 +152,7 @@ class sncosmo:
 
         parser.add_option('--mcsubset', default=False, action="store_true",
                           help='generate a random subset of SNe from the fitres file')
-        parser.add_option('--subsetsize', default=125, type="int",
+        parser.add_option('--subsetsize', default=250, type="int",
                           help='number of SNe in each MC subset ')
         parser.add_option('--nmc', default=100, type="int",
                           help='number of MC samples ')
@@ -282,7 +283,8 @@ class sncosmo:
 
             # make the BEAMS input file
             if self.options.snpars:
-                cols = np.where((fr.zHD[i] > zmin) & (fr.zHD[i] <= zmax))[0]
+                cols = np.where((fr.zHD > zmin) & (fr.zHD <= zmax))[0]
+                fr.PA = fr.__dict__[self.options.piacol]
                 writefitres(fr,cols,'%s.input'%root,
                             fitresheader=fitresheaderbeams,
                             fitresfmt=fitresfmtbeams,
