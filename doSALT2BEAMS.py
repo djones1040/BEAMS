@@ -27,10 +27,6 @@ class BEAMS:
             # Input file
             parser.add_option('--pacol', default=config.get('all','pacol'), type="string",
                               help='column in input file used as prior P(A)')
-            parser.add_option('--residcol', default=config.get('all','residcol'), type="string",
-                              help='column name in input file header for residuals')
-            parser.add_option('--residerrcol', default=config.get('all','residerrcol'), type="string",
-                              help='column name in input file header for residual errors')
 
             # population A guesses and priors (the pop we care about)
             parser.add_option('--popAguess', default=map(float,config.get('all','popAguess').split(',')),type='float',
@@ -137,10 +133,6 @@ For flat prior, use empty string""",nargs=2)
             # Input file
             parser.add_option('--pacol', default='PA', type="string",
                               help='column in input file used as prior P(A)')
-            parser.add_option('--residcol', default='resid', type="string",
-                              help='column name in input file header for residuals')
-            parser.add_option('--residerrcol', default='resid_err', type="string",
-                              help='column name in input file header for residual errors')
 
             # population A guesses and priors (the pop we care about)
             parser.add_option('--popAguess', default=(0.0,0.1),type='float',
@@ -252,8 +244,6 @@ For flat prior, use empty string""",nargs=2)
         else:
             self.options.lstepfixed = 1
             self.options.lstepguess = 0.0
-        inp.resid = inp.__dict__[self.options.residcol]
-        inp.residerr = inp.__dict__[self.options.residerrcol]
 
         # open the output file
         if not os.path.exists(self.options.outputfile) or self.options.clobber:
