@@ -268,7 +268,8 @@ For flat prior, use empty string""",nargs=2)
         # run the MCMC
         residA,sigA,residB,sigB,fracB,lstep,samples = self.mcmc(inp)
                 
-        outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
+        outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f "
+        outlinefmt += "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
 
         chain_len = len(samples[:,0])
         residAmean = np.mean(samples[:,0])
@@ -283,30 +284,45 @@ For flat prior, use empty string""",nargs=2)
         sigBmean = np.mean(samples[:,3])
         sigBerr = np.sqrt(np.sum((samples[:,3]-np.mean(samples[:,3]))*(samples[:,3]-np.mean(samples[:,3])))/chain_len)
 
-        fracBmean = np.mean(samples[:,4])
-        fracBerr = np.sqrt(np.sum((samples[:,4]-np.mean(samples[:,4]))*(samples[:,4]-np.mean(samples[:,4])))/chain_len)
+        count = 4
+        if self.options.fracBguess == 0:
+            fracBmean = np.mean(samples[:,4])
+            fracBerr = np.sqrt(np.sum((samples[:,4]-np.mean(samples[:,4]))*(samples[:,4]-np.mean(samples[:,4])))/chain_len)
+            count += 1
 
-        lstepmean = np.mean(samples[:,5])
-        lsteperr = np.sqrt(np.sum((samples[:,5]-np.mean(samples[:,5]))*(samples[:,5]-np.mean(samples[:,5])))/chain_len)
+        lstepmean = np.mean(samples[:,count])
+        lsteperr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+        count += 1
 
+        salt2alphamean = np.mean(samples[:,count])
+        salt2alphaerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+        count += 1
+
+        salt2betamean = np.mean(samples[:,count])
+        salt2betaerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+        count += 1
 
         outline = outlinefmt%(residAmean,residAerr,residA[1],residA[2],
                               sigAmean,sigAerr,sigA[1],sigA[2],
                               residBmean,residBerr,residB[1],residB[2],
                               sigBmean,sigBerr,sigB[1],sigB[2],
                               fracBmean,fracBerr,fracB[1],fracB[2],
-                              lstepmean,lsteperr,lstep[1],lstep[2])
+                              lstepmean,lsteperr,lstep[1],lstep[2],
+                              alpha[0],alpha[1],alpha[2],
+                              beta[0],beta[1],beta[2])
         if self.options.append or not os.path.exists(self.options.outputfile) or self.options.clobber:
             fout = open(self.options.outputfile,'a')
             print >> fout, outline
             fout.close()
 
         if self.options.verbose:
-            print('muA: %.3f +/- %.3f muB: %.3f +/- %.3f frac. B: %.3f +/- %.3f Lstep: %.3f +/- %.3f'%(
+            print('muA: %.3f +/- %.3f muB: %.3f +/- %.3f frac. B: %.3f +/- %.3f Lstep: %.3f +/- %.3f salt2 alpha: %.3f +/- %.3f salt2 beta %.3f +/- %.3f'%(
                     residAmean,residAerr,
                     residBmean,residBerr,
                     fracBmean,fracBerr,
-                    lstepmean,lsteperr))
+                    lstepmean,lsteperr,
+                    salt2alphamean,salt2alphaerr,
+                    salt2betamean,salt2betaerr))
 
     def mcmc(self,inp):
         from scipy.optimize import minimize
@@ -361,12 +377,12 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
 
         # get the error bars - should really return the full posterior!
         import scipy.stats
-        resida_mcmc, siga_mcmc, residb_mcmc, sigb_mcmc, fracB, lstep = \
+        resida_mcmc, siga_mcmc, residb_mcmc, sigb_mcmc, fracB, lstep, alpha, beta = \
             map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
                 zip(*np.percentile(samples, [16, 50, 84],
                                    axis=0)))
 #        import pdb; pdb.set_trace()
-        return(resida_mcmc,siga_mcmc,residb_mcmc,sigb_mcmc,fracB,lstep,samples)
+        return(resida_mcmc,siga_mcmc,residb_mcmc,sigb_mcmc,fracB,lstep,alpha,beta,samples)
 
     def fixedpriors(self,md):
 
