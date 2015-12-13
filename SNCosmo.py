@@ -113,6 +113,9 @@ class sncosmo:
                           help='if set, run doSNBEAMS to get correlated measurements at log-spaced z control points')
         parser.add_option('--nzskip', default=0, type="int",
                           help='This is a hack - don\t write the first x bins to the output files')
+        parser.add_option('--snpars', default=False, action="store_true",
+                          help='if set, marginalize over alpha and beta for SNe Ia (CC SNe set to priors)')
+
 
         parser.add_option('-f','--fitresfile', default='ps1_psnidprob.fitres', type="string",
                           help='fitres file with the SN Ia data')
@@ -201,6 +204,8 @@ class sncosmo:
 
         if self.options.corrzbins:
             from doSNBEAMS import BEAMS
+        elif self.options.snpars:
+            from doSALT2BEAMS import BEAMS
         else:
             from doBEAMS import BEAMS
         import ConfigParser, sys
@@ -265,12 +270,17 @@ class sncosmo:
             else: clobber = True
 
             # make the BEAMS input file
-            fout = open('%s.input'%root,'w')
-            print >> fout, '# PA resid resid_err'
-            for i in range(len(fr.MU)):
-                if fr.zHD[i] > zmin and fr.zHD[i] <= zmax:
-                    print >> fout, '%.3f %.4f %.4f'%(P_Ia[i],fr.MU[i]-cosmo.mu(fr.zHD[i]),fr.MUERR[i])
-            fout.close()
+            if self.options.snpars:
+                cols = np.where((fr.zHD[i] > zmin) & (fr.zHD[i] <= zmax))[0]
+                writefitres(fr,cols=cols,'%s.input'%root)
+                beam.options.pacol = beam.options.piacol
+            else:
+                fout = open('%s.input'%root,'w')
+                print >> fout, '# PA resid resid_err'
+                for i in range(len(fr.MU)):
+                    if fr.zHD[i] > zmin and fr.zHD[i] <= zmax:
+                        print >> fout, '%.3f %.4f %.4f'%(P_Ia[i],fr.MU[i]-cosmo.mu(fr.zHD[i]),fr.MUERR[i])
+                fout.close()
 
             beam.options.append = append
             beam.options.clobber = clobber
@@ -286,8 +296,10 @@ class sncosmo:
     
             fout = open('%s.params'%root,'w')
             config.write(fout); fout.close()
-            os.system('./doBEAMS.py -p %s.params -o %s'%(root,self.options.outfile))
-
+            if self.options.snpars:
+                os.system('./doSALT2BEAMS.py -p %s.params -o %s'%(root,self.options.outfile))
+            else:
+                os.system('./doBEAMS.py -p %s.params -o %s'%(root,self.options.outfile))
             #beam.main(options.inputfile)
 
         bms = txtobj(self.options.outfile)
