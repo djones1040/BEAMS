@@ -13,6 +13,17 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_E
 # TABLE NAME: FITRES 
 # 
 """
+fitresheaderbeams = """CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PA
+"""
+fitresfmtbeams = 'SN: %s %i %i %s %.5f %.5f %.5f %.5f %i %i %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f'
+fitresvarsbeams = ["CID","IDSURVEY","TYPE","FIELD",
+                   "zHD","zHDERR","z","zERR","HOST_LOGMASS",
+                   "HOST_LOGMASS_ERR","SNRMAX1","SNRMAX2",
+                   "SNRMAX3","PKMJD","PKMJDERR","x1","x1ERR",
+                   "c","cERR","mB","mBERR","x0","x0ERR","COV_x1_c",
+                   "COV_x1_x0","COV_c_x0","NDOF","FITCHI2","FITPROB","PA"]
+
+
 fitresvars = ["CID","IDSURVEY","TYPE","FIELD",
               "zHD","zHDERR","z","zERR","HOST_LOGMASS",
               "HOST_LOGMASS_ERR","SNRMAX1","SNRMAX2",
@@ -272,8 +283,10 @@ class sncosmo:
             # make the BEAMS input file
             if self.options.snpars:
                 cols = np.where((fr.zHD[i] > zmin) & (fr.zHD[i] <= zmax))[0]
-                writefitres(fr,cols=cols,'%s.input'%root)
-                beam.options.pacol = beam.options.piacol
+                writefitres(fr,cols,'%s.input'%root,
+                            fitresheader=fitresheaderbeams,
+                            fitresfmt=fitresfmtbeams,
+                            fitresvars=fitresvarsbeams)
             else:
                 fout = open('%s.input'%root,'w')
                 print >> fout, '# PA resid resid_err'
