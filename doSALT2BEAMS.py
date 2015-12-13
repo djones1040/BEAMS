@@ -331,7 +331,7 @@ For flat prior, use empty string""",nargs=2)
                                       cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
                                       alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
                                       beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
-                                      x0=inp.x0,sigint=self.options.sigint,z=inp.zHD)
+                                      x0=inp.x0,z=inp.zHD)
         inp.resid = inp.MU - cosmo.mu(inp.zHD)
         md = minimize(nll,(self.options.popAguess[0],self.options.popAguess[1],
                            self.options.popBguess[0],self.options.popBguess[1],
@@ -435,14 +435,14 @@ def twogausslike_snpars(x,inp=None,alpha=None,beta=None,alphaerr=None,betaerr=No
                          cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
                          alpha=theta[-2],alphaerr=1e-10,
                          beta=theta[-1],betaerr=1e-10,
-                         x0=inp.x0,sigint=self.options.sigint,z=inp.zHD)
+                         x0=inp.x0,z=inp.zHD)
     residA = muA - cosmo.mu(inp.zHD)
 
     muB,residBerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                          cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
                          alpha=alpha,alphaerr=alphaerr,
                          beta=beta,betaerr=betaerr,
-                         x0=inp.x0,sigint=self.options.sigint,z=inp.zHD)
+                         x0=inp.x0,z=inp.zHD)
     residB = muB - cosmo.mu(inp.zHD)
 
     
@@ -458,14 +458,14 @@ def twogausslike_snpars_nofrac(x,inp=None,alpha=None,beta=None,alphaerr=None,bet
                          cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
                          alpha=theta[-2],alphaerr=1e-10,
                          beta=theta[-1],betaerr=1e-10,
-                         x0=inp.x0,sigint=self.options.sigint,z=inp.zHD)
+                         x0=inp.x0,z=inp.zHD)
     residA = muA - cosmo.mu(inp.zHD)
 
     muB,residBerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                          cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
                          alpha=alpha,alphaerr=alphaerr,
                          beta=beta,betaerr=betaerr,
-                         x0=inp.x0,sigint=self.options.sigint,z=inp.zHD)
+                         x0=inp.x0,z=inp.zHD)
     residB = muB - cosmo.mu(inp.zHD)
 
     return np.sum(np.logaddexp(-(residA-x[0]+PL*x[5])**2./(2.0*(residAerr**2.+x[1]**2.)) + \
