@@ -387,13 +387,13 @@ class sncosmo:
             # I'm just going to assume cmax = abs(cmin) and same for x1
             cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax/(1+fr.zHD)) &
-                            (fr.FITPROB > self.options.fitprobmin) &
+                            (fr.FITPROB >= self.options.fitprobmin) &
                             (fr.z > self.options.zmin) & (fr.z < self.options.zmax))
         else:
             cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
                             (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax) &
-                            (fr.FITPROB > self.options.fitprobmin) &
+                            (fr.FITPROB >= self.options.fitprobmin) &
                             (fr.z > self.options.zmin) & (fr.z < self.options.zmax))
         for k in fr.__dict__.keys():
             fr.__dict__[k] = fr.__dict__[k][cols]
