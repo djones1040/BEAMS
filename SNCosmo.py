@@ -15,7 +15,7 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_E
 """
 fitresheaderbeams = """# CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PA PL
 """
-fitresfmtbeams = '%s %i %i %s %.5f %.5f %.5f %.5f %i %i %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f'
+fitresfmtbeams = '%s %i %i %s %.5f %.5f %.5f %.5f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f'
 fitresvarsbeams = ["CID","IDSURVEY","TYPE","FIELD",
                    "zHD","zHDERR","z","zERR","HOST_LOGMASS",
                    "HOST_LOGMASS_ERR","SNRMAX1","SNRMAX2",
@@ -31,7 +31,7 @@ fitresvars = ["CID","IDSURVEY","TYPE","FIELD",
               "SNRMAX3","PKMJD","PKMJDERR","x1","x1ERR",
               "c","cERR","mB","mBERR","x0","x0ERR","COV_x1_c",
               "COV_x1_x0","COV_c_x0","NDOF","FITCHI2","FITPROB"]
-fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.5f %.5f %i %i %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f'
+fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.5f %.5f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f'
 
 class sncosmo:
     def __init__(self):
@@ -71,7 +71,7 @@ class sncosmo:
         parser.add_option('--x1ccircle',default=False,action="store_true",
             help='Circle cut in x1 and c')
         parser.add_option(
-            '--fitprobmin', default=0.001,type="float",
+            '--fitprobmin', default=0.0,type="float",
             help='Peculiar velocity error (default=%default)')
         parser.add_option(
             '--x1errmax', default=1.0,type="float",
@@ -99,10 +99,13 @@ class sncosmo:
             '--masscorr', default=False,action="store_true",
             help='If true, perform mass correction (default=%default)')
         parser.add_option(
+            '--masscorrfixed', default=False,action="store_true",
+            help='If true, perform fixed mass correction (default=%default)')
+        parser.add_option(
             '--massfile', default='mass.txt',
             type="string",help='Host mass file (default=%default)')
         parser.add_option(
-            '--masscorrmag', default=(0.06,0.023),type="float",
+            '--masscorrmag', default=(0.07,0.023),type="float",
             help="""mass corr. and uncertainty (default=%default)""",nargs=2)
 
         parser.add_option('--nthreads', default=8, type="int",
@@ -152,7 +155,7 @@ class sncosmo:
 
         parser.add_option('--mcsubset', default=False, action="store_true",
                           help='generate a random subset of SNe from the fitres file')
-        parser.add_option('--subsetsize', default=250, type="int",
+        parser.add_option('--subsetsize', default=125, type="int",
                           help='number of SNe in each MC subset ')
         parser.add_option('--nmc', default=100, type="int",
                           help='number of MC samples ')
@@ -170,6 +173,14 @@ class sncosmo:
         import cosmo
 
         fr = txtobj(fitres,fitresheader=True)
+        # HAAAACKKKKK
+#        for i in range(len(fr.CID)):
+#            if fr.HOST_LOGMASS[i] > 10:
+#                fr.mB[i] += self.options.masscorrmag[0]
+#                fr.mBERR[i] = np.sqrt(fr.mBERR[i]**2. + self.options.masscorrmag[1]**2.)
+#            else:
+#                fr.mB[i] -= self.options.masscorrmag[0]/2.
+        
         fr.MU,fr.MUERR = salt2mu(x1=fr.x1,x1err=fr.x1ERR,c=fr.c,cerr=fr.cERR,mb=fr.mB,mberr=fr.mBERR,
                                  cov_x1_c=fr.COV_x1_c,cov_x1_x0=fr.COV_x1_x0,cov_c_x0=fr.COV_c_x0,
                                  alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
@@ -246,7 +257,11 @@ class sncosmo:
                 fr.__dict__[k] = fr.__dict__[k][cols]
             fr.PL = np.zeros(len(fr.CID))
             for i in range(len(fr.CID)):
+                if fr.HOST_LOGMASS_ERR[i] == 0: fr.HOST_LOGMASS_ERR[i] = 1e-5
                 fr.PL[i] = scipy.stats.norm.cdf(10,fr.HOST_LOGMASS[i],fr.HOST_LOGMASS_ERR[i])
+            P_Ia = P_Ia[cols]            
+
+        if self.options.masscorrfixed: beam.options.lstepfixed = True
 
         if self.options.corrzbins:
             beam.options.zmin = self.options.zmin
@@ -255,13 +270,13 @@ class sncosmo:
 
             # make the BEAMS input file
             fout = open('%s.input'%root,'w')
-            if fr.__dict__.has_key('PL'):
+            if not fr.__dict__.has_key('PL'):
                 print >> fout, '# PA z mu mu_err'
             else:
                 print >> fout, '# PA PL z mu mu_err'
             for i in range(len(fr.MU)):
                 if fr.zHD[i] > self.options.zmin and fr.zHD[i] <= self.options.zmax:
-                    if fr.__dict__.has_key('PL'):
+                    if not fr.__dict__.has_key('PL'):
                         print >> fout, '%.3f %.4f %.4f %.4f'%(P_Ia[i],fr.zHD[i],fr.MU[i],fr.MUERR[i])
                     else:
                         print >> fout, '%.3f %.3f %.4f %.4f %.4f'%(P_Ia[i],fr.PL[i],fr.zHD[i],fr.MU[i],fr.MUERR[i])
@@ -312,7 +327,7 @@ class sncosmo:
                     print >> fout, '# PA resid resid_err'
                 for i in range(len(fr.MU)):
                     if fr.zHD[i] > zmin and fr.zHD[i] <= zmax:
-                        if fr.__dict__.has_key('PL'):
+                        if not fr.__dict__.has_key('PL'):
                             print >> fout, '%.3f %.4f %.4f'%(P_Ia[i],fr.MU[i]-cosmo.mu(fr.zHD[i]),fr.MUERR[i])
                         else:
                             print >> fout, '%.3f %.3f %.4f %.4f'%(P_Ia[i],fr.PL[i],fr.MU[i]-cosmo.mu(fr.zHD[i]),fr.MUERR[i])
@@ -532,7 +547,7 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_E
                       "c","cERR","mB","mBERR","x0","x0ERR","COV_x1_c",
                       "COV_x1_x0","COV_c_x0","NDOF","FITCHI2","FITPROB",
                       "PBAYES_Ia","PGAL_Ia","PFITPROB_Ia"]
-        fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.5f %.5f %i %i %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f %.4f'
+        fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.5f %.5f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f %.4f'
 
         name,ext = os.path.splitext(fitresfile)
         fitresoutfile = '%s_mc%i%s'%(name,mciter,ext)
@@ -557,7 +572,15 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_E
         for k in fr.__dict__.keys():
             fr.__dict__[k] = fr.__dict__[k][cols]
 
-
+#        if self.options.masscorr:
+        # HAAAACK
+#        cols = np.where(fr.HOST_LOGMASS > 0)
+#        for k in fr.__dict__.keys():
+#            fr.__dict__[k] = fr.__dict__[k][cols]
+#        colslowz = np.where(frlowz.HOST_LOGMASS > 0)
+#        for k in fr.__dict__.keys():
+#            fr.__dict__[k] = fr.__dict__[k][colslowz]
+#        print len(colslowz[0])
 
         writefitres(fr,np.random.randint(len(fr.CID),size=nsne),fitresoutfile,fitresheader=fitresheader,
                     fitresvars=fitresvars,fitresfmt=fitresfmt)
@@ -672,7 +695,7 @@ examples:
             name,ext = os.path.splitext(outfile_orig)
             options.outfile = '%s_mc%i%s'%(name,i,ext)
             sne.main(frfile,mkcuts=False)
-    if not options.mkplot:
+    elif not options.mkplot:
         sne.main(options.fitresfile)
     else:
         sne.mkplot(fitresfile=options.fitresfile,showpriorprobs=options.showpriorprobs)

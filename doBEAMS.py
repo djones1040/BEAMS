@@ -203,6 +203,11 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
             self.options.lstepguess = 0.0
         inp.resid = inp.__dict__[self.options.residcol]
         inp.residerr = inp.__dict__[self.options.residerrcol]
+        
+        data = True
+        if not len(inp.resid):
+            print('Warning : no data in input file!!')
+            data = False
 
         # open the output file
         if not os.path.exists(self.options.outputfile) or self.options.clobber:
@@ -215,47 +220,62 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
             print('Warning : files %s exists!!  Not clobbering'%self.options.outputfile)
 
         # run the MCMC
-        residA,sigA,residB,sigB,fracB,lstep,samples = self.mcmc(inp)
+        if data:
+            residA,sigA,residB,sigB,fracB,lstep,samples = self.mcmc(inp)
                 
-        outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
+            outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
 
-        chain_len = len(samples[:,0])
-        residAmean = np.mean(samples[:,0])
-        residAerr = np.sqrt(np.sum((samples[:,0]-np.mean(samples[:,0]))*(samples[:,0]-np.mean(samples[:,0])))/chain_len)
+            chain_len = len(samples[:,0])
+            residAmean = np.mean(samples[:,0])
+            residAerr = np.sqrt(np.sum((samples[:,0]-np.mean(samples[:,0]))*(samples[:,0]-np.mean(samples[:,0])))/chain_len)
 
-        sigAmean = np.mean(samples[:,1])
-        sigAerr = np.sqrt(np.sum((samples[:,1]-np.mean(samples[:,1]))*(samples[:,1]-np.mean(samples[:,1])))/chain_len)
+            sigAmean = np.mean(samples[:,1])
+            sigAerr = np.sqrt(np.sum((samples[:,1]-np.mean(samples[:,1]))*(samples[:,1]-np.mean(samples[:,1])))/chain_len)
+            
+            residBmean = np.mean(samples[:,2])
+            residBerr = np.sqrt(np.sum((samples[:,2]-np.mean(samples[:,2]))*(samples[:,2]-np.mean(samples[:,2])))/chain_len)
 
-        residBmean = np.mean(samples[:,2])
-        residBerr = np.sqrt(np.sum((samples[:,2]-np.mean(samples[:,2]))*(samples[:,2]-np.mean(samples[:,2])))/chain_len)
+            sigBmean = np.mean(samples[:,3])
+            sigBerr = np.sqrt(np.sum((samples[:,3]-np.mean(samples[:,3]))*(samples[:,3]-np.mean(samples[:,3])))/chain_len)
 
-        sigBmean = np.mean(samples[:,3])
-        sigBerr = np.sqrt(np.sum((samples[:,3]-np.mean(samples[:,3]))*(samples[:,3]-np.mean(samples[:,3])))/chain_len)
+            fracBmean = np.mean(samples[:,4])
+            fracBerr = np.sqrt(np.sum((samples[:,4]-np.mean(samples[:,4]))*(samples[:,4]-np.mean(samples[:,4])))/chain_len)
 
-        fracBmean = np.mean(samples[:,4])
-        fracBerr = np.sqrt(np.sum((samples[:,4]-np.mean(samples[:,4]))*(samples[:,4]-np.mean(samples[:,4])))/chain_len)
+            lstepmean = np.mean(samples[:,5])
+            lsteperr = np.sqrt(np.sum((samples[:,5]-np.mean(samples[:,5]))*(samples[:,5]-np.mean(samples[:,5])))/chain_len)
 
-        lstepmean = np.mean(samples[:,5])
-        lsteperr = np.sqrt(np.sum((samples[:,5]-np.mean(samples[:,5]))*(samples[:,5]-np.mean(samples[:,5])))/chain_len)
+            if residAerr < 0.001: residAerr = 1e7#; residA[1] = 1e7; residA[2] = 1e7
+            if residBerr < 0.001: residBerr = 1e7#; residB[1] = 1e7; residB[2] = 1e7
 
+            outline = outlinefmt%(residAmean,residAerr,residA[1],residA[2],
+                                  sigAmean,sigAerr,sigA[1],sigA[2],
+                                  residBmean,residBerr,residB[1],residB[2],
+                                  sigBmean,sigBerr,sigB[1],sigB[2],
+                                  fracBmean,fracBerr,fracB[1],fracB[2],
+                                  lstepmean,lsteperr,lstep[1],lstep[2])
+            if self.options.append or not os.path.exists(self.options.outputfile) or self.options.clobber:
+                fout = open(self.options.outputfile,'a')
+                print >> fout, outline
+                fout.close()
 
-        outline = outlinefmt%(residAmean,residAerr,residA[1],residA[2],
-                              sigAmean,sigAerr,sigA[1],sigA[2],
-                              residBmean,residBerr,residB[1],residB[2],
-                              sigBmean,sigBerr,sigB[1],sigB[2],
-                              fracBmean,fracBerr,fracB[1],fracB[2],
-                              lstepmean,lsteperr,lstep[1],lstep[2])
-        if self.options.append or not os.path.exists(self.options.outputfile) or self.options.clobber:
-            fout = open(self.options.outputfile,'a')
-            print >> fout, outline
-            fout.close()
-
-        if self.options.verbose:
-            print('muA: %.3f +/- %.3f muB: %.3f +/- %.3f frac. B: %.3f +/- %.3f Lstep: %.3f +/- %.3f'%(
-                    residAmean,residAerr,
-                    residBmean,residBerr,
-                    fracBmean,fracBerr,
-                    lstepmean,lsteperr))
+            if self.options.verbose:
+                print('muA: %.3f +/- %.3f muB: %.3f +/- %.3f frac. B: %.3f +/- %.3f Lstep: %.3f +/- %.3f'%(
+                        residAmean,residAerr,
+                        residBmean,residBerr,
+                        fracBmean,fracBerr,
+                        lstepmean,lsteperr))
+        else:
+            outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
+            outline = outlinefmt%(0,1e7,1e7,1e7,
+                                  0,1e7,1e7,1e7,
+                                  0,1e7,1e7,1e7,
+                                  0,1e7,1e7,1e7,
+                                  0,1e7,1e7,1e7,
+                                  0,1e7,1e7,1e7)
+            if self.options.append or not os.path.exists(self.options.outputfile) or self.options.clobber:
+                fout = open(self.options.outputfile,'a')
+                print >> fout, outline
+                fout.close()
 
     def mcmc(self,inp):
         from scipy.optimize import minimize
@@ -354,15 +374,24 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
 
 def twogausslike(x,PA=None,PL=None,resid=None,residerr=None):
     
-    return np.sum(np.logaddexp(-(resid-x[0]+PL*x[5])**2./(2.0*(residerr**2.+x[1]**2.)) + \
-                                    np.log((1-x[4])*(PA)/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+residerr**2.))),
-                                -(resid-x[2])**2./(2.0*(residerr**2.+x[3]**2.)) + \
-                                    np.log((x[4])*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+residerr**2.)))))
+    if type(PL) != None and type(PL) != int:
+        return np.sum(np.logaddexp(-(resid-x[0]-x[5])**2./(2.0*(residerr**2.+x[1]**2.)) + \
+                                        np.log((1-x[4])*(PA)*PL/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+residerr**2.))),
+                                    -(resid-x[2])**2./(2.0*(residerr**2.+x[3]**2.)) + \
+                                        np.log((x[4])*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+residerr**2.)))) + \
+                          np.logaddexp(-(resid-x[0])**2./(2.0*(residerr**2.+x[1]**2.)) + \
+                                            np.log((1-x[4])*(PA)*(1-PL)/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+residerr**2.))),
+                                        0))
+    else:
+        return np.sum(np.logaddexp(-(resid-x[0])**2./(2.0*(residerr**2.+x[1]**2.)) + \
+                                        np.log((1-x[4])*(PA)/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+residerr**2.))),
+                                    -(resid-x[2])**2./(2.0*(residerr**2.+x[3]**2.)) + \
+                                        np.log((x[4])*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+residerr**2.)))))
 
 
 def twogausslike_nofrac(x,PA=None,PL=None,resid=None,residerr=None):
 
-    return np.sum(np.logaddexp(-(resid-x[0]+PL*x[5])**2./(2.0*(residerr**2.+x[1]**2.)) + \
+    return np.sum(np.logaddexp(-(resid-x[0]-x[5])**2./(2.0*(residerr**2.+x[1]**2.)) + \
                                     np.log(PA/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+residerr**2.))),
                                 -(resid-x[2])**2./(2.0*(residerr**2.+x[3]**2.)) + \
                                     np.log((1-PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+residerr**2.)))))
@@ -394,7 +423,6 @@ def lnprior(theta,
         p_theta *= gauss(fracB,p_fracB,psig_fracB)
     if type(p_lstep) != None:
         p_lstep *= gauss(lstep,p_lstep,psig_lstep)
-
 
     if fracB > 1 or fracB < 0: return -np.inf
     else: return(np.log(p_theta))
