@@ -13,16 +13,16 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_E
 # TABLE NAME: FITRES 
 # 
 """
-fitresheaderbeams = """# CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PA
+fitresheaderbeams = """# CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PA PL
 """
-fitresfmtbeams = '%s %i %i %s %.5f %.5f %.5f %.5f %i %i %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f'
+fitresfmtbeams = '%s %i %i %s %.5f %.5f %.5f %.5f %i %i %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f'
 fitresvarsbeams = ["CID","IDSURVEY","TYPE","FIELD",
                    "zHD","zHDERR","z","zERR","HOST_LOGMASS",
                    "HOST_LOGMASS_ERR","SNRMAX1","SNRMAX2",
                    "SNRMAX3","PKMJD","PKMJDERR","x1","x1ERR",
                    "c","cERR","mB","mBERR","x0","x0ERR","COV_x1_c",
                    "COV_x1_x0","COV_c_x0","NDOF","FITCHI2","FITPROB",
-                   "PA"]
+                   "PA","PL"]
 
 
 fitresvars = ["CID","IDSURVEY","TYPE","FIELD",
@@ -237,7 +237,16 @@ class sncosmo:
         beam.options = options
         beam.transformOptions()
         options.inputfile = '%s.input'%root
-        if self.options.masscorr: beam.options.lstep = True
+        if self.options.masscorr:
+            beam.options.lstep = True
+            beam.options.plcol = 'PL'
+            import scipy.stats
+            cols = np.where(fr.HOST_LOGMASS > 0)
+            for k in fr.__dict__.keys():
+                fr.__dict__[k] = fr.__dict__[k][cols]
+            fr.PL = np.zeros(len(fr.CID))
+            for i in range(len(fr.CID)):
+                fr.PL[i] = scipy.stats.norm.cdf(10,fr.HOST_LOGMASS[i],fr.HOST_LOGMASS_ERR[i])
 
         if self.options.corrzbins:
             beam.options.zmin = self.options.zmin
@@ -246,10 +255,16 @@ class sncosmo:
 
             # make the BEAMS input file
             fout = open('%s.input'%root,'w')
-            print >> fout, '# PA z mu mu_err'
+            if fr.__dict__.has_key('PL'):
+                print >> fout, '# PA z mu mu_err'
+            else:
+                print >> fout, '# PA PL z mu mu_err'
             for i in range(len(fr.MU)):
                 if fr.zHD[i] > self.options.zmin and fr.zHD[i] <= self.options.zmax:
-                    print >> fout, '%.3f %.4f %.4f %.4f'%(P_Ia[i],fr.zHD[i],fr.MU[i],fr.MUERR[i])
+                    if fr.__dict__.has_key('PL'):
+                        print >> fout, '%.3f %.4f %.4f %.4f'%(P_Ia[i],fr.zHD[i],fr.MU[i],fr.MUERR[i])
+                    else:
+                        print >> fout, '%.3f %.3f %.4f %.4f %.4f'%(P_Ia[i],fr.PL[i],fr.zHD[i],fr.MU[i],fr.MUERR[i])
             fout.close()
 
             beam.options.append = False
@@ -291,10 +306,16 @@ class sncosmo:
                             fitresvars=fitresvarsbeams)
             else:
                 fout = open('%s.input'%root,'w')
-                print >> fout, '# PA resid resid_err'
+                if fr.__dict__.has_key('PL'):
+                    print >> fout, '# PA PL resid resid_err'
+                else:
+                    print >> fout, '# PA resid resid_err'
                 for i in range(len(fr.MU)):
                     if fr.zHD[i] > zmin and fr.zHD[i] <= zmax:
-                        print >> fout, '%.3f %.4f %.4f'%(P_Ia[i],fr.MU[i]-cosmo.mu(fr.zHD[i]),fr.MUERR[i])
+                        if fr.__dict__.has_key('PL'):
+                            print >> fout, '%.3f %.4f %.4f'%(P_Ia[i],fr.MU[i]-cosmo.mu(fr.zHD[i]),fr.MUERR[i])
+                        else:
+                            print >> fout, '%.3f %.3f %.4f %.4f'%(P_Ia[i],fr.PL[i],fr.MU[i]-cosmo.mu(fr.zHD[i]),fr.MUERR[i])
                 fout.close()
 
             beam.options.append = append
