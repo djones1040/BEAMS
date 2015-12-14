@@ -96,7 +96,7 @@ class sncosmo:
 
         # Mass options
         parser.add_option(
-            '--masscorr', default=False,type="int",
+            '--masscorr', default=False,action="store_true",
             help='If true, perform mass correction (default=%default)')
         parser.add_option(
             '--massfile', default='mass.txt',
