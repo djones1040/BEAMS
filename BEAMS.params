@@ -22,10 +22,21 @@ popBprior_mean = 1.0,1.0
 popBprior_std = 1.0,3.0
 popBfixed = 0,0
 
+# params for pop. B 2 (2nd contaminating distribution or skew parameters)
+popB2guess = 0.0,5.0
+popB2prior_mean = 0.0,1.0
+popB2prior_std = 1.0,3.0
+popB2fixed = 0,0
+
 # params for the fraction of contaminants
 fracBguess = 0.1
 fracBprior = 0.05,0.1
 fracBfixed = 0
+
+# params for the 2nd fraction of contaminants
+fracB2guess = 0.1
+fracB2prior = 0.05,0.1
+fracB2fixed = 0
 
 # luminosity step correction
 plcol = PL
@@ -52,6 +63,10 @@ nthreads = 8
 nwalkers = 100
 nsteps = 500
 ninit = 50
+
+# model changes
+twogauss = 0
+skewedgauss = 0
 
 # files
 inputfile = BEAMS.input

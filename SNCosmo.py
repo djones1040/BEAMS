@@ -165,6 +165,11 @@ class sncosmo:
         parser.add_option('--onlyIa', default=False, action="store_true",
                           help='remove the TYPE != 1 SNe from the bunch')
 
+        # alternate functional models
+        parser.add_option('--twogauss', default=False, action="store_true",
+                          help='two gaussians for pop. B')
+        parser.add_option('--skewedgauss', default=False, action="store_true",
+                          help='skewed gaussian for pop. B')
 
         return(parser)
 
@@ -246,6 +251,9 @@ class sncosmo:
         options,  args = parser.parse_args()
 
         beam.options = options
+        beam.options.twogauss = self.options.twogauss
+        beam.options.skewedgauss = self.options.skewedgauss
+
         beam.transformOptions()
         options.inputfile = '%s.input'%root
         if self.options.masscorr:
@@ -344,7 +352,7 @@ class sncosmo:
                     config.set('all',o,0)
                 elif str(beam.options.__dict__[o]) == 'True':
                     config.set('all',o,1)
-    
+
             fout = open('%s.params'%root,'w')
             config.write(fout); fout.close()
             if self.options.snpars:
