@@ -28,6 +28,11 @@ popB2prior_mean = 0.0,1.0
 popB2prior_std = 1.0,3.0
 popB2fixed = 0,0
 
+# skewness params
+skewBguess = 0
+skewBprior = 0,4
+skewBfixed = 0
+
 # params for the fraction of contaminants
 fracBguess = 0.1
 fracBprior = 0.05,0.1
