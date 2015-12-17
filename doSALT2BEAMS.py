@@ -367,7 +367,6 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         samples = sampler.flatchain#[:, self.options.ninit:, :].reshape((-1, ndim))
 
         # get the error bars - should really return the full posterior!
-        import scipy.stats
         if not omitfracB:
             resida_mcmc, siga_mcmc, residb_mcmc, sigb_mcmc, fracB, lstep, alpha, beta = \
                 map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
@@ -509,9 +508,9 @@ def lnprior(theta,
     if p_fracB:
         p_theta *= gauss(fracB,p_fracB,psig_fracB)
     if p_salt2alpha:
-        p_theta *= gauss(alpha,p_salt2alpha,psig_salt2beta)
+        p_theta *= gauss(alpha,p_salt2alpha,psig_salt2alpha)
     if p_salt2beta:
-        p_theta *= gauss(beta,p_salt2alpha,psig_salt2beta)
+        p_theta *= gauss(beta,p_salt2beta,psig_salt2beta)
     if type(p_lstep) != None:
         p_lstep *= gauss(lstep,p_lstep,psig_lstep)
 

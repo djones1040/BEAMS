@@ -2,6 +2,9 @@
 # D. Jones - 9/1/15
 """BEAMS method for PS1 data"""
 import numpy as np
+from scipy.misc import logsumexp
+from scipy.special import erf
+import cosmo
 
 class BEAMS:
     def __init__(self):
@@ -61,6 +64,27 @@ For flat prior, use empty string""",nargs=2)
                               help="""comma-separated values for population B params: mean, standard deviation.  
 For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""",nargs=2)
 
+            # population B guesses and priors for second gaussian (the pop we care about)
+            parser.add_option('--popB2guess', default=map(float,config.get('all','popB2guess').split(',')),type='float',
+                              help='comma-separated initial guesses for population B: mean, standard deviation',nargs=2)
+            parser.add_option('--popB2prior_mean', default=map(float,config.get('all','popB2prior_mean').split(',')),type='float',
+                              help="""comma-separated gaussian prior for mean of population B: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+            parser.add_option('--popB2prior_std', default=map(float,config.get('all','popB2prior_std').split(',')),type='float',
+                              help="""comma-separated gaussian prior for std dev. of population B: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+            parser.add_option('--popB2fixed', default=map(float,config.get('all','popB2fixed').split(',')),type='float',
+                              help="""comma-separated values for population B params: mean, standard deviation.  
+For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""",nargs=2)
+
+            # the skewness of the pop. B gaussian
+            parser.add_option('--skewBguess', default=config.get('all','skewBguess'),type='float',
+                              help='comma-separated initial guesses for population B: mean, standard deviation')
+            parser.add_option('--skewBprior', default=map(float,config.get('all','skewBprior').split(',')),type='float',
+                              help="""comma-separated gaussian prior for skewness of population B: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+            parser.add_option('--skewBfixed', default=config.get('all','skewBfixed'),type='int',
+                              help="""set to 0 to include skewness in parameter estimation, set to 1 to keep fixed""")
 
             # fraction of contaminants: guesses and priors
             parser.add_option('--fracBguess', default=config.get('all','fracBguess'),type='float',
@@ -69,6 +93,15 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
                               help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
             parser.add_option('--fracBfixed', default=config.get('all','fracBfixed'),type='int',
+                              help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
+
+           # fraction of contaminants: guesses and priors for gaussian 2
+            parser.add_option('--fracB2guess', default=config.get('all','fracBguess'),type='float',
+                              help='initial guess for fraction of contaminants, set to negative to omit')
+            parser.add_option('--fracB2prior', default=map(float,config.get('all','fracBprior').split(',')),type='float',
+                              help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+            parser.add_option('--fracB2fixed', default=config.get('all','fracBfixed'),type='int',
                               help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
 
             # options to fit to a second-order "step" effect on luminosity.
@@ -86,7 +119,33 @@ For flat prior, use empty strings""",nargs=2)
                               help="""comma-separated values for luminosity correction.
 For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""")
 
-        
+            # SALT2 SN parameters: guesses and priors
+            parser.add_option('--salt2alphaguess', default=config.get('all','salt2alphaguess'),type='float',
+                              help='initial guess for fraction of contaminants, set to negative to omit')
+            parser.add_option('--salt2alphaprior',
+                              default=map(float,config.get('all','salt2alphaprior').split(',')),type='float',
+                              help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.
+For flat prior, use empty string""",nargs=2)
+            parser.add_option('--salt2alphafixed', default=config.get('all','salt2alphafixed'),type='int',
+                              help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
+            parser.add_option('--salt2betaguess', default=config.get('all','salt2betaguess'),type='float',
+                              help='initial guess for fraction of contaminants, set to negative to omit')
+            parser.add_option('--salt2betaprior',
+                              default=map(float,config.get('all','salt2betaprior').split(',')),type='float',
+                              help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.
+For flat prior, use empty string""",nargs=2)
+            parser.add_option('--salt2betafixed', default=config.get('all','salt2betafixed'),type='int',
+                              help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
+
+            parser.add_option('--salt2alpha', default=config.get('all','salt2alpha'), type="float",
+                              help='SALT2 alpha parameter from a spectroscopic sample (default=%default)')
+            parser.add_option('--salt2alphaerr', default=config.get('all','salt2alphaerr'), type="float",
+                              help='nominal SALT2 alpha uncertainty from a spectroscopic sample (default=%default)')
+            parser.add_option('--salt2beta', default=config.get('all','salt2beta'), type="float",
+                              help='nominal SALT2 beta parameter from a spec. sample (default=%default)')
+            parser.add_option('--salt2betaerr', default=config.get('all','salt2betaerr'), type="float",
+                              help='nominal SALT2 beta uncertainty from a spec. sample (default=%default)')        
+
             # output and number of threads
             parser.add_option('--nthreads', default=config.get('all','nthreads'), type="int",
                               help='Number of threads for MCMC')
@@ -100,8 +159,6 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
 
             parser.add_option('--nzbins', default=config.get('all','nzbins'), type="int",
                               help='Number of z bins')
-            parser.add_option('--nzskip', default=config.get('all','nzbins'), type="int",
-                              help='This is a hack - don\t write the first x bins to the output files')
             parser.add_option('--zmin', default=config.get('all','zmin'), type="float",
                               help='min redshift')
             parser.add_option('--zmax', default=config.get('all','zmax'), type="float",
@@ -109,6 +166,13 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
             parser.add_option('--equalbins', default=config.get('all','equalbins'), action="store_true",
                               help='if set, divide bins so that there are the same number of SNe in each bin')
 
+            # alternate functional models
+            parser.add_option('--twogauss', default=map(int,config.get('all','twogauss'))[0], action="store_true",
+                              help='two gaussians for pop. B')
+            parser.add_option('--skewedgauss', default=map(int,config.get('all','skewedgauss'))[0], action="store_true",
+                              help='skewed gaussian for pop. B')
+            parser.add_option('--snpars', default=map(int,config.get('all','snpars'))[0], action="store_true",
+                              help='use BEAMS to constrain SALT2 alpha and beta')
 
             parser.add_option('-i','--inputfile', default=config.get('all','inputfile'), type="string",
                               help='file with the input data')
@@ -132,7 +196,7 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
             # population A guesses and priors (the pop we care about)
             parser.add_option('--popAguess', default=(0.0,0.1),type='float',
                               help='comma-separated initial guesses for population A: mean, standard deviation',nargs=2)
-            parser.add_option('--popAprior_mean', default=(0.0,0.2),type='float',
+            parser.add_option('--popAprior_mean', default=(0.0,0.5),type='float',
                               help="""comma-separated gaussian prior for mean of population A: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
             parser.add_option('--popAprior_std', default=(0.1,0.2),type='float',
@@ -157,14 +221,49 @@ For flat prior, use empty string""",nargs=2)
 For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""",nargs=2)
 
 
+            # population B guesses and priors for second gaussian (the pop we care about)
+            # if we use a skewed gaussian, the pop B refers to the right side of a single gaussian
+            parser.add_option('--popB2guess', default=(0.0,4.0),type='float',
+                              help='comma-separated initial guesses for population B: mean, standard deviation',nargs=2)
+            parser.add_option('--popB2prior_mean', default=(0.0,1.0),type='float',
+                              help="""comma-separated gaussian prior for mean of population B: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+            parser.add_option('--popB2prior_std', default=(4.0,5.0),type='float',
+                              help="""comma-separated gaussian prior for std dev. of population B: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+            parser.add_option('--popB2fixed', default=(0,0),type='float',
+                              help="""comma-separated values for population B params: mean, standard deviation.  
+For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""",nargs=2)
+
+            # the skewness of the pop. B gaussian
+            # the skewness of the pop. B gaussian
+            parser.add_option('--skewBguess', default=0,type='float',
+                              help='comma-separated initial guesses for population B: mean, standard deviation',nargs=2)
+            parser.add_option('--skewBprior', default=(0,4),type='float',
+                              help="""comma-separated gaussian prior for skewness of population B: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+            parser.add_option('--skewBfixed', default=0,type='int',
+                              help="""set to 0 to include skewness in parameter estimation, set to 1 to keep fixed""",nargs=2)
+
+
             # fraction of contaminants: guesses and priors
-            parser.add_option('--fracBguess', default=0.0,type='float',
+            parser.add_option('--fracBguess', default=0.05,type='float',
                               help='initial guess for fraction of contaminants, set to negative to omit')
-            parser.add_option('--fracBprior', default=(0.05,0.1),type='float',
+            parser.add_option('--fracBprior', default=(0.0,0.1),type='float',
                               help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
             parser.add_option('--fracBfixed', default=0,type='int',
                               help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
+
+            # fraction of contaminants: guesses and priors for gaussian 2
+            parser.add_option('--fracB2guess', default=0.05,type='float',
+                              help='initial guess for fraction of contaminants, set to negative to omit')
+            parser.add_option('--fracB2prior', default=(0.05,0.1),type='float',
+                              help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+            parser.add_option('--fracB2fixed', default=0,type='int',
+                              help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
+
 
             # options to fit to a second-order "step" effect on luminosity.
             # This is the host mass bias for SNe.
@@ -180,13 +279,36 @@ For flat prior, use empty strings""",nargs=2)
             parser.add_option('--lstepfixed', default=0,type='float',
                               help="""comma-separated values for luminosity correction.
 For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""")
+
+            # SALT2 SN parameters: guesses and priors
+            parser.add_option('--salt2alphaguess', default=0.147,type='float',
+                              help='initial guess for fraction of contaminants, set to negative to omit')
+            parser.add_option('--salt2alphaprior', default=(0.147,0.1),type='float',
+                              help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+            parser.add_option('--salt2alphafixed', default=0,type='int',
+                              help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
+            parser.add_option('--salt2betaguess', default=3.13,type='float',
+                              help='initial guess for fraction of contaminants, set to negative to omit')
+            parser.add_option('--salt2betaprior', default=(3.13,1.0),type='float',
+                              help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.  
+For flat prior, use empty string""",nargs=2)
+            parser.add_option('--salt2betafixed', default=0,type='int',
+                              help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
+        
+            parser.add_option('--salt2alpha', default=0.147, type="float",
+                              help='SALT2 alpha parameter from a spectroscopic sample (default=%default)')
+            parser.add_option('--salt2alphaerr', default=0.01, type="float",
+                              help='nominal SALT2 alpha uncertainty from a spectroscopic sample (default=%default)')
+            parser.add_option('--salt2beta', default=3.13, type="float",
+                              help='nominal SALT2 beta parameter from a spec. sample (default=%default)')
+            parser.add_option('--salt2betaerr', default=0.12, type="float",
+                              help='nominal SALT2 beta uncertainty from a spec. sample (default=%default)')
             
         
             # output and number of threads
-            parser.add_option('--nthreads', default=8, type="int",
+            parser.add_option('--nthreads', default=20, type="int",
                               help='Number of threads for MCMC')
-            parser.add_option('--nzskip', default=0, type="int",
-                              help='This is a hack - don\t write the first x bins to the output files')
             parser.add_option('--nwalkers', default=200, type="int",
                               help='Number of walkers for MCMC')
             parser.add_option('--nsteps', default=1000, type="int",
@@ -203,6 +325,15 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
                               help='max redshift')
             parser.add_option('--equalbins', default=False, action="store_true",
                               help='if set, divide bins so that there are the same number of SNe in each bin')
+
+            # alternate functional models
+            parser.add_option('--twogauss', default=False, action="store_true",
+                              help='two gaussians for pop. B')
+            parser.add_option('--skewedgauss', default=False, action="store_true",
+                              help='skewed gaussian for pop. B')
+            parser.add_option('--snpars', default=False, action="store_true",
+                              help='use BEAMS to constrain SALT2 alpha and beta')
+
 
             parser.add_option('-i','--inputfile', default='BEAMS.input', type="string",
                               help='file with the input data')
@@ -228,14 +359,21 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
         else:
             self.options.lstepfixed = 1
             self.options.lstepguess = 0.0
-        inp.mu = inp.__dict__[self.options.mucol]
-        inp.muerr = inp.__dict__[self.options.muerrcol]
+
+        if not len(inp.PA):
+            import exceptions
+            raise exceptions.RuntimeError('Warning : no data in input file!!')            
 
         # open the output file
         if not os.path.exists(self.options.outputfile) or self.options.clobber:
             writeout = True
             fout = open(self.options.outputfile,'w')
-            print >> fout, "# muA muAerr sigA sigAerr_m sigAerr_p muB muBerr_m muBerr_p sigB sigBerr_m sigBerr_p fracB fracBerr_m fracBerr_p lstep lstep_m lstep_p"""
+            outline = "# muA muAerr muAerr_m muAerr_p sigA sigAerr sigAerr_m sigAerr_p muB muBerr muBerr_m muBerr_p "
+            outline += "sigB sigBerr sigBerr_m sigBerr_p muB2 muB2err muB2err_m muB2err_p sigB2 sigB2err sigB2err_m "
+            outline += "sigB2err_p skewB skewBerr skewBerr_m skewBerr_p fracB fracBerr fracBerr_m fracBerr_p fracB2 "
+            outline += "fracB2err fracB2err_m fracB2err_p lstep lsteperr lsteperr_m lsteperr_p alpha alphaerr alphaerr_m "
+            outline += "alphaerr_p beta betaerr betaerr_m betaerr_p"
+            print >> fout, outline
             fout.close()
         elif not self.options.append:
             writeout = False
@@ -245,9 +383,9 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
         zcontrol = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nzbins)
         if self.options.equalbins:
             from scipy import stats
-            zcontrol = stats.mstats.mquantiles(inp.z,np.arange(0,1,1./self.options.nzbins))
+            zcontrol = stats.mstats.mquantiles(inp.zHD,np.arange(0,1,1./self.options.nzbins))
         print zcontrol
-        cov,params = self.mcmc(inp,zcontrol)
+        cov,params,samples = self.mcmc(inp,zcontrol)
         if self.options.covmatfile:
             fout = open(self.options.covmatfile,'w')
             print >> fout, '%i'%len(cov)
@@ -260,29 +398,94 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
             fout.close()
 
         # residA,sigA,residB,sigB,fracB,lstep = self.mcmc(inp)
-        sigA,residB,sigB,fracB,lstep = params[:5]
-        mupar = params[5:]
+        sigA,residB,sigB,residB2,sigB2,skewB,fracB,fracB2,lstep,alpha,beta = params[:11]
+        mupar = params[11:]
 
-        outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
-        for par,zcntrl,i in zip(mupar[self.options.nzskip:],zcontrol[self.options.nzskip:],range(len(mupar[self.options.nzskip:]))):
-            outline = outlinefmt%(par[0],np.sqrt(cov[i,i]),
-                                  sigA[0],sigA[1],sigA[2],
-                                  residB[0],residB[1],residB[2],
-                                  sigB[0],sigB[1],sigB[2],
-                                  fracB[0],fracB[1],fracB[2],
-                                  lstep[0],lstep[1],lstep[2])
+        chain_len = len(samples[:,0])
+
+        count = 0
+        residAmean = np.mean(samples[:,count])
+        residAerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+        count += 1
+
+        sigAmean = np.mean(samples[:,count])
+        sigAerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+        count += 1
+
+        residBmean = np.mean(samples[:,count])
+        residBerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+        count += 1
+
+        sigBmean = np.mean(samples[:,count])
+        sigBerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+        count += 1
+
+        residB2mean = np.mean(samples[:,count])
+        residB2err = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+        count += 1
+
+        sigB2mean = np.mean(samples[:,count])
+        sigB2err = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+        count += 1
+
+        skewBmean = np.mean(samples[:,count])
+        skewBerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+        count += 1
+
+        fracBmean = np.mean(samples[:,count])
+        fracBerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+        count +=1
+
+        fracB2mean = np.mean(samples[:,count])
+        fracB2err = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+        count +=1
+
+        lstepmean = np.mean(samples[:,count])
+        lsteperr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+        count += 1
+
+        alphamean = np.mean(samples[:,count])
+        alphaerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+        count += 1
+
+        betamean = np.mean(samples[:,count])
+        betaerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+        count += 1
+
+        outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f "
+        outlinefmt += "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
+        for par,zcntrl,i in zip(mupar,zcontrol,range(len(mupar))):
+            outline = outlinefmt%(np.mean(samples[:,i+11]),np.sqrt(cov[i,i]),par[1],par[2],
+                                  sigAmean,sigAerr,sigA[1],sigA[2],
+                                  residBmean,residBerr,residB[1],residB[2],
+                                  sigBmean,sigBerr,sigB[1],sigB[2],
+                                  residB2mean,residB2err,residB2[1],residB2[2],
+                                  sigB2mean,sigB2err,sigB2[1],sigB2[2],
+                                  skewBmean,skewBerr,skewB[1],skewB[2],
+                                  fracBmean,fracBerr,fracB[1],fracB[2],
+                                  fracB2mean,fracB2err,fracB2[1],fracB2[2],
+                                  lstepmean,lsteperr,lstep[1],lstep[2],
+                                  alphamean,alphaerr,alpha[1],alpha[2],
+                                  betamean,betaerr,beta[1],beta[2])
             if self.options.append or not os.path.exists(self.options.outputfile) or self.options.clobber:
                 fout = open(self.options.outputfile,'a')
                 print >> fout, outline
                 fout.close()
 
             if self.options.verbose:
-                print('z: %.3f muA: %.3f +/- %.3f muB: %.3f +/- %.3f frac. B: %.3f +/- %.3f Lstep: %.3f +/- %.3f'%(
-                        zcntrl,par[0],np.mean([par[1],par[2]]),
-                        residB[0],np.mean([residB[1],residB[2]]),
-                        fracB[0],np.mean([fracB[1],fracB[2]]),
-                        lstep[0],np.mean([lstep[1],lstep[2]])))
-
+                print("""muA: %.3f +/- %.3f muB: %.3f +/- %.3f sigB: %.3f +/- %.3f muB2: %.3f +/- %.3f sigB2: %.3f +/- %.3f 
+skew B: %.3f +/- %.3f frac. B: %.3f +/- %.3f frac. B2: %.3f +/- %.3f Lstep: %.3f +/- %.3f alpha: %.3f +/- %.3f beta: %.3f +/- %.3f"""%(
+                        np.mean(samples[:,i+11]),np.sqrt(cov[i,i]),
+                        residBmean,residBerr,
+                        sigBmean,sigBerr,
+                        residB2mean,residB2err,
+                        sigB2mean,sigB2err,
+                        skewBmean,skewBerr,
+                        fracBmean,fracBerr,
+                        fracB2mean,fracB2err,
+                        lstepmean,lsteperr,
+                        alphamean,alphaerr,
+                        betamean,betaerr))
 
     def mcmc(self,inp,zcontrol):
         from scipy.optimize import minimize
@@ -291,41 +494,65 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
         if not inp.__dict__.has_key('PL'):
             inp.PL = 0
 
-        # minimize, not maximize
         if self.options.fracBguess > 0:
             omitfracB = False
         else:
             omitfracB = True
-        nll = lambda *args: -twogausslike_nofrac(*args)
+        # minimize, not maximize
+        if self.options.twogauss:
+            lnlikefunc = lambda *args: -threegausslike_nofrac(*args)
+        elif self.options.skewedgauss:
+            lnlikefunc = lambda *args: -twogausslike_skew_nofrac(*args)
+        else:
+            lnlikefunc = lambda *args: -twogausslike_nofrac(*args)
 
+        inp.mu,inp.muerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+                                      cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                                      alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
+                                      beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
+                                      x0=inp.x0,z=inp.zHD)
+        inp.residerr = inp.muerr[:]
+        inp.resid = inp.mu - cosmo.mu(inp.zHD)
         guess = (self.options.popAguess[1],
                  self.options.popBguess[0],self.options.popBguess[1],
-                 self.options.fracBguess,self.options.lstepguess,)
+                 self.options.popB2guess[0],self.options.popB2guess[1],
+                 self.options.skewBguess,
+                 self.options.fracBguess,self.options.fracB2guess,
+                 self.options.lstepguess,self.options.salt2alphaguess,
+                 self.options.salt2betaguess)
         for z in zcontrol:
             guess += (self.options.popAguess[0]+cosmo.mu(z),)
-        md = minimize(nll,guess,
-                      args=(inp.PA,inp.PL,inp.mu,inp.muerr,inp.z,zcontrol))
+        md = minimize(lnlikefunc,guess,
+                      args=(inp,zcontrol))
         if md.message != 'Optimization terminated successfully.':
             print("""Warning : Minimization Failed!!!  
 Try some different initial guesses, or let the MCMC try and take care of it""")
 
         # for the fixed parameters, make really narrow priors
         md = self.fixedpriors(md)
-        for i in range(len(md["x"])):
-            if i >= 5: md["x"][i] = cosmo.mu(zcontrol[i-5])
+        #for i in range(len(md["x"])):
+        #    if i >= 5: md["x"][i] = cosmo.mu(zcontrol[i-5])
 
         ndim, nwalkers = len(md["x"]), int(self.options.nwalkers)
         pos = [md["x"] + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
-
+        
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, 
-                                        args=(inp.PA,inp.PL,inp.mu,inp.muerr,inp.z,zcontrol,
-                                              omitfracB,
+                                        args=(inp,zcontrol,self.options.salt2alpha,self.options.salt2alphaerr,
+                                              self.options.salt2beta,self.options.salt2betaerr,
+                                              omitfracB,self.options.snpars,
+                                              self.options.twogauss,self.options.skewedgauss,
                                               self.options.p_residA,self.options.psig_residA,
                                               self.options.p_residB,self.options.psig_residB,
+                                              self.options.p_residB2,self.options.psig_residB2,
                                               self.options.p_sigA,self.options.psig_sigA,
                                               self.options.p_sigB,self.options.psig_sigB,
+                                              self.options.p_sigB2,self.options.psig_sigB2,
+                                              self.options.p_skewB,self.options.psig_skewB,
                                               self.options.p_fracB,self.options.psig_fracB,
-                                              self.options.p_lstep,self.options.psig_lstep),
+                                              self.options.p_fracB2,self.options.psig_fracB2,
+                                              self.options.p_lstep,self.options.psig_lstep,
+                                              self.options.p_salt2alpha,self.options.psig_salt2alpha,
+                                              self.options.p_salt2beta,self.options.psig_salt2beta),
                                         threads=int(self.options.nthreads))
         pos, prob, state = sampler.run_mcmc(pos, 200)
         sampler.reset()
@@ -339,8 +566,8 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                 zip(*np.percentile(samples, [16, 50, 84],
                                    axis=0)))
 
-        cov = covmat(samples[:,np.shape(samples)[1] - self.options.nzbins + self.options.nzskip:])
-        return(cov,params)
+        cov = covmat(samples[:,np.shape(samples)[1] - self.options.nzbins:])
+        return(cov,params,samples)
 
     def fixedpriors(self,md):
 
@@ -360,14 +587,38 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
             self.options.p_sigB = self.options.popBguess[1]
             self.options.psig_sigB = 1e-3
             md["x"][3] = self.options.popBguess[1]
+        if self.options.popB2fixed[0]:
+            self.options.p_residB2 = self.options.popB2guess[0]
+            self.options.psig_residB2 = 1e-3
+            md["x"][4] = self.options.popBguess[0]
+        if self.options.popB2fixed[1]:
+            self.options.p_sigB2 = self.options.popB2guess[1]
+            self.options.psig_sigB2 = 1e-3
+            md["x"][5] = self.options.popB2guess[1]
+        if self.options.skewBfixed:
+            self.options.p_skewB = self.options.skewBguess
+            self.options.psig_skewB = 1e-3
+            md["x"][6] = self.options.skewBguess
         if self.options.fracBfixed:
             self.options.p_fracB = self.options.fracBguess[0]
             self.options.psig_fracB = 1e-3
-            md["x"][4] = self.options.fracBguess[0]
+            md["x"][7] = self.options.fracBguess[0]
+        if self.options.fracB2fixed:
+            self.options.p_fracB2 = self.options.fracB2guess[0]
+            self.options.psig_fracB2 = 1e-3
+            md["x"][8] = self.options.fracB2guess[0]
         if self.options.lstepfixed:
             self.options.p_lstep = self.options.lstepguess
             self.options.psig_lstep = 1e-3
-            md["x"][5] = self.options.lstepguess
+            md["x"][9] = self.options.lstepguess
+        if self.options.salt2alphafixed:
+            self.options.p_salt2alpha = self.options.salt2alphaguess
+            self.options.psig_salt2alpha = 1e-3
+            md["x"][10] = self.options.salt2alpha
+        if self.options.salt2betafixed:
+            self.options.p_salt2beta = self.options.salt2betaguess
+            self.options.psig_salt2beta = 1e-3
+            md["x"][10] = self.options.salt2beta
 
         return(md)
 
@@ -383,122 +634,404 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         self.options.psig_sigB = self.options.popBprior_std[1]
         self.options.p_fracB = self.options.fracBprior[0]
         self.options.psig_fracB = self.options.fracBprior[1]
+
+        self.options.p_residB2 = self.options.popB2prior_mean[0]
+        self.options.psig_residB2 = self.options.popB2prior_mean[1]
+        self.options.p_sigB2 = self.options.popB2prior_std[0]
+        self.options.psig_sigB2 = self.options.popB2prior_std[1]
+        self.options.p_skewB = self.options.skewBprior[0]
+        self.options.psig_skewB = self.options.skewBprior[1]
+        self.options.p_fracB2 = self.options.fracB2prior[0]
+        self.options.psig_fracB2 = self.options.fracB2prior[1]
         self.options.p_lstep = self.options.lstepprior[0]
         self.options.psig_lstep = self.options.lstepprior[1]
 
-def twogausslike(x,PA=None,PL=None,mu=None,muerr=None,z=None,zcontrol=None):
+        self.options.p_salt2alpha = self.options.salt2alphaprior[0]
+        self.options.psig_salt2alpha = self.options.salt2alphaprior[1]
+        self.options.p_salt2beta = self.options.salt2betaprior[0]
+        self.options.psig_salt2beta = self.options.salt2betaprior[1]
 
-    mumodel = np.interp(np.log10(z),np.log10(zcontrol),x[5:])
+def twogausslike(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
 
-    mumodel = np.zeros(len(z))
-    for mub,mub1,zb,zb1 in zip(x[5:-1],x[6:],zcontrol[:-1],zcontrol[1:]):
-        cols = np.where((z >= zb) & (z < zb1))[0]
-        alpha = np.log10(z[cols]/zb)/np.log10(zb1/zb)
+    mu,muerr = inp.mu[:],inp.muerr[:]
+
+    mumodel = np.zeros(len(inp.z))
+    for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
+        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
+        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
-    return np.sum(np.logaddexp(-(mu-mumodel+PL*x[4])**2./(2.0*(muerr**2.+x[0]**2.)) + \
-                                    np.log((1-x[3])*(PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
-                                -(mu-mumodel-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
-                                    np.log((x[3])*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.)))))
+    lnlike = np.sum(np.logaddexp(-(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
+                                      np.log((1-x[6])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+                                  -(mu-mumodel-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
+                                      np.log((x[6])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.)))))
 
-def chilike(x,PA=None,PL=None,mu=None,muerr=None,z=None,zcontrol=None):
+    return(lnlike)
 
-#    mumodel = np.interp(np.log10(z),np.log10(zcontrol),x[5:])
-    mumodel = np.zeros(len(z))
-    for mub,mub1,zb,zb1 in zip(x[5:-1],x[6:],zcontrol[:-1],zcontrol[1:]):
-        cols = np.where((z >= zb) & (z < zb1))[0]
-        alpha = np.log10(z[cols]/zb)/np.log10(zb1/zb)
+def twogausslike_nofrac(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
+
+    mu,muerr = inp.mu[:],inp.muerr[:]
+    mumodel = np.zeros(len(inp.z))
+    for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
+        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
+        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
-    return np.sum(-(mu-mumodel)**2./(muerr**2.+0.1**2.)/2.)
+    lnlike = np.sum(np.logaddexp(-(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
+                                      np.log(inp.PA/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+                                  -(mu-mumodel-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
+                                      np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.)))))
 
+    return(lnlike)
 
-def twogausslike_nofrac(x,PA=None,PL=None,mu=None,muerr=None,z=None,zcontrol=None):
+def threegausslike(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
 
-    mumodel = np.interp(np.log10(z),np.log10(zcontrol),x[5:])
-
-    mumodel = np.zeros(len(z))
-    for mub,mub1,zb,zb1 in zip(x[5:-1],x[6:],zcontrol[:-1],zcontrol[1:]):
-        cols = np.where((z >= zb) & (z < zb1))[0]
-        alpha = np.log10(z[cols]/zb)/np.log10(zb1/zb)
+    mu,muerr = inp.mu[:],inp.muerr[:]
+    mumodel = np.zeros(len(inp.z))
+    for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
+        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
+        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
-    return np.sum(np.logaddexp(-(mu-mumodel+PL*x[3])**2./(2.0*(muerr**2.+x[0]**2.)) + \
-                                    np.log(PA/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
-                                -(mu-mumodel-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
-                                    np.log((1-PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.)))))
+    sum = logsumexp([-(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
+                          np.log((1-x[6]-x[7])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+                      -(resid-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
+                          np.log((x[6])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.))),
+                      -(resid-x[3])**2./(2.0*(muerr**2.+x[4]**2.)) + \
+                          np.log((x[7])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[4]**2.+muerr**2.)))],axis=0)
+    return np.sum(sum)
+
+def threegausslike_nofrac(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
+
+    mu,muerr = inp.mu[:],inp.muerr[:]
+    mumodel = np.zeros(len(inp.z))
+    for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
+        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
+        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        mumodel[cols] = (1-alpha)*mub + alpha*mub1
+
+    sum = logsumexp([-(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
+                          np.log((inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+                      -(resid-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
+                          np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.))),
+                      -(resid-x[3])**2./(2.0*(muerr**2.+x[4]**2.)) + \
+                          np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[4]**2.+muerr**2.)))],axis=0)
+    return np.sum(sum)
+
+def twogausslike_skew(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
+
+    mu,muerr = inp.mu[:],inp.muerr[:]
+    mumodel = np.zeros(len(inp.z))
+    for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
+        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
+        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        mumodel[cols] = (1-alpha)*mub + alpha*mub1
+
+    gaussA = -(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
+        np.log((1-x[6])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+    normB = x[6]*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.))
+    gaussB = -(mu-mumodel-x[1])**2./(2*(x[2]**2.+muerr**2.))
+    skewB = 1 + erf(x[5]*(mu-mumodel-x[1])/np.sqrt(2*(x[2]**2.+muerr**2.)))
+    skewgaussB = gaussB + np.log(normB*skewB)
+    
+    return np.sum(np.logaddexp(gaussA,skewgaussB))
+
+def twogausslike_skew_nofrac(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
+
+    mu,muerr = inp.mu[:],inp.muerr[:]
+    mumodel = np.zeros(len(inp.z))
+    for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
+        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
+        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        mumodel[cols] = (1-alpha)*mub + alpha*mub1
+
+    gaussA = -(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
+        np.log((inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+    normB = (1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.))
+    gaussB = -(mu-mumodel-x[1])**2./(2*(x[2]**2.+muerr**2.))
+    skewB = 1 + erf(x[5]*(mu-mumodel-x[1])/np.sqrt(2*(x[2]**2.+muerr**2.)))
+    skewgaussB = gaussB + np.log(normB*skewB)
+
+    return np.sum(np.logaddexp(gaussA,skewgaussB))
+
+def twogausslike_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
+
+    muA,residAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                         alpha=x[-2],alphaerr=1e-10,
+                         beta=x[-1],betaerr=1e-10,
+                         x0=inp.x0,z=inp.zHD)
+
+    muB,residBerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                         alpha=alpha,alphaerr=alphaerr,
+                         beta=beta,betaerr=betaerr,
+                         x0=inp.x0,z=inp.zHD)
+
+    mumodel = np.zeros(len(inp.z))
+    for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
+        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
+        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        mumodel[cols] = (1-alpha)*mub + alpha*mub1
+
+    lnlike = np.sum(np.logaddexp(-(muA-mumodel-x[0])**2./(2.0*(muAerr**2.+x[1]**2.)) + \
+                                      np.log((1-x[6])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+muAerr**2.))),
+                                  -(muB-mumodel-x[0])**2./(2.0*(muBerr**2.+x[3]**2.)) + \
+                                      np.log((x[6])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+muBerr**2.)))))
+    print lnlike
+    return(lnlike)
+
+def twogausslike_nofrac_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
+
+    muA,residAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                         alpha=x[-2],alphaerr=1e-10,
+                         beta=x[-1],betaerr=1e-10,
+                         x0=inp.x0,z=inp.zHD)
+
+    muB,residBerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                         alpha=alpha,alphaerr=alphaerr,
+                         beta=beta,betaerr=betaerr,
+                         x0=inp.x0,z=inp.zHD)
+    mumodel = np.zeros(len(inp.z))
+    for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
+        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
+        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        mumodel[cols] = (1-alpha)*mub + alpha*mub1
+
+    return np.sum(np.logaddexp(-(muA-mumodel-x[0])**2./(2.0*(muAerr**2.+x[1]**2.)) + \
+                                    np.log(inp.PA/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+muAerr**2.))),
+                                -(muB-mumodel-x[2])**2./(2.0*(muBerr**2.+x[3]**2.)) + \
+                                    np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+muBerr**2.)))))
+
+def threegausslike_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
+
+    muA,residAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                         alpha=x[-2],alphaerr=1e-10,
+                         beta=x[-1],betaerr=1e-10,
+                         x0=inp.x0,z=inp.zHD)
+
+    muB,residBerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                         alpha=alpha,alphaerr=alphaerr,
+                         beta=beta,betaerr=betaerr,
+                         x0=inp.x0,z=inp.zHD)
+    mumodel = np.zeros(len(inp.z))
+    for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
+        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
+        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        mumodel[cols] = (1-alpha)*mub + alpha*mub1
+
+    sum = logsumexp([-(muA-mumodel-x[0])**2./(2.0*(muAerr**2.+x[1]**2.)) + \
+                          np.log((1-x[6]-x[7])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+muAerr**2.))),
+                      -(muB-mumodel-x[2])**2./(2.0*(muBerr**2.+x[3]**2.)) + \
+                          np.log((x[6])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+muBerr**2.))),
+                      -(muB-mumodel-x[4])**2./(2.0*(muBerr**2.+x[5]**2.)) + \
+                          np.log((x[7])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[5]**2.+muBerr**2.)))],axis=0)
+    return np.sum(sum)
+
+def threegausslike_nofrac_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
+
+    muA,residAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                         alpha=x[-2],alphaerr=1e-10,
+                         beta=x[-1],betaerr=1e-10,
+                         x0=inp.x0,z=inp.zHD)
+
+    muB,residBerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                         alpha=alpha,alphaerr=alphaerr,
+                         beta=beta,betaerr=betaerr,
+                         x0=inp.x0,z=inp.zHD)
+    mumodel = np.zeros(len(inp.z))
+    for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
+        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
+        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        mumodel[cols] = (1-alpha)*mub + alpha*mub1
+
+    sum = logsumexp([-(muA-mumodel-x[0])**2./(2.0*(muAerr**2.+x[1]**2.)) + \
+                          np.log((inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+muAerr**2.))),
+                      -(muB-mumodel-x[2])**2./(2.0*(muBerr**2.+x[3]**2.)) + \
+                          np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+muBerr**2.))),
+                      -(muB-mumodel-x[4])**2./(2.0*(muBerr**2.+x[5]**2.)) + \
+                          np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[5]**2.+muBerr**2.)))],axis=0)
+    return np.sum(sum)
+
+def twogausslike_skew_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
+
+    muA,residAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                         alpha=x[-2],alphaerr=1e-10,
+                         beta=x[-1],betaerr=1e-10,
+                         x0=inp.x0,z=inp.zHD)
+
+    muB,residBerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                         alpha=alpha,alphaerr=alphaerr,
+                         beta=beta,betaerr=betaerr,
+                         x0=inp.x0,z=inp.zHD)
+    mumodel = np.zeros(len(inp.z))
+    for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
+        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
+        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        mumodel[cols] = (1-alpha)*mub + alpha*mub1
+
+    gaussA = -(muA-mumodel-x[0])**2./(2.0*(muAerr**2.+x[1]**2.)) + \
+        np.log((1-x[6])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+muAerr**2.))),
+    normB = x[6]*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+muBerr**2.))
+    gaussB = -(muB-mumodel-x[2])**2./(2*(x[3]**2.+muBerr**2.))
+    skewB = 1 + erf(x[6]*(muB-mumodel-x[2])/np.sqrt(2*(x[3]**2.+muBerr**2.)))
+    skewgaussB = gaussB + np.log(normB*skewB)
+    
+    return np.sum(np.logaddexp(gaussA,skewgaussB))
+
+def twogausslike_skew_nofrac_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
+
+    muA,residAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                         alpha=x[-2],alphaerr=1e-10,
+                         beta=x[-1],betaerr=1e-10,
+                         x0=inp.x0,z=inp.zHD)
+
+    muB,residBerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                         alpha=alpha,alphaerr=alphaerr,
+                         beta=beta,betaerr=betaerr,
+                         x0=inp.x0,z=inp.zHD)
+    mumodel = np.zeros(len(inp.z))
+    for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
+        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
+        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        mumodel[cols] = (1-alpha)*mub + alpha*mub1
+
+    gaussA = -(muA-mumodel-x[0])**2./(2.0*(muAerr**2.+x[1]**2.)) + \
+        np.log((inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+muAerr**2.))),
+    normB = (1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+muBerr**2.))
+    gaussB = -(muB-mumodel-x[2])**2./(2*(x[3]**2.+muBerr**2.))
+    skewB = 1 + erf(x[6]*(residB-x[2])/np.sqrt(2*(x[3]**2.+muBerr**2.)))
+    skewgaussB = gaussB + np.log(normB*skewB)
+
+    return np.sum(np.logaddexp(gaussA,skewgaussB))
 
 def lnprior(theta,
+            twogauss,skewedgauss,zcntrl=None,
             p_residA=None,psig_residA=None,
             p_residB=None,psig_residB=None,
+            p_residB2=None,psig_residB2=None,
             p_sig_A=None,psig_sig_A=None,
             p_sig_B=None,psig_sig_B=None,
+            p_sig_B2=None,psig_sig_B2=None,
+            p_sig_skewB=None,psig_sig_skewB=None,
             p_fracB=None,psig_fracB=None,
+            p_fracB2=None,psig_fracB2=None,
             p_lstep=None,psig_lstep=None,
-            omitfracB=False,zcntrl=None):
-    import cosmo
+            p_salt2alpha=None,psig_salt2alpha=None,
+            p_salt2beta=None,psig_salt2beta=None):
 
-    if not omitfracB:
-        sigA,residB,sigB,fracB,lstep = theta[:5]
-        residAlist = theta[5:]
-    else:
-        sigA,residB,sigB,lstep = theta[:4]
-        residAlist = theta[4:]
+    sigA,residB,sigB,residB2,sigB2,skewB,fracB,fracB2,lstep,alpha,beta = theta[:11]
+    residAlist = theta[11:]
 
     p_theta = 1.0
-
     if p_residA or p_residA == 0.0:
         for residA,z in zip(residAlist,zcntrl):
-            #print 'hi'
-            #print p_theta,residA,p_residA,cosmo.mu(z),psig_residA
             p_theta *= gauss(residA,p_residA+cosmo.mu(z),psig_residA)
-            #print residA,p_residA+cosmo.mu(z),p_theta,gauss(residA,p_residA+cosmo.mu(z),psig_residA)
-        #print 'done',p_theta
     if p_residB:
         p_theta *= gauss(residB,p_residB,psig_residB)
+    if p_residB2:
+        p_theta *= gauss(residB2,p_residB2,psig_residB2)
     if p_sig_A:
         p_theta *= gauss(sigA,p_sig_A,psig_sig_A)
     if p_sig_B:
         p_theta *= gauss(sigB,p_sig_B,psig_sig_B)
+    if p_sig_B2:
+        p_theta *= gauss(sigB2,p_sig_B2,psig_sig_B2)
+    if p_sig_skewB:
+        p_theta *= gauss(skewB,p_sig_skewB,psig_sig_skewB)
     if p_fracB:
         p_theta *= gauss(fracB,p_fracB,psig_fracB)
+    if p_fracB2:
+        p_theta *= gauss(fracB2,p_fracB2,psig_fracB2)
     if type(p_lstep) != None:
         p_lstep *= gauss(lstep,p_lstep,psig_lstep)
-
+    if p_salt2alpha:
+        p_theta *= gauss(alpha,p_salt2alpha,psig_salt2alpha)
+    if p_salt2beta:
+        p_theta *= gauss(beta,p_salt2beta,psig_salt2beta)
 
     if fracB > 1 or fracB < 0: return -np.inf
+    elif fracB2 > 1 or fracB2 < 0: return -np.inf
     else: return(np.log(p_theta))
 
-def lnprob(theta,PA=None,PL=None,mu=None,muerr=None,
-           z=None,zcontrol=None,
-           omitfracB=False,
+def lnprob(theta,inp=None,zcontrol=None,
+           alpha=None,alphaerr=None,
+           beta=None,betaerr=None,
+           omitfracB=False,snpars=False,
+           twogauss=False,
+           skewedgauss=False,
            p_residA=None,psig_residA=None,
            p_residB=None,psig_residB=None,
+           p_residB2=None,psig_residB2=None,
            p_sig_A=None,psig_sig_A=None,
            p_sig_B=None,psig_sig_B=None,
+           p_sig_B2=None,psig_sig_B2=None,
+           p_sig_skewB=None,psig_sig_skewB=None,
            p_fracB=None,psig_fracB=None,
-           p_lstep=None,psig_lstep=None):
+           p_fracB2=None,psig_fracB2=None,
+           p_lstep=None,psig_lstep=None,
+           p_salt2alpha=None,psig_salt2alpha=None,
+           p_salt2beta=None,psig_salt2beta=None):
 
-    lp = lnprior(theta,
+    if twogauss and omitfracB:
+        if snpars:
+            lnlikefunc = lambda *args: threegausslike_nofrac_snpars(*args)
+        else:
+            lnlikefunc = lambda *args: threegausslike_nofrac(*args)
+    elif skewedgauss and omitfracB:
+        if snpars:
+            lnlikefunc = lambda *args: twogausslike_skew_nofrac_snpars(*args)
+        else:
+            lnlikefunc = lambda *args: twogausslike_skew_nofrac(*args)
+    elif not twogauss and not skewedgauss and omitfracB:
+        if snpars:
+            lnlikefunc = lambda *args: twogausslike_nofrac_snpars(*args)
+        else:
+            lnlikefunc = lambda *args: twogausslike_nofrac(*args)
+    elif twogauss:
+        if snpars:
+            lnlikefunc = lambda *args: threegausslike_snpars(*args)
+        else:
+            lnlikefunc = lambda *args: threegausslike(*args)
+    elif skewedgauss:
+        if snpars:
+            lnlikefunc = lambda *args: twogausslike_skew_snpars(*args)
+        else:
+            lnlikefunc = lambda *args: twogausslike_skew(*args)
+    else:
+        if snpars:
+            lnlikefunc = lambda *args: twogausslike_snpars(*args)
+        else:
+            lnlikefunc = lambda *args: twogausslike(*args)
+
+    lp = lnprior(theta,twogauss,skewedgauss,zcontrol,
                  p_residA=p_residA,psig_residA=psig_residA,
                  p_residB=p_residB,psig_residB=psig_residB,
+                 p_residB2=p_residB2,psig_residB2=psig_residB2,
                  p_sig_A=p_sig_A,psig_sig_A=psig_sig_A,
                  p_sig_B=p_sig_B,psig_sig_B=psig_sig_B,
+                 p_sig_B2=p_sig_B2,psig_sig_B2=psig_sig_B2,
+                 p_sig_skewB=p_sig_skewB,psig_sig_skewB=psig_sig_skewB,
                  p_fracB=p_fracB,psig_fracB=psig_fracB,
+                 p_fracB2=p_fracB2,psig_fracB2=psig_fracB2,
                  p_lstep=p_lstep,psig_lstep=psig_lstep,
-                 omitfracB=omitfracB,zcntrl=zcontrol)
+                 p_salt2alpha=p_salt2alpha,psig_salt2alpha=psig_salt2alpha,
+                 p_salt2beta=p_salt2beta,psig_salt2beta=psig_salt2beta)
 
     if not np.isfinite(lp) or np.isnan(lp):
         return -np.inf
 
-    if not omitfracB:
-        post = twogausslike_nofrac(theta,PA=PA,PL=PL,
-                       mu=mu,muerr=muerr,
-                       z=z,zcontrol=zcontrol)
-    else:
-        post = twogausslike_nofrac(
-            theta,PA=PA,PL=PL,mu=mu,muerr=muerr,
-            z=z,zcontrol=zcontrol)
+    post = lp+lnlikefunc(theta,inp,zcontrol,alpha,alphaerr,beta,betaerr)
 
     if post != post: return -np.inf
     else: return post
@@ -527,6 +1060,28 @@ def weighted_avg_and_std(values, weights):
     average = numpy.average(values, weights=weights)
     variance = numpy.average((values-average)**2, weights=weights)  # Fast and numerically precise
     return (average, numpy.sqrt(variance))
+
+def salt2mu(x1=None,x1err=None,
+            c=None,cerr=None,
+            mb=None,mberr=None,
+            cov_x1_c=None,cov_x1_x0=None,cov_c_x0=None,
+            alpha=None,beta=None,
+            alphaerr=None,betaerr=None,
+            M=None,x0=None,sigint=None,z=None,peczerr=0.0005):
+    from uncertainties import ufloat, correlated_values, correlated_values_norm
+
+    sf = -2.5/(x0*np.log(10.0))
+    cov_mb_c = cov_c_x0*sf
+    cov_mb_x1 = cov_x1_x0*sf
+    mu_out = mb + x1*alpha - beta*c + 19.3
+    invvars = 1.0 / (mberr**2.+ alpha**2. * x1err**2. + beta**2. * cerr**2. + \
+                         2.0 * alpha * (cov_x1_x0*sf) - 2.0 * beta * (cov_c_x0*sf) - \
+                         2.0 * alpha*beta * (cov_x1_c) )
+
+    zerr = peczerr*5.0/np.log(10)*(1.0+z)/(z*(1.0+z/2.0))
+    muerr_out = np.sqrt(1/invvars + zerr**2. + 0.055**2.*z**2.)
+    if sigint: muerr_out = np.sqrt(muerr_out**2. + sigint**2.)
+    return(mu_out,muerr_out)
 
 if __name__ == "__main__":
     usagestring="""An implementation of the BEAMS method (Kunz, Bassett, & Hlozek 2006).

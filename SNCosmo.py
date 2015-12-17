@@ -126,8 +126,6 @@ class sncosmo:
                           help='if set, every bin contains the same number of SNe')
         parser.add_option('--corrzbins', default=False, action="store_true",
                           help='if set, run doSNBEAMS to get correlated measurements at log-spaced z control points')
-        parser.add_option('--nzskip', default=0, type="int",
-                          help='This is a hack - don\t write the first x bins to the output files')
         parser.add_option('--snpars', default=False, action="store_true",
                           help='if set, marginalize over alpha and beta for SNe Ia (CC SNe set to priors)')
 
@@ -198,20 +196,25 @@ class sncosmo:
 
         if mkcuts:
             # Light curve cuts
+            sf = -2.5/(fr.x0*np.log(10.0))
+            invvars = 1./(fr.mBERR**2.+ self.options.salt2alpha**2. * fr.x1ERR**2. + \
+                              self.options.salt2beta**2. * fr.cERR**2. +  2.0 * self.options.salt2alpha * (fr.COV_x1_x0*sf) - \
+                              2.0 * self.options.salt2beta * (fr.COV_c_x0*sf) - \
+                              2.0 * self.options.salt2alpha*self.options.salt2beta * (fr.COV_x1_c) )
             if self.options.x1ccircle:
                 # I'm just going to assume cmax = abs(cmin) and same for x1
                 cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
                                 (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax/(1+fr.zHD)) &
                                 (fr.FITPROB >= self.options.fitprobmin) &
                                 (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
-                                (fr.__dict__[self.options.piacol] >= 0))
+                                (fr.__dict__[self.options.piacol] >= 0) & (invvars > 0))
             else:
                 cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
                                 (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
                                 (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax) &
                                 (fr.FITPROB >= self.options.fitprobmin) &
                                 (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
-                                (fr.__dict__[self.options.piacol] >= 0))
+                                (fr.__dict__[self.options.piacol] >= 0) & (invvars > 0))
 
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
@@ -253,6 +256,7 @@ class sncosmo:
         beam.options = options
         beam.options.twogauss = self.options.twogauss
         beam.options.skewedgauss = self.options.skewedgauss
+        beam.options.snpars = self.options.snpars
 
         beam.transformOptions()
         options.inputfile = '%s.input'%root
@@ -278,27 +282,21 @@ class sncosmo:
 
             # make the BEAMS input file
             fout = open('%s.input'%root,'w')
-            if not fr.__dict__.has_key('PL'):
-                print >> fout, '# PA z mu mu_err'
-            else:
-                print >> fout, '# PA PL z mu mu_err'
-            for i in range(len(fr.MU)):
-                if fr.zHD[i] > self.options.zmin and fr.zHD[i] <= self.options.zmax:
-                    if not fr.__dict__.has_key('PL'):
-                        print >> fout, '%.3f %.4f %.4f %.4f'%(P_Ia[i],fr.zHD[i],fr.MU[i],fr.MUERR[i])
-                    else:
-                        print >> fout, '%.3f %.3f %.4f %.4f %.4f'%(P_Ia[i],fr.PL[i],fr.zHD[i],fr.MU[i],fr.MUERR[i])
-            fout.close()
+            fr.PA = fr.__dict__[self.options.piacol]
+            if not self.options.masscorr: fr.PL = np.zeros(len(fr.PA))
+            writefitres(fr,range(len(fr.PA)),'%s.input'%root,
+                        fitresheader=fitresheaderbeams,
+                        fitresfmt=fitresfmtbeams,
+                        fitresvars=fitresvarsbeams)
 
             beam.options.append = False
             beam.options.clobber = self.options.clobber
             beam.options.outputfile = self.options.outfile
             beam.options.equalbins = self.options.equalbins
             beam.options.covmatfile = self.options.covmatfile
-            beam.options.nzskip = self.options.nzskip
             beam.main(options.inputfile)
             bms = txtobj(self.options.outfile)
-            self.writeBinCorrFitres('%s.fitres'%self.options.outfile.split('.')[0],bms,skip=self.options.nzskip,fr=fr)
+            self.writeBinCorrFitres('%s.fitres'%self.options.outfile.split('.')[0],bms,fr=fr)
             return
 
         # loop over the redshift bins
@@ -352,7 +350,7 @@ class sncosmo:
                     config.set('all',o,0)
                 elif str(beam.options.__dict__[o]) == 'True':
                     config.set('all',o,1)
-
+ 
             fout = open('%s.params'%root,'w')
             config.write(fout); fout.close()
             if self.options.snpars:
