@@ -390,7 +390,7 @@ For flat prior, use empty string""",nargs=2)
                     if i != j:
                         print >> fout, '%8.5e'%cov[j,i]#outline
                     else:
-                        print >> fout, '%8.5e'0 #outline
+                        print >> fout, '%8.5e'%0 #outline
             fout.close()
 
         # residA,sigA,residB,sigB,fracB,lstep = self.mcmc(inp)
