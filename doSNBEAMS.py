@@ -387,7 +387,10 @@ For flat prior, use empty string""",nargs=2)
                 outline = ''
                 for i in range(shape):
                     outline += '%8.5e '%cov[j,i]
-                    print >> fout, '%8.5e'%cov[j,i]#outline
+                    if i != j:
+                        print >> fout, '%8.5e'%cov[j,i]#outline
+                    else:
+                        print >> fout, '%8.5e'0 #outline
             fout.close()
 
         # residA,sigA,residB,sigB,fracB,lstep = self.mcmc(inp)
@@ -1030,8 +1033,6 @@ def covmat(samples):
     for i in range(cov_shape):
         for j in range(cov_shape):
             covmat[j,i] = np.sum((samples[:,j]-np.mean(samples[:,j]))*(samples[:,i]-np.mean(samples[:,i])))/chain_len
-    for i in range(cov_shape):
-        covmat[i,i] = 0
     return(covmat)
 
 def weighted_avg_and_std(values, weights):
