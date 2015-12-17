@@ -5,6 +5,7 @@ import numpy as np
 from scipy.misc import logsumexp
 from scipy.special import erf
 import cosmo
+from scipy.stats import norm
 
 class BEAMS:
     def __init__(self):
@@ -163,8 +164,6 @@ For flat prior, use empty string""",nargs=2)
                               help='min redshift')
             parser.add_option('--zmax', default=config.get('all','zmax'), type="float",
                               help='max redshift')
-            parser.add_option('--equalbins', default=config.get('all','equalbins'), action="store_true",
-                              help='if set, divide bins so that there are the same number of SNe in each bin')
 
             # alternate functional models
             parser.add_option('--twogauss', default=map(int,config.get('all','twogauss'))[0], action="store_true",
@@ -323,8 +322,6 @@ For flat prior, use empty string""",nargs=2)
                               help='min redshift')
             parser.add_option('--zmax', default=0.7, type="float",
                               help='max redshift')
-            parser.add_option('--equalbins', default=False, action="store_true",
-                              help='if set, divide bins so that there are the same number of SNe in each bin')
 
             # alternate functional models
             parser.add_option('--twogauss', default=False, action="store_true",
@@ -381,10 +378,6 @@ For flat prior, use empty string""",nargs=2)
 
         # run the MCMC
         zcontrol = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nzbins)
-        if self.options.equalbins:
-            from scipy import stats
-            zcontrol = stats.mstats.mquantiles(inp.zHD,np.arange(0,1,1./self.options.nzbins))
-        print zcontrol
         cov,params,samples = self.mcmc(inp,zcontrol)
         if self.options.covmatfile:
             fout = open(self.options.covmatfile,'w')
@@ -404,10 +397,6 @@ For flat prior, use empty string""",nargs=2)
         chain_len = len(samples[:,0])
 
         count = 0
-        residAmean = np.mean(samples[:,count])
-        residAerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
-        count += 1
-
         sigAmean = np.mean(samples[:,count])
         sigAerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
         count += 1
@@ -528,14 +517,19 @@ skew B: %.3f +/- %.3f frac. B: %.3f +/- %.3f frac. B2: %.3f +/- %.3f Lstep: %.3f
             print("""Warning : Minimization Failed!!!  
 Try some different initial guesses, or let the MCMC try and take care of it""")
 
+
         # for the fixed parameters, make really narrow priors
         md = self.fixedpriors(md)
+        md["x"][9] = self.options.salt2alphaguess
+        md["x"][10] = self.options.salt2betaguess
+        #md["x"][0] = self.options.popAguess[1]
+        #md["x"][2] = self.options.popBguess[1]
         #for i in range(len(md["x"])):
         #    if i >= 5: md["x"][i] = cosmo.mu(zcontrol[i-5])
 
         ndim, nwalkers = len(md["x"]), int(self.options.nwalkers)
         pos = [md["x"] + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
-        
+
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, 
                                         args=(inp,zcontrol,self.options.salt2alpha,self.options.salt2alphaerr,
                                               self.options.salt2beta,self.options.salt2betaerr,
@@ -620,6 +614,13 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
             self.options.psig_salt2beta = 1e-3
             md["x"][10] = self.options.salt2beta
 
+        if not self.options.twogauss:
+            self.options.p_residB2 = None
+            self.options.p_sigB2 = None
+            self.options.p_fracB2 = None
+        if not self.options.skewedgauss:
+            self.options.p_skewB = None
+
         return(md)
 
     def transformOptions(self):
@@ -655,10 +656,10 @@ def twogausslike(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,bet
 
     mu,muerr = inp.mu[:],inp.muerr[:]
 
-    mumodel = np.zeros(len(inp.z))
+    mumodel = np.zeros(len(inp.zHD))
     for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
-        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
-        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
+        alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
     lnlike = np.sum(np.logaddexp(-(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
@@ -671,10 +672,10 @@ def twogausslike(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,bet
 def twogausslike_nofrac(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
 
     mu,muerr = inp.mu[:],inp.muerr[:]
-    mumodel = np.zeros(len(inp.z))
+    mumodel = np.zeros(len(inp.zHD))
     for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
-        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
-        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
+        alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
     lnlike = np.sum(np.logaddexp(-(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
@@ -687,44 +688,44 @@ def twogausslike_nofrac(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=N
 def threegausslike(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
 
     mu,muerr = inp.mu[:],inp.muerr[:]
-    mumodel = np.zeros(len(inp.z))
+    mumodel = np.zeros(len(inp.zHD))
     for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
-        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
-        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
+        alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
     sum = logsumexp([-(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
                           np.log((1-x[6]-x[7])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
-                      -(resid-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
+                      -(mu-mumodel-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
                           np.log((x[6])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.))),
-                      -(resid-x[3])**2./(2.0*(muerr**2.+x[4]**2.)) + \
+                      -(mu-mumodel-x[3])**2./(2.0*(muerr**2.+x[4]**2.)) + \
                           np.log((x[7])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[4]**2.+muerr**2.)))],axis=0)
     return np.sum(sum)
 
 def threegausslike_nofrac(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
 
     mu,muerr = inp.mu[:],inp.muerr[:]
-    mumodel = np.zeros(len(inp.z))
+    mumodel = np.zeros(len(inp.zHD))
     for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
-        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
-        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
+        alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
     sum = logsumexp([-(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
                           np.log((inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
-                      -(resid-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
+                      -(mu-mumodel-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
                           np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.))),
-                      -(resid-x[3])**2./(2.0*(muerr**2.+x[4]**2.)) + \
+                      -(mu-mumodel-x[3])**2./(2.0*(muerr**2.+x[4]**2.)) + \
                           np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[4]**2.+muerr**2.)))],axis=0)
     return np.sum(sum)
 
 def twogausslike_skew(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
 
     mu,muerr = inp.mu[:],inp.muerr[:]
-    mumodel = np.zeros(len(inp.z))
+    mumodel = np.zeros(len(inp.zHD))
     for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
-        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
-        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
+        alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
     gaussA = -(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
@@ -739,10 +740,10 @@ def twogausslike_skew(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=Non
 def twogausslike_skew_nofrac(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
 
     mu,muerr = inp.mu[:],inp.muerr[:]
-    mumodel = np.zeros(len(inp.z))
+    mumodel = np.zeros(len(inp.zHD))
     for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
-        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
-        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
+        alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
     gaussA = -(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
@@ -756,161 +757,143 @@ def twogausslike_skew_nofrac(x,inp=None,zcontrol=None,alpha=None,beta=None,alpha
 
 def twogausslike_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
 
-    muA,residAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+    muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                          cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                         alpha=x[-2],alphaerr=1e-10,
-                         beta=x[-1],betaerr=1e-10,
+                         alpha=x[9],alphaerr=1e-10,
+                         beta=x[10],betaerr=1e-10,
                          x0=inp.x0,z=inp.zHD)
 
-    muB,residBerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
-                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                         alpha=alpha,alphaerr=alphaerr,
-                         beta=beta,betaerr=betaerr,
-                         x0=inp.x0,z=inp.zHD)
-
-    mumodel = np.zeros(len(inp.z))
+    muB,muBerr = inp.mu,inp.muerr
+    mumodel = np.zeros(len(inp.zHD))
     for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
-        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
-        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
+        alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
-    lnlike = np.sum(np.logaddexp(-(muA-mumodel-x[0])**2./(2.0*(muAerr**2.+x[1]**2.)) + \
-                                      np.log((1-x[6])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+muAerr**2.))),
-                                  -(muB-mumodel-x[0])**2./(2.0*(muBerr**2.+x[3]**2.)) + \
-                                      np.log((x[6])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+muBerr**2.)))))
-    print lnlike
+    lnlike = np.sum(np.logaddexp(-(muA-mumodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+                                      np.log((1-x[6])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
+                                  -(muB-mumodel-x[1])**2./(2.0*(muBerr**2.+x[2]**2.)) + \
+                                      np.log((x[6])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muBerr**2.)))))
+
     return(lnlike)
 
 def twogausslike_nofrac_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
 
-    muA,residAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+    muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                          cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                         alpha=x[-2],alphaerr=1e-10,
-                         beta=x[-1],betaerr=1e-10,
+                         alpha=x[9],alphaerr=1e-10,
+                         beta=x[10],betaerr=1e-10,
                          x0=inp.x0,z=inp.zHD)
 
-    muB,residBerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
-                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                         alpha=alpha,alphaerr=alphaerr,
-                         beta=beta,betaerr=betaerr,
-                         x0=inp.x0,z=inp.zHD)
-    mumodel = np.zeros(len(inp.z))
+    muB,muBerr = inp.mu,inp.muerr
+    mumodel = np.zeros(len(inp.zHD))
     for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
-        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
-        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
+        alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
-    return np.sum(np.logaddexp(-(muA-mumodel-x[0])**2./(2.0*(muAerr**2.+x[1]**2.)) + \
-                                    np.log(inp.PA/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+muAerr**2.))),
-                                -(muB-mumodel-x[2])**2./(2.0*(muBerr**2.+x[3]**2.)) + \
-                                    np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+muBerr**2.)))))
+    lnlike = np.sum(np.logaddexp(-(muA-mumodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+                                      np.log(inp.PA/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
+                                  -(muB-mumodel-x[1])**2./(2.0*(muBerr**2.+x[2]**2.)) + \
+                                      np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muBerr**2.)))))
+    return(lnlike)
 
 def threegausslike_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
 
-    muA,residAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+    muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                          cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                         alpha=x[-2],alphaerr=1e-10,
-                         beta=x[-1],betaerr=1e-10,
+                         alpha=x[9],alphaerr=1e-10,
+                         beta=x[10],betaerr=1e-10,
                          x0=inp.x0,z=inp.zHD)
 
-    muB,residBerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+    muB,muBerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                          cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
                          alpha=alpha,alphaerr=alphaerr,
                          beta=beta,betaerr=betaerr,
                          x0=inp.x0,z=inp.zHD)
-    mumodel = np.zeros(len(inp.z))
+    mumodel = np.zeros(len(inp.zHD))
     for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
-        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
-        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
+        alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
-    sum = logsumexp([-(muA-mumodel-x[0])**2./(2.0*(muAerr**2.+x[1]**2.)) + \
-                          np.log((1-x[6]-x[7])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+muAerr**2.))),
-                      -(muB-mumodel-x[2])**2./(2.0*(muBerr**2.+x[3]**2.)) + \
-                          np.log((x[6])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+muBerr**2.))),
-                      -(muB-mumodel-x[4])**2./(2.0*(muBerr**2.+x[5]**2.)) + \
-                          np.log((x[7])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[5]**2.+muBerr**2.)))],axis=0)
+    sum = logsumexp([-(muA-mumodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+                          np.log((1-x[6]-x[7])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
+                      -(muB-mumodel-x[1])**2./(2.0*(muBerr**2.+x[2]**2.)) + \
+                          np.log((x[6])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muBerr**2.))),
+                      -(muB-mumodel-x[3])**2./(2.0*(muBerr**2.+x[4]**2.)) + \
+                          np.log((x[7])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[4]**2.+muBerr**2.)))],axis=0)
     return np.sum(sum)
 
 def threegausslike_nofrac_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
 
-    muA,residAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+    muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                          cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                         alpha=x[-2],alphaerr=1e-10,
-                         beta=x[-1],betaerr=1e-10,
+                         alpha=x[9],alphaerr=1e-10,
+                         beta=x[10],betaerr=1e-10,
                          x0=inp.x0,z=inp.zHD)
 
-    muB,residBerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
-                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                         alpha=alpha,alphaerr=alphaerr,
-                         beta=beta,betaerr=betaerr,
-                         x0=inp.x0,z=inp.zHD)
-    mumodel = np.zeros(len(inp.z))
+    muB,muBerr = inp.mu[:],inp.muerr[:]
+    mumodel = np.zeros(len(inp.zHD))
     for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
-        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
-        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
+        alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
-    sum = logsumexp([-(muA-mumodel-x[0])**2./(2.0*(muAerr**2.+x[1]**2.)) + \
-                          np.log((inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+muAerr**2.))),
-                      -(muB-mumodel-x[2])**2./(2.0*(muBerr**2.+x[3]**2.)) + \
-                          np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+muBerr**2.))),
-                      -(muB-mumodel-x[4])**2./(2.0*(muBerr**2.+x[5]**2.)) + \
-                          np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[5]**2.+muBerr**2.)))],axis=0)
+    sum = logsumexp([-(muA-mumodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+                          np.log((inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
+                      -(muB-mumodel-x[1])**2./(2.0*(muBerr**2.+x[2]**2.)) + \
+                          np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muBerr**2.))),
+                      -(muB-mumodel-x[3])**2./(2.0*(muBerr**2.+x[4]**2.)) + \
+                          np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[4]**2.+muBerr**2.)))],axis=0)
     return np.sum(sum)
 
 def twogausslike_skew_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
 
-    muA,residAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+    muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                          cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                         alpha=x[-2],alphaerr=1e-10,
-                         beta=x[-1],betaerr=1e-10,
+                         alpha=x[9],alphaerr=1e-10,
+                         beta=x[10],betaerr=1e-10,
                          x0=inp.x0,z=inp.zHD)
 
-    muB,residBerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
-                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                         alpha=alpha,alphaerr=alphaerr,
-                         beta=beta,betaerr=betaerr,
-                         x0=inp.x0,z=inp.zHD)
-    mumodel = np.zeros(len(inp.z))
+    muB,muBerr = inp.mu[:],inp.muerr[:]
+    mumodel = np.zeros(len(inp.zHD))
     for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
-        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
-        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
+        alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
-    gaussA = -(muA-mumodel-x[0])**2./(2.0*(muAerr**2.+x[1]**2.)) + \
-        np.log((1-x[6])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+muAerr**2.))),
-    normB = x[6]*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+muBerr**2.))
-    gaussB = -(muB-mumodel-x[2])**2./(2*(x[3]**2.+muBerr**2.))
-    skewB = 1 + erf(x[6]*(muB-mumodel-x[2])/np.sqrt(2*(x[3]**2.+muBerr**2.)))
+    gaussA = -(muA-mumodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+        np.log((1-x[6])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
+    normB = x[6]*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muBerr**2.))
+    gaussB = -(muB-mumodel-x[1])**2./(2*(x[2]**2.+muBerr**2.))
+    skewB = 1 + erf(x[5]*(muB-mumodel-x[1])/np.sqrt(2*(x[2]**2.+muBerr**2.)))
     skewgaussB = gaussB + np.log(normB*skewB)
-    
-    return np.sum(np.logaddexp(gaussA,skewgaussB))
+
+    lnlike = np.sum(np.logaddexp(gaussA,skewgaussB))
+
+    return(lnlike)
 
 def twogausslike_skew_nofrac_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
 
-    muA,residAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+    muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                          cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                         alpha=x[-2],alphaerr=1e-10,
-                         beta=x[-1],betaerr=1e-10,
+                         alpha=x[9],alphaerr=1e-10,
+                         beta=x[10],betaerr=1e-10,
                          x0=inp.x0,z=inp.zHD)
 
-    muB,residBerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
-                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                         alpha=alpha,alphaerr=alphaerr,
-                         beta=beta,betaerr=betaerr,
-                         x0=inp.x0,z=inp.zHD)
-    mumodel = np.zeros(len(inp.z))
+    muB,muBerr = inp.mu[:],inp.muerr[:]
+    mumodel = np.zeros(len(inp.zHD))
     for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
-        cols = np.where((inp.z >= zb) & (inp.z < zb1))[0]
-        alpha = np.log10(inp.z[cols]/zb)/np.log10(zb1/zb)
+        cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
+        alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
-    gaussA = -(muA-mumodel-x[0])**2./(2.0*(muAerr**2.+x[1]**2.)) + \
-        np.log((inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[1]**2.+muAerr**2.))),
-    normB = (1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[3]**2.+muBerr**2.))
-    gaussB = -(muB-mumodel-x[2])**2./(2*(x[3]**2.+muBerr**2.))
-    skewB = 1 + erf(x[6]*(residB-x[2])/np.sqrt(2*(x[3]**2.+muBerr**2.)))
+    gaussA = -(muA-mumodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+        np.log((inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
+    normB = (1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muBerr**2.))
+    gaussB = -(muB-mumodel-x[1])**2./(2*(x[2]**2.+muBerr**2.))
+    skewB = 1 + erf(x[5]*(mumodel-mu-x[1])/np.sqrt(2*(x[2]**2.+muBerr**2.)))
     skewgaussB = gaussB + np.log(normB*skewB)
 
     return np.sum(np.logaddexp(gaussA,skewgaussB))
@@ -933,36 +916,36 @@ def lnprior(theta,
     sigA,residB,sigB,residB2,sigB2,skewB,fracB,fracB2,lstep,alpha,beta = theta[:11]
     residAlist = theta[11:]
 
-    p_theta = 1.0
+    p_theta = 0.0
     if p_residA or p_residA == 0.0:
         for residA,z in zip(residAlist,zcntrl):
-            p_theta *= gauss(residA,p_residA+cosmo.mu(z),psig_residA)
+            p_theta += norm.logpdf(residA,p_residA+cosmo.mu(z),psig_residA)
     if p_residB:
-        p_theta *= gauss(residB,p_residB,psig_residB)
+        p_theta += norm.logpdf(residB,p_residB,psig_residB)
     if p_residB2:
-        p_theta *= gauss(residB2,p_residB2,psig_residB2)
+        p_theta += norm.logpdf(residB2,p_residB2,psig_residB2)
     if p_sig_A:
-        p_theta *= gauss(sigA,p_sig_A,psig_sig_A)
+        p_theta += norm.logpdf(sigA,p_sig_A,psig_sig_A)
     if p_sig_B:
-        p_theta *= gauss(sigB,p_sig_B,psig_sig_B)
+        p_theta += norm.logpdf(sigB,p_sig_B,psig_sig_B)
     if p_sig_B2:
-        p_theta *= gauss(sigB2,p_sig_B2,psig_sig_B2)
+        p_theta += norm.logpdf(sigB2,p_sig_B2,psig_sig_B2)
     if p_sig_skewB:
-        p_theta *= gauss(skewB,p_sig_skewB,psig_sig_skewB)
+        p_theta += norm.logpdf(skewB,p_sig_skewB,psig_sig_skewB)
     if p_fracB:
-        p_theta *= gauss(fracB,p_fracB,psig_fracB)
+        p_theta += norm.logpdf(fracB,p_fracB,psig_fracB)
     if p_fracB2:
-        p_theta *= gauss(fracB2,p_fracB2,psig_fracB2)
+        p_theta += norm.logpdf(fracB2,p_fracB2,psig_fracB2)
     if type(p_lstep) != None:
-        p_lstep *= gauss(lstep,p_lstep,psig_lstep)
+        p_lstep += norm.logpdf(lstep,p_lstep,psig_lstep)
     if p_salt2alpha:
-        p_theta *= gauss(alpha,p_salt2alpha,psig_salt2alpha)
+        p_theta += norm.logpdf(alpha,p_salt2alpha,psig_salt2alpha)
     if p_salt2beta:
-        p_theta *= gauss(beta,p_salt2beta,psig_salt2beta)
+        p_theta += norm.logpdf(beta,p_salt2beta,psig_salt2beta)
 
     if fracB > 1 or fracB < 0: return -np.inf
     elif fracB2 > 1 or fracB2 < 0: return -np.inf
-    else: return(np.log(p_theta))
+    else: return(p_theta)
 
 def lnprob(theta,inp=None,zcontrol=None,
            alpha=None,alphaerr=None,
