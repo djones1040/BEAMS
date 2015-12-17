@@ -553,12 +553,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         sampler.run_mcmc(pos, self.options.nsteps, thin=1)
         samples = sampler.flatchain
 
-        import pylab as plt
-        plt.ion()
-        import pdb; pdb.set_trace()
-
         # get the error bars - should really return the full posterior
-
         params = \
             map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
                 zip(*np.percentile(samples, [16, 50, 84],
