@@ -1035,7 +1035,8 @@ def covmat(samples):
     for i in range(cov_shape):
         for j in range(cov_shape):
             covmat[j,i] = np.sum((samples[:,j]-np.mean(samples[:,j]))*(samples[:,i]-np.mean(samples[:,i])))/chain_len
-
+    for i in range(cov_shape):
+        covmat[i,i] = 0
     return(covmat)
 
 def weighted_avg_and_std(values, weights):
