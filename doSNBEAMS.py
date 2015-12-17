@@ -525,7 +525,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         #md["x"][0] = self.options.popAguess[1]
         #md["x"][2] = self.options.popBguess[1]
         #for i in range(len(md["x"])):
-        #    if i >= 5: md["x"][i] = cosmo.mu(zcontrol[i-5])
+        #    if i >= 11: md["x"][i] = cosmo.mu(zcontrol[i-11])
 
         ndim, nwalkers = len(md["x"]), int(self.options.nwalkers)
         pos = [md["x"] + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
@@ -548,10 +548,14 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                                               self.options.p_salt2alpha,self.options.psig_salt2alpha,
                                               self.options.p_salt2beta,self.options.psig_salt2beta),
                                         threads=int(self.options.nthreads))
-        pos, prob, state = sampler.run_mcmc(pos, 200)
+        pos, prob, state = sampler.run_mcmc(pos, 1000)
         sampler.reset()
         sampler.run_mcmc(pos, self.options.nsteps, thin=1)
         samples = sampler.flatchain
+
+        import pylab as plt
+        plt.ion()
+        import pdb; pdb.set_trace()
 
         # get the error bars - should really return the full posterior
 
@@ -763,7 +767,7 @@ def twogausslike_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=N
                          beta=x[10],betaerr=1e-10,
                          x0=inp.x0,z=inp.zHD)
 
-    muB,muBerr = inp.mu,inp.muerr
+    muB,muBerr = inp.mu[:],inp.muerr[:]
     mumodel = np.zeros(len(inp.zHD))
     for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
         cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
@@ -785,7 +789,7 @@ def twogausslike_nofrac_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alp
                          beta=x[10],betaerr=1e-10,
                          x0=inp.x0,z=inp.zHD)
 
-    muB,muBerr = inp.mu,inp.muerr
+    muB,muBerr = inp.mu[:],inp.muerr[:]
     mumodel = np.zeros(len(inp.zHD))
     for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
         cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
@@ -805,12 +809,8 @@ def threegausslike_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr
                          alpha=x[9],alphaerr=1e-10,
                          beta=x[10],betaerr=1e-10,
                          x0=inp.x0,z=inp.zHD)
+    muB,muBerr = inp.mu[:],inp.muerr[:]
 
-    muB,muBerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
-                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                         alpha=alpha,alphaerr=alphaerr,
-                         beta=beta,betaerr=betaerr,
-                         x0=inp.x0,z=inp.zHD)
     mumodel = np.zeros(len(inp.zHD))
     for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
         cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
@@ -1051,7 +1051,7 @@ def salt2mu(x1=None,x1err=None,
             alpha=None,beta=None,
             alphaerr=None,betaerr=None,
             M=None,x0=None,sigint=None,z=None,peczerr=0.0005):
-    from uncertainties import ufloat, correlated_values, correlated_values_norm
+#    from uncertainties import ufloat, correlated_values, correlated_values_norm
 
     sf = -2.5/(x0*np.log(10.0))
     cov_mb_c = cov_c_x0*sf
@@ -1065,6 +1065,39 @@ def salt2mu(x1=None,x1err=None,
     muerr_out = np.sqrt(1/invvars + zerr**2. + 0.055**2.*z**2.)
     if sigint: muerr_out = np.sqrt(muerr_out**2. + sigint**2.)
     return(mu_out,muerr_out)
+
+#def salt2mu(x1=None,x1err=None,
+#            c=None,cerr=None,
+#            mb=None,mberr=None,
+#            cov_x1_c=None,cov_x1_x0=None,cov_c_x0=None,
+#            alpha=None,beta=None,
+#            alphaerr=None,betaerr=None,
+#            M=None,x0=None,sigint=None,z=None,peczerr=0.0005):
+#    from uncertainties import ufloat, correlated_values, correlated_values_norm
+#    alphatmp,betatmp = alpha,beta
+#    alpha,beta = ufloat(alpha,alphaerr),ufloat(beta,betaerr)
+
+#    sf = -2.5/(x0*np.log(10.0))
+#    cov_mb_c = cov_c_x0*sf
+#    cov_mb_x1 = cov_x1_x0*sf
+
+#    mu_out,muerr_out = np.array([]),np.array([])
+#    for i in range(len(x1)):
+
+#        covmat = np.array([[mberr[i]**2.,cov_mb_x1[i],cov_mb_c[i]],
+#                           [cov_mb_x1[i],x1err[i]**2.,cov_x1_c[i]],
+#                           [cov_mb_c[i],cov_x1_c[i],cerr[i]**2.]])
+#        mb_single,x1_single,c_single = correlated_values([mb[i],x1[i],c[i]],covmat)
+
+#        mu = mb_single + x1_single*alpha - beta*c_single + 19.3
+#        if sigint: mu = mu + ufloat(0,sigint)
+#        zerr = peczerr*5.0/np.log(10)*(1.0+z[i])/(z[i]*(1.0+z[i]/2.0))
+
+#        mu = mu + ufloat(0,np.sqrt(zerr**2. + 0.055**2.*z[i]**2.))
+#        mu_out,muerr_out = np.append(mu_out,mu.n),np.append(muerr_out,mu.std_dev)
+
+#    muerr_out = 1/np.sqrt(invvars)
+#    return(mu_out,muerr_out)
 
 if __name__ == "__main__":
     usagestring="""An implementation of the BEAMS method (Kunz, Bassett, & Hlozek 2006).
