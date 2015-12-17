@@ -548,7 +548,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                                               self.options.p_salt2alpha,self.options.psig_salt2alpha,
                                               self.options.p_salt2beta,self.options.psig_salt2beta),
                                         threads=int(self.options.nthreads))
-        pos, prob, state = sampler.run_mcmc(pos, 1000)
+        pos, prob, state = sampler.run_mcmc(pos, 200)
         sampler.reset()
         sampler.run_mcmc(pos, self.options.nsteps, thin=1)
         samples = sampler.flatchain
