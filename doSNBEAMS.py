@@ -400,54 +400,54 @@ For flat prior, use empty string""",nargs=2)
         chain_len = len(samples[:,0])
 
         count = 0
-        sigAmean = np.median(samples[:,count])
+        sigAmean = np.mean(samples[:,count])
         sigAerr = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
         count += 1
 
-        residBmean = np.median(samples[:,count])
+        residBmean = np.mean(samples[:,count])
         residBerr = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
         count += 1
 
-        sigBmean = np.median(samples[:,count])
+        sigBmean = np.mean(samples[:,count])
         sigBerr = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
         count += 1
 
-        residB2mean = np.median(samples[:,count])
+        residB2mean = np.mean(samples[:,count])
         residB2err = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
         count += 1
 
-        sigB2mean = np.median(samples[:,count])
+        sigB2mean = np.mean(samples[:,count])
         sigB2err = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
         count += 1
 
-        skewBmean = np.median(samples[:,count])
+        skewBmean = np.mean(samples[:,count])
         skewBerr = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
         count += 1
 
-        fracBmean = np.median(samples[:,count])
+        fracBmean = np.mean(samples[:,count])
         fracBerr = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
         count +=1
 
-        fracB2mean = np.median(samples[:,count])
+        fracB2mean = np.mean(samples[:,count])
         fracB2err = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
         count +=1
 
-        lstepmean = np.median(samples[:,count])
+        lstepmean = np.mean(samples[:,count])
         lsteperr = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
         count += 1
 
-        alphamean = np.median(samples[:,count])
+        alphamean = np.mean(samples[:,count])
         alphaerr = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
         count += 1
 
-        betamean = np.median(samples[:,count])
+        betamean = np.mean(samples[:,count])
         betaerr = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
         count += 1
 
         outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f "
         outlinefmt += "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
         for par,zcntrl,i in zip(mupar,zcontrol,range(len(mupar))):
-            outline = outlinefmt%(np.median(samples[:,i+11]),np.sqrt(cov[i,i]),par[1],par[2],
+            outline = outlinefmt%(np.mean(samples[:,i+11]),np.sqrt(cov[i,i]),par[1],par[2],
                                   sigAmean,sigAerr,sigA[1],sigA[2],
                                   residBmean,residBerr,residB[1],residB[2],
                                   sigBmean,sigBerr,sigB[1],sigB[2],
