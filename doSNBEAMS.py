@@ -177,9 +177,6 @@ For flat prior, use empty string""",nargs=2)
                               help='file with the input data')
             parser.add_option('-o','--outputfile', default=config.get('all','outputfile'), type="string",
                               help='Output file with the derived parameters for each redshift bin')
-            parser.add_option('--covmatfile', default=config.get('all','covmatfile'), type="string",
-                              help='Output file with the derived parameters for each redshift bin')
-
 
         else:
             # Input file
@@ -336,9 +333,6 @@ For flat prior, use empty string""",nargs=2)
                               help='file with the input data')
             parser.add_option('-o','--outputfile', default='beamsCosmo.out', type="string",
                               help='Output file with the derived parameters for each redshift bin')
-            parser.add_option('--covmatfile', default='BEAMS.covmat', type="string",
-                              help='Output covariance matrix')
-
 
         parser.add_option('-p','--paramfile', default='', type="string",
                           help='fitres file with the SN Ia data')
@@ -379,19 +373,20 @@ For flat prior, use empty string""",nargs=2)
         # run the MCMC
         zcontrol = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nzbins)
         cov,params,samples = self.mcmc(inp,zcontrol)
-        if self.options.covmatfile:
-            fout = open(self.options.covmatfile,'w')
-            print >> fout, '%i'%len(cov)
-            shape = np.shape(cov)[0]
-            for i in range(shape):
-                outline = ''
-                for j in range(shape):
-                    outline += '%8.5e '%cov[j,i]
-                    if i != j:
-                        print >> fout, '%8.5e'%cov[j,i]#outline
-                    else:
-                        print >> fout, '%8.5e'%0 #outline
-            fout.close()
+
+        root,ext = os.path.splitext(self.options.outputfile)
+        fout = open('%s.covmat'%root,'w')
+        print >> fout, '%i'%len(cov)
+        shape = np.shape(cov)[0]
+        for i in range(shape):
+            outline = ''
+            for j in range(shape):
+                outline += '%8.5e '%cov[j,i]
+                if i != j:
+                    print >> fout, '%8.5e'%cov[j,i]#outline
+                else:
+                    print >> fout, '%8.5e'%0 #outline
+        fout.close()
 
         # residA,sigA,residB,sigB,fracB,lstep = self.mcmc(inp)
         sigA,residB,sigB,residB2,sigB2,skewB,fracB,fracB2,lstep,alpha,beta = params[:11]
@@ -401,47 +396,47 @@ For flat prior, use empty string""",nargs=2)
 
         count = 0
         sigAmean = np.mean(samples[:,count])
-        sigAerr = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
+        sigAerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
         count += 1
 
         residBmean = np.mean(samples[:,count])
-        residBerr = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
+        residBerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
         count += 1
 
         sigBmean = np.mean(samples[:,count])
-        sigBerr = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
+        sigBerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
         count += 1
 
         residB2mean = np.mean(samples[:,count])
-        residB2err = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
+        residB2err = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
         count += 1
 
         sigB2mean = np.mean(samples[:,count])
-        sigB2err = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
+        sigB2err = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
         count += 1
 
         skewBmean = np.mean(samples[:,count])
-        skewBerr = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
+        skewBerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
         count += 1
 
         fracBmean = np.mean(samples[:,count])
-        fracBerr = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
+        fracBerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
         count +=1
 
         fracB2mean = np.mean(samples[:,count])
-        fracB2err = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
+        fracB2err = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
         count +=1
 
         lstepmean = np.mean(samples[:,count])
-        lsteperr = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
+        lsteperr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
         count += 1
 
         alphamean = np.mean(samples[:,count])
-        alphaerr = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
+        alphaerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
         count += 1
 
         betamean = np.mean(samples[:,count])
-        betaerr = np.sqrt(np.sum((samples[:,count]-np.median(samples[:,count]))*(samples[:,count]-np.median(samples[:,count])))/chain_len)
+        betaerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
         count += 1
 
         outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f "
@@ -467,7 +462,7 @@ For flat prior, use empty string""",nargs=2)
             if self.options.verbose:
                 print("""muA: %.3f +/- %.3f muB: %.3f +/- %.3f sigB: %.3f +/- %.3f muB2: %.3f +/- %.3f sigB2: %.3f +/- %.3f 
 skew B: %.3f +/- %.3f frac. B: %.3f +/- %.3f frac. B2: %.3f +/- %.3f Lstep: %.3f +/- %.3f alpha: %.3f +/- %.3f beta: %.3f +/- %.3f"""%(
-                        np.median(samples[:,i+11]),np.sqrt(cov[i,i]),
+                        np.mean(samples[:,i+11]),np.sqrt(cov[i,i]),
                         residBmean,residBerr,
                         sigBmean,sigBerr,
                         residB2mean,residB2err,
@@ -1032,7 +1027,7 @@ def covmat(samples):
     covmat = np.zeros([cov_shape,cov_shape])
     for i in range(cov_shape):
         for j in range(cov_shape):
-            covmat[j,i] = np.sum((samples[:,j]-np.median(samples[:,j]))*(samples[:,i]-np.median(samples[:,i])))/chain_len
+            covmat[j,i] = np.sum((samples[:,j]-np.mean(samples[:,j]))*(samples[:,i]-np.mean(samples[:,i])))/chain_len
     return(covmat)
 
 def weighted_avg_and_std(values, weights):
