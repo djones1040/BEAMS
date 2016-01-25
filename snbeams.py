@@ -173,7 +173,7 @@ class snbeams:
 
     def main(self,fitres,mkcuts=True):
         from txtobj import txtobj
-        import cosmo
+        from astropy.cosmology import Planck13 as cosmo
 
         fr = txtobj(fitres,fitresheader=True)
         if self.options.simcc:
