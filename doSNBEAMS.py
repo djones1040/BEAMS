@@ -177,9 +177,6 @@ For flat prior, use empty string""",nargs=2)
                               help='file with the input data')
             parser.add_option('-o','--outputfile', default=config.get('all','outputfile'), type="string",
                               help='Output file with the derived parameters for each redshift bin')
-            parser.add_option('--covmatfile', default=config.get('all','covmatfile'), type="string",
-                              help='Output file with the derived parameters for each redshift bin')
-
 
         else:
             # Input file
@@ -289,7 +286,7 @@ For flat prior, use empty string""",nargs=2)
                               help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
             parser.add_option('--salt2betaguess', default=3.13,type='float',
                               help='initial guess for fraction of contaminants, set to negative to omit')
-            parser.add_option('--salt2betaprior', default=(3.13,1.0),type='float',
+            parser.add_option('--salt2betaprior', default=(3.13,0.5),type='float',
                               help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
             parser.add_option('--salt2betafixed', default=0,type='int',
@@ -336,9 +333,6 @@ For flat prior, use empty string""",nargs=2)
                               help='file with the input data')
             parser.add_option('-o','--outputfile', default='beamsCosmo.out', type="string",
                               help='Output file with the derived parameters for each redshift bin')
-            parser.add_option('--covmatfile', default='BEAMS.covmat', type="string",
-                              help='Output covariance matrix')
-
 
         parser.add_option('-p','--paramfile', default='', type="string",
                           help='fitres file with the SN Ia data')
@@ -379,19 +373,20 @@ For flat prior, use empty string""",nargs=2)
         # run the MCMC
         zcontrol = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nzbins)
         cov,params,samples = self.mcmc(inp,zcontrol)
-        if self.options.covmatfile:
-            fout = open(self.options.covmatfile,'w')
-            print >> fout, '%i'%len(cov)
-            shape = np.shape(cov)[0]
+
+        root,ext = os.path.splitext(self.options.outputfile)
+        fout = open('%s.covmat'%root,'w')
+        print >> fout, '%i'%len(cov)
+        shape = np.shape(cov)[0]
+        for i in range(shape):
+            outline = ''
             for j in range(shape):
-                outline = ''
-                for i in range(shape):
-                    outline += '%8.5e '%cov[j,i]
-                    if i != j:
-                        print >> fout, '%8.5e'%cov[j,i]#outline
-                    else:
-                        print >> fout, '%8.5e'%0 #outline
-            fout.close()
+                outline += '%8.5e '%cov[j,i]
+                if i != j:
+                    print >> fout, '%8.5e'%cov[j,i]#outline
+                else:
+                    print >> fout, '%8.5e'%0 #outline
+        fout.close()
 
         # residA,sigA,residB,sigB,fracB,lstep = self.mcmc(inp)
         sigA,residB,sigB,residB2,sigB2,skewB,fracB,fracB2,lstep,alpha,beta = params[:11]
@@ -664,10 +659,12 @@ def twogausslike(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,bet
         alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
-    lnlike = np.sum(np.logaddexp(-(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
-                                      np.log((1-x[6])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
-                                  -(mu-mumodel-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
-                                      np.log((x[6])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.)))))
+    lnlike = np.sum(logsumexp([-(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
+                                    np.log((1-x[6])*inp.PA*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+                                -(mu-mumodel+x[8])**2./(2.0*(muerr**2.+x[0]**2.)) + \
+                                    np.log((1-x[6])*inp.PA*inp.PL/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+                                -(mu-mumodel-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
+                                    np.log((x[6])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.)))],axis=0))
 
     return(lnlike)
 
@@ -680,11 +677,13 @@ def twogausslike_nofrac(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=N
         alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
-    lnlike = np.sum(np.logaddexp(-(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
-                                      np.log(inp.PA/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
-                                  -(mu-mumodel-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
-                                      np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.)))))
-
+    lnlike = np.sum(logsumexp([-(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
+                                    np.log(inp.PA*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+                                -(mu-mumodel+x[8])**2./(2.0*(muerr**2.+x[0]**2.)) + \
+                                    np.log(inp.PA*inp.PL/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+                                -(mu-mumodel-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
+                                    np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.)))],axis=0))
+    import pdb; pdb.set_trace()
     return(lnlike)
 
 def threegausslike(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
@@ -697,7 +696,9 @@ def threegausslike(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,b
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
     sum = logsumexp([-(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
-                          np.log((1-x[6]-x[7])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+                          np.log((1-x[6]-x[7])*inp.PA*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+                      -(mu-mumodel-x[8])**2./(2.0*(muerr**2.+x[0]**2.)) + \
+                          np.log((1-x[6]-x[7])*inp.PA*inp.PL/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
                       -(mu-mumodel-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
                           np.log((x[6])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.))),
                       -(mu-mumodel-x[3])**2./(2.0*(muerr**2.+x[4]**2.)) + \
@@ -714,7 +715,9 @@ def threegausslike_nofrac(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
     sum = logsumexp([-(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
-                          np.log((inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+                          np.log(inp.PA*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+                      -(mu-mumodel-x[8])**2./(2.0*(muerr**2.+x[0]**2.)) + \
+                          np.log(inp.PA*inp.PL/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
                       -(mu-mumodel-x[1])**2./(2.0*(muerr**2.+x[2]**2.)) + \
                           np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.))),
                       -(mu-mumodel-x[3])**2./(2.0*(muerr**2.+x[4]**2.)) + \
@@ -731,13 +734,15 @@ def twogausslike_skew(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=Non
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
     gaussA = -(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
-        np.log((1-x[6])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+        np.log((1-x[6])*(inp.PA)*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.)))
+    gaussAhm = -(mu-mumodel-x[8])**2./(2.0*(muerr**2.+x[0]**2.)) + \
+        np.log((1-x[6])*(inp.PA*inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.)))
     normB = x[6]*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.))
     gaussB = -(mu-mumodel-x[1])**2./(2*(x[2]**2.+muerr**2.))
     skewB = 1 + erf(x[5]*(mu-mumodel-x[1])/np.sqrt(2*(x[2]**2.+muerr**2.)))
     skewgaussB = gaussB + np.log(normB*skewB)
     
-    return np.sum(np.logaddexp(gaussA,skewgaussB))
+    return np.sum(logsumexp([gaussA,gaussAhm,skewgaussB],axis=0))
 
 def twogausslike_skew_nofrac(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
 
@@ -749,13 +754,15 @@ def twogausslike_skew_nofrac(x,inp=None,zcontrol=None,alpha=None,beta=None,alpha
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
     gaussA = -(mu-mumodel)**2./(2.0*(muerr**2.+x[0]**2.)) + \
-        np.log((inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.))),
+        np.log((inp.PA)*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.)))
+    gaussAhm = -(mu-mumodel-x[8])**2./(2.0*(muerr**2.+x[0]**2.)) + \
+        np.log((inp.PA*inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muerr**2.)))
     normB = (1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muerr**2.))
     gaussB = -(mu-mumodel-x[1])**2./(2*(x[2]**2.+muerr**2.))
     skewB = 1 + erf(x[5]*(mu-mumodel-x[1])/np.sqrt(2*(x[2]**2.+muerr**2.)))
     skewgaussB = gaussB + np.log(normB*skewB)
 
-    return np.sum(np.logaddexp(gaussA,skewgaussB))
+    return np.sum(logsumexp([gaussA,gaussAhm,skewgaussB],axis=0))
 
 def twogausslike_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
 
@@ -772,10 +779,12 @@ def twogausslike_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=N
         alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
-    lnlike = np.sum(np.logaddexp(-(muA-mumodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-                                      np.log((1-x[6])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
-                                  -(muB-mumodel-x[1])**2./(2.0*(muBerr**2.+x[2]**2.)) + \
-                                      np.log((x[6])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muBerr**2.)))))
+    lnlike = np.sum(logsumexp([-(muA-mumodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+                                    np.log((1-x[6])*inp.PA*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
+                                -(muA-mumodel+x[8])**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+                                    np.log((1-x[6])*inp.PA*inp.PL/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
+                                -(muB-mumodel-x[1])**2./(2.0*(muBerr**2.+x[2]**2.)) + \
+                                    np.log((x[6])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muBerr**2.)))],axis=0))
 
     return(lnlike)
 
@@ -794,10 +803,12 @@ def twogausslike_nofrac_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alp
         alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
-    lnlike = np.sum(np.logaddexp(-(muA-mumodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-                                      np.log(inp.PA/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
-                                  -(muB-mumodel-x[1])**2./(2.0*(muBerr**2.+x[2]**2.)) + \
-                                      np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muBerr**2.)))))
+    lnlike = np.sum(logsumexp([-(muA-mumodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+                                    np.log(inp.PA*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
+                                -(muA-mumodel+x[8])**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+                                    np.log(inp.PA*inp.PL/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
+                                -(muB-mumodel-x[1])**2./(2.0*(muBerr**2.+x[2]**2.)) + \
+                                    np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muBerr**2.)))],axis=0))
     return(lnlike)
 
 def threegausslike_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
@@ -816,11 +827,14 @@ def threegausslike_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
     sum = logsumexp([-(muA-mumodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-                          np.log((1-x[6]-x[7])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
+                          np.log((1-x[6]-x[7])*inp.PA*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
+                      -(muA-mumodel-x[8])**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+                          np.log((1-x[6]-x[7])*inp.PA*inp.PL/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
                       -(muB-mumodel-x[1])**2./(2.0*(muBerr**2.+x[2]**2.)) + \
                           np.log((x[6])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muBerr**2.))),
                       -(muB-mumodel-x[3])**2./(2.0*(muBerr**2.+x[4]**2.)) + \
                           np.log((x[7])*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[4]**2.+muBerr**2.)))],axis=0)
+
     return np.sum(sum)
 
 def threegausslike_nofrac_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
@@ -839,11 +853,14 @@ def threegausslike_nofrac_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,a
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
     sum = logsumexp([-(muA-mumodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-                          np.log((inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
+                          np.log(inp.PA*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
+                      -(muA-mumodel-x[8])**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+                          np.log(inp.PA*inp.PL/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
                       -(muB-mumodel-x[1])**2./(2.0*(muBerr**2.+x[2]**2.)) + \
                           np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muBerr**2.))),
                       -(muB-mumodel-x[3])**2./(2.0*(muBerr**2.+x[4]**2.)) + \
                           np.log((1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[4]**2.+muBerr**2.)))],axis=0)
+
     return np.sum(sum)
 
 def twogausslike_skew_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alphaerr=None,betaerr=None):
@@ -862,13 +879,16 @@ def twogausslike_skew_snpars(x,inp=None,zcontrol=None,alpha=None,beta=None,alpha
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
     gaussA = -(muA-mumodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-        np.log((1-x[6])*(inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
+        np.log((1-x[6])*(inp.PA)*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.)))
+    gaussAhm = -(muA-mumodel-x[8])**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+        np.log((1-x[6])*(inp.PA*inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.)))
+
     normB = x[6]*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muBerr**2.))
     gaussB = -(muB-mumodel-x[1])**2./(2*(x[2]**2.+muBerr**2.))
     skewB = 1 + erf(x[5]*(muB-mumodel-x[1])/np.sqrt(2*(x[2]**2.+muBerr**2.)))
     skewgaussB = gaussB + np.log(normB*skewB)
 
-    lnlike = np.sum(np.logaddexp(gaussA,skewgaussB))
+    lnlike = np.sum(logsumexp([gaussA,gaussAhm,skewgaussB],axis=0))
 
     return(lnlike)
 
@@ -888,13 +908,15 @@ def twogausslike_skew_nofrac_snpars(x,inp=None,zcontrol=None,alpha=None,beta=Non
         mumodel[cols] = (1-alpha)*mub + alpha*mub1
 
     gaussA = -(muA-mumodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-        np.log((inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
+        np.log((1-x[6])*(inp.PA)*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.)))
+    gaussAhm = -(muA-mumodel-x[8])**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+        np.log((1-x[6])*(inp.PA*inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.)))
     normB = (1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muBerr**2.))
     gaussB = -(muB-mumodel-x[1])**2./(2*(x[2]**2.+muBerr**2.))
     skewB = 1 + erf(x[5]*(mumodel-mu-x[1])/np.sqrt(2*(x[2]**2.+muBerr**2.)))
     skewgaussB = gaussB + np.log(normB*skewB)
 
-    return np.sum(np.logaddexp(gaussA,skewgaussB))
+    return np.sum(logsumexp([gaussA,gaussAhm,skewgaussB],axis=0))
 
 def lnprior(theta,
             twogauss,skewedgauss,zcntrl=None,
@@ -1071,7 +1093,6 @@ def salt2mu(x1=None,x1err=None,
 #            alphaerr=None,betaerr=None,
 #            M=None,x0=None,sigint=None,z=None,peczerr=0.0005):
 #    from uncertainties import ufloat, correlated_values, correlated_values_norm
-#    alphatmp,betatmp = alpha,beta
 #    alpha,beta = ufloat(alpha,alphaerr),ufloat(beta,betaerr)
 
 #    sf = -2.5/(x0*np.log(10.0))
