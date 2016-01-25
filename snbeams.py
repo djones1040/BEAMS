@@ -58,7 +58,7 @@ class snbeams:
 
             # Light curve cut parameters
             parser.add_option(
-                '--crange', default=default=map(float,config.get('main','crange').split(',')),type="float",
+                '--crange', default=map(float,config.get('main','crange').split(',')),type="float",
                 help='Peculiar velocity error (default=%default)',nargs=2)
             parser.add_option(
                 '--x1range', default=map(float,config.get('main','crange').split(',')),type="float",
