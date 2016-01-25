@@ -72,6 +72,7 @@ ninit = 50
 # model changes
 twogauss = 0
 skewedgauss = 0
+simcc = 
 snpars = 0
 
 # files
