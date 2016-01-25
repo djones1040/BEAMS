@@ -899,6 +899,10 @@ def salt2mu_aberr(x1=None,x1err=None,
     alphatmp,betatmp = alpha,beta
     alpha,beta = ufloat(alpha,alphaerr),ufloat(beta,betaerr)
 
+    sf = -2.5/(x0*np.log(10.0))
+    cov_mb_c = cov_c_x0*sf
+    cov_mb_x1 = cov_x1_x0*sf
+
     mu_out,muerr_out = np.array([]),np.array([])
     for i in range(len(x1)):
 
