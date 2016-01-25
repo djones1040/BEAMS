@@ -386,7 +386,7 @@ class snbeams:
         # loop over the redshift bins
         import cosmo
         zcosmo = np.arange(0.0,1.0,0.001)
-        ax1.errorbar(zcosmo,cosmo.mu(zcosmo),color='k')
+        ax1.errorbar(zcosmo,cosmo.distmod(zcosmo).value,color='k')
 
         if not self.options.usefitresmu:
             mu,muerr = salt2mu(x1=fr.x1,x1err=fr.x1ERR,c=fr.c,cerr=fr.cERR,mb=fr.mB,mberr=fr.mBERR,
@@ -396,15 +396,15 @@ class snbeams:
                                x0=fr.x0,sigint=self.options.sigint,z=fr.zHD)
             fr.MU,fr.MUERR = mu,muerr
         else: mu,muerr = fr.MU[cols],fr.MUERR[cols]
-        mures = mu - cosmo.mu(fr.zHD)
+        mures = mu - cosmo.distmod(fr.zHD).value
 
         mu_cc_p50,mu_ia_p50,z_ia_p50,z_cc_p50 = np.array([]),np.array([]),np.array([]),np.array([])
         for zmin,zmax,i in zip(np.arange(0,0.7,0.05),np.arange(0.05,0.75,0.05),range(len(np.arange(0.05,0.75,0.05)))):
             cols = np.where((fr.z > zmin) & (fr.z < zmax))
             zbin = np.mean([zmin,zmax])
 
-            P_Ia_post = gauss(mu-cosmo.mu(fr.zHD),bms.muA[i],np.sqrt(muerr**2.+bms.sigA[i]**2.))
-            P_CC_post = gauss(mu-cosmo.mu(fr.zHD),bms.muB[i],np.sqrt(muerr**2.+bms.sigB[i]**2.))
+            P_Ia_post = gauss(mu-cosmo.distmod(fr.zHD).value,bms.muA[i],np.sqrt(muerr**2.+bms.sigA[i]**2.))
+            P_CC_post = gauss(mu-cosmo.distmod(fr.zHD).value,bms.muB[i],np.sqrt(muerr**2.+bms.sigB[i]**2.))
             if not showpriorprobs:
                 P_Ia_final = P_Ia_post/(P_Ia_post+P_CC_post)
             else:
@@ -417,11 +417,11 @@ class snbeams:
 
             ax1.errorbar(fr.zHD[cols],mu[cols],yerr=muerr[cols],fmt='o',color='0.5',alpha=0.5)
             sc = ax1.scatter(fr.zHD[cols],mu[cols],c=P_Ia_final[cols],s=30,zorder=9,cmap='RdBu_r',vmin=0.0,vmax=1.0,alpha=0.6)
-            ax2.errorbar(fr.zHD[cols],mu[cols]-cosmo.mu(fr.zHD[cols]),yerr=muerr[cols],fmt='o',color='0.5',alpha=0.5)
-            sc = ax2.scatter(fr.zHD[cols],mu[cols]-cosmo.mu(fr.zHD[cols]),c=P_Ia_final[cols],s=30,zorder=9,cmap='RdBu_r',vmin=0.0,vmax=1.0,alpha=0.6)
+            ax2.errorbar(fr.zHD[cols],mu[cols]-cosmo.distmod(fr.zHD[cols]).value,yerr=muerr[cols],fmt='o',color='0.5',alpha=0.5)
+            sc = ax2.scatter(fr.zHD[cols],mu[cols]-cosmo.distmod(fr.zHD[cols]).value,c=P_Ia_final[cols],s=30,zorder=9,cmap='RdBu_r',vmin=0.0,vmax=1.0,alpha=0.6)
 
-            ax1.errorbar((zmin+zmax)/2.,bms.muA[i]+cosmo.mu(zbin),yerr=[[bms.muAerr_m[i]],[bms.muAerr_p[i]]],fmt='o',color='lightgreen',zorder=40,lw=3,ms=5,label='$\mu_{Ia}$')
-            ax1.errorbar((zmin+zmax)/2.,bms.muB[i]+cosmo.mu(zbin),yerr=[[bms.muBerr_m[i]],[bms.muBerr_p[i]]],fmt='o',color='b',zorder=40,lw=3,ms=5,label='$\mu_{CC}$')
+            ax1.errorbar((zmin+zmax)/2.,bms.muA[i]+cosmo.distmod(zbin).value,yerr=[[bms.muAerr_m[i]],[bms.muAerr_p[i]]],fmt='o',color='lightgreen',zorder=40,lw=3,ms=5,label='$\mu_{Ia}$')
+            ax1.errorbar((zmin+zmax)/2.,bms.muB[i]+cosmo.distmod(zbin).value,yerr=[[bms.muBerr_m[i]],[bms.muBerr_p[i]]],fmt='o',color='b',zorder=40,lw=3,ms=5,label='$\mu_{CC}$')
             ax2.errorbar((zmin+zmax)/2.,bms.muA[i],yerr=[[bms.muAerr_m[i]],[bms.muAerr_p[i]]],fmt='o',color='lightgreen',zorder=40,lw=3,ms=5)
             ax2.errorbar((zmin+zmax)/2.,bms.muB[i],yerr=[[bms.muBerr_m[i]],[bms.muBerr_p[i]]],fmt='o',color='b',zorder=40,lw=3,ms=5)
             if i == 0:
@@ -552,7 +552,6 @@ def salt2mu(x1=None,x1err=None,
         mu = mu + ufloat(0,np.sqrt(zerr**2. + 0.055**2.*z[i]**2.))
         mu_out,muerr_out = np.append(mu_out,mu.n),np.append(muerr_out,mu.std_dev)
 
-#    muerr_out = 1/np.sqrt(invvars)
     return(mu_out,muerr_out)
 
 def writefitres(fitresobj,cols,outfile,append=False,fitresheader=None,
