@@ -124,8 +124,6 @@ class snbeams:
                           help='number of bins in log redshift space')
         parser.add_option('--equalbins', default=False, action="store_true",
                           help='if set, every bin contains the same number of SNe')
-        parser.add_option('--corrzbins', default=False, action="store_true",
-                          help='if set, run doSNBEAMS to get correlated measurements at log-spaced z control points')
         parser.add_option('--snpars', default=False, action="store_true",
                           help='if set, marginalize over alpha and beta for SNe Ia (CC SNe set to priors)')
 
@@ -168,7 +166,7 @@ class snbeams:
                           help='two gaussians for pop. B')
         parser.add_option('--skewedgauss', default=False, action="store_true",
                           help='skewed gaussian for pop. B')
-        parser.add_option('--simcc', default=None, type='string',
+        parser.add_option('--simcc', default='', type='string',
                           help='if filename is given, construct a polynomial-altered empirical CC SN function')
 
         return(parser)
@@ -178,23 +176,20 @@ class snbeams:
         import cosmo
 
         fr = txtobj(fitres,fitresheader=True)
-        # HAAAACKKKKK
-#        for i in range(len(fr.CID)):
-#            if fr.HOST_LOGMASS[i] > 10:
-#                fr.mB[i] += self.options.masscorrmag[0]
-#                fr.mBERR[i] = np.sqrt(fr.mBERR[i]**2. + self.options.masscorrmag[1]**2.)
-#            else:
-#                fr.mB[i] -= self.options.masscorrmag[0]/2.
+        if self.options.simcc:
+            simcc = txtobj(self.options.simcc,fitresheader=True)
         
         fr.MU,fr.MUERR = salt2mu(x1=fr.x1,x1err=fr.x1ERR,c=fr.c,cerr=fr.cERR,mb=fr.mB,mberr=fr.mBERR,
                                  cov_x1_c=fr.COV_x1_c,cov_x1_x0=fr.COV_x1_x0,cov_c_x0=fr.COV_c_x0,
                                  alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
                                  beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
                                  x0=fr.x0,sigint=self.options.sigint,z=fr.zHD)
-
-        # HACK FOR REST+14 DATA
-        # self.options.piacol = 'PTRUE_Ia'
-        # fr.PTRUE_Ia = np.ones(len(fr.MU))
+        if self.options.simcc:
+            simcc.MU,simcc.MUERR = salt2mu(x1=simcc.x1,x1err=simcc.x1ERR,c=simcc.c,cerr=simcc.cERR,mb=simcc.mB,mberr=simcc.mBERR,
+                                     cov_x1_c=simcc.COV_x1_c,cov_x1_x0=simcc.COV_x1_x0,cov_c_x0=simcc.COV_c_x0,
+                                     alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
+                                     beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
+                                     x0=simcc.x0,sigint=self.options.sigint,z=simcc.zHD)
 
         if mkcuts:
             # Light curve cuts
@@ -220,6 +215,30 @@ class snbeams:
 
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
+            if self.options.simcc:
+                # Light curve cuts
+                sf = -2.5/(simcc.x0*np.log(10.0))
+                invvars = 1./(simcc.mBERR**2.+ self.options.salt2alpha**2. * simcc.x1ERR**2. + \
+                                  self.options.salt2beta**2. * simcc.cERR**2. +  2.0 * self.options.salt2alpha * (simcc.COV_x1_x0*sf) - \
+                                  2.0 * self.options.salt2beta * (simcc.COV_c_x0*sf) - \
+                                  2.0 * self.options.salt2alpha*self.options.salt2beta * (simcc.COV_x1_c) )
+                if self.options.x1ccircle:
+                    # I'm just going to assume cmax = abs(cmin) and same for x1
+                    cols = np.where((simcc.x1**2./self.options.x1range[0]**2. + simcc.c**2./self.options.crange[0]**2. < 1) &
+                                    (simcc.x1ERR < self.options.x1errmax) & (simcc.PKMJDERR < self.options.pkmjderrmax/(1+simcc.zHD)) &
+                                    (simcc.FITPROB >= self.options.fitprobmin) &
+                                    (simcc.z > self.options.zmin) & (simcc.z < self.options.zmax) &
+                                    (simcc.__dict__[self.options.piacol] >= 0) & (invvars > 0))
+                else:
+                    cols = np.where((simcc.x1 > self.options.x1range[0]) & (simcc.x1 < self.options.x1range[1]) &
+                                    (simcc.c > self.options.crange[0]) & (simcc.c < self.options.crange[1]) &
+                                    (simcc.x1ERR < self.options.x1errmax) & (simcc.PKMJDERR < self.options.pkmjderrmax) &
+                                    (simcc.FITPROB >= self.options.fitprobmin) &
+                                    (simcc.z > self.options.zmin) & (simcc.z < self.options.zmax) &
+                                    (simcc.__dict__[self.options.piacol] >= 0) & (invvars > 0))
+
+                for k in simcc.__dict__.keys():
+                    simcc.__dict__[k] = simcc.__dict__[k][cols]
         if self.options.onlyIa:
             cols = np.where(fr.TYPE == 1)
             for k in fr.__dict__.keys():
@@ -235,12 +254,7 @@ class snbeams:
                 if fr.__dict__[self.options.specconfcol][i] == 1:
                     P_Ia[i] = 1
 
-        if self.options.corrzbins:
-            from doSNBEAMS import BEAMS
-        elif self.options.snpars:
-            from doSALT2BEAMS import BEAMS
-        else:
-            from doBEAMS import BEAMS
+        from doSNBEAMS import BEAMS
         import ConfigParser, sys
         sys.argv = ['./doBEAMS.py']
         beam = BEAMS()
@@ -258,7 +272,6 @@ class snbeams:
         beam.options = options
         beam.options.twogauss = self.options.twogauss
         beam.options.skewedgauss = self.options.skewedgauss
-        beams.options.simcc = self.options.simcc
         beam.options.snpars = self.options.snpars
 
         beam.transformOptions()
@@ -278,132 +291,35 @@ class snbeams:
 
         if self.options.masscorrfixed: beam.options.lstepfixed = True
 
-        if self.options.corrzbins:
-            beam.options.zmin = self.options.zmin
-            beam.options.zmax = self.options.zmax
-            beam.options.nzbins = self.options.nbins
+        beam.options.zmin = self.options.zmin
+        beam.options.zmax = self.options.zmax
+        beam.options.nzbins = self.options.nbins
 
-            # make the BEAMS input file
-            fout = open('%s.input'%root,'w')
-            fr.PA = fr.__dict__[self.options.piacol]
-            if not self.options.masscorr: fr.PL = np.zeros(len(fr.PA))
-            writefitres(fr,range(len(fr.PA)),'%s.input'%root,
+        # make the BEAMS input file
+        fout = open('%s.input'%root,'w')
+        fr.PA = fr.__dict__[self.options.piacol]
+        if not self.options.masscorr: fr.PL = np.zeros(len(fr.PA))
+        writefitres(fr,range(len(fr.PA)),'%s.input'%root,
+                    fitresheader=fitresheaderbeams,
+                    fitresfmt=fitresfmtbeams,
+                    fitresvars=fitresvarsbeams)
+        # make the sim. CC input file
+        if self.options.simcc:
+            writefitres(simcc,range(len(simcc.CID)),'%s.simcc.input'%root,
                         fitresheader=fitresheaderbeams,
                         fitresfmt=fitresfmtbeams,
                         fitresvars=fitresvarsbeams)
+            beams.options.simcc = '%s.simcc.input'%root
 
-            beam.options.append = False
-            beam.options.clobber = self.options.clobber
-            beam.options.outputfile = self.options.outfile
-            beam.options.equalbins = self.options.equalbins
-            beam.options.covmatfile = self.options.covmatfile
-            beam.main(options.inputfile)
-            bms = txtobj(self.options.outfile)
-            self.writeBinCorrFitres('%s.fitres'%self.options.outfile.split('.')[0],bms,fr=fr)
-            return
-
-        # loop over the redshift bins
-        append = False
-        z = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nbins)
-        if self.options.equalbins:
-            from scipy import stats
-            z = stats.mstats.mquantiles(fr.zHD,np.arange(0,1,1./self.options.nbins))
-            if self.options.finalzbinsize:
-                z = np.append(z,self.options.zmax-self.options.finalzbinsize)
-            z = np.append(z,self.options.zmax)
-        elif self.options.evenbins:
-            z = np.arange(self.options.zmin,self.options.zmax,self.options.zbinsize)
-        os.system('rm %s'%self.options.outfile)
-        for zmin,zmax in zip(z[:-1],z[1:]):
-            if self.options.verbose: print('%.3f < z < %.3f'%(zmin,zmax))
-            if zmin > self.options.zmin:
-                append = True; clobber = False
-            else: clobber = True
-
-            # make the BEAMS input file
-            if self.options.snpars:
-                cols = np.where((fr.zHD > zmin) & (fr.zHD <= zmax))[0]
-                fr.PA = fr.__dict__[self.options.piacol]
-                writefitres(fr,cols,'%s.input'%root,
-                            fitresheader=fitresheaderbeams,
-                            fitresfmt=fitresfmtbeams,
-                            fitresvars=fitresvarsbeams)
-            else:
-                fout = open('%s.input'%root,'w')
-                if fr.__dict__.has_key('PL'):
-                    print >> fout, '# PA PL resid resid_err'
-                else:
-                    print >> fout, '# PA resid resid_err'
-                for i in range(len(fr.MU)):
-                    if fr.zHD[i] > zmin and fr.zHD[i] <= zmax:
-                        if not fr.__dict__.has_key('PL'):
-                            print >> fout, '%.3f %.4f %.4f'%(P_Ia[i],fr.MU[i]-cosmo.mu(fr.zHD[i]),fr.MUERR[i])
-                        else:
-                            print >> fout, '%.3f %.3f %.4f %.4f'%(P_Ia[i],fr.PL[i],fr.MU[i]-cosmo.mu(fr.zHD[i]),fr.MUERR[i])
-                fout.close()
-
-            beam.options.append = append
-            beam.options.clobber = clobber
-            beam.options.outputfile = self.options.outfile
-            config = ConfigParser.ConfigParser()
-            config.read(self.options.paramdefaultfile)
-            for o in beam.options.__dict__.keys():
-                config.set('all',o,str(beam.options.__dict__[o]).replace('(','').replace(')',''))
-                if str(beam.options.__dict__[o]) == 'False':
-                    config.set('all',o,0)
-                elif str(beam.options.__dict__[o]) == 'True':
-                    config.set('all',o,1)
- 
-            fout = open('%s.params'%root,'w')
-            config.write(fout); fout.close()
-            if self.options.snpars:
-                os.system('./doSALT2BEAMS.py -p %s.params -o %s'%(root,self.options.outfile))
-            else:
-                os.system('./doBEAMS.py -p %s.params -o %s'%(root,self.options.outfile))
-            #beam.main(options.inputfile)
-
+        beam.options.append = False
+        beam.options.clobber = self.options.clobber
+        beam.options.outputfile = self.options.outfile
+        beam.options.equalbins = self.options.equalbins
+        beam.options.covmatfile = self.options.covmatfile
+        beam.main(options.inputfile)
         bms = txtobj(self.options.outfile)
-        self.writeBinFitres('%s.fitres'%self.options.outfile.split('.')[0],bms,fr=fr)
-
-    def writeBinFitres(self,outfile,bms,fr=None):
-        import os,cosmo
-
-        from txtobj import txtobj
-        from iterstat import iterstat
-
-        fout = open(outfile,'w')
-        print >> fout, fitresheader
-
-        z = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nbins)
-        if self.options.equalbins:
-            from scipy import stats
-            z = stats.mstats.mquantiles(fr.zHD,np.arange(0,1,1./self.options.nbins))
-            if self.options.finalzbinsize:
-                z = np.append(z,self.options.zmax-self.options.finalzbinsize)
-            z = np.append(z,self.options.zmax)
-        elif self.options.evenbins:
-            z = np.arange(self.options.zmin,self.options.zmax,self.options.zbinsize)
-
-        for zmin,zmax,i in zip(z[:-1],z[1:],range(len(z[:-1]))):
-
-            #cols = np.where((fr.zHD > zmin) & (fr.zHD < zmax) & (fr.TYPE == 1))[0]
-            #from doSNBEAMS import weighted_avg_and_std
-            #md,std = weighted_avg_and_std(fr.MU[cols]-cosmo.mu(fr.zHD[cols]),1/fr.MUERR[cols]**2.)
-            #std = 1/np.sqrt(np.sum(1/fr.MUERR[cols]**2.))
-
-            outvars = ()
-            for v in fitresvars:
-                if v == 'zHD':
-                    outvars += ((zmin+zmax)/2.,)
-                elif v == 'z':
-                    outvars += ((zmin+zmax)/2.,)
-                elif v == 'mB':
-                    outvars += (bms.muA[i]+cosmo.mu((zmin+zmax)/2.)-19.3,)#(md+cosmo.mu((zmin+zmax)/2.)-19.3,)
-                elif v == 'mBERR':
-                    outvars += (bms.muAerr[i],)#(std,)
-                else:
-                    outvars += (0,)
-            print >> fout, fitresfmt%outvars
+        self.writeBinCorrFitres('%s.fitres'%self.options.outfile.split('.')[0],bms,fr=fr)
+        return
 
     def writeBinCorrFitres(self,outfile,bms,skip=0,fr=None):
         import os,cosmo
@@ -580,16 +496,6 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_E
                             (fr.__dict__[self.options.piacol] >= 0))
         for k in fr.__dict__.keys():
             fr.__dict__[k] = fr.__dict__[k][cols]
-
-#        if self.options.masscorr:
-        # HAAAACK
-#        cols = np.where(fr.HOST_LOGMASS > 0)
-#        for k in fr.__dict__.keys():
-#            fr.__dict__[k] = fr.__dict__[k][cols]
-#        colslowz = np.where(frlowz.HOST_LOGMASS > 0)
-#        for k in fr.__dict__.keys():
-#            fr.__dict__[k] = fr.__dict__[k][colslowz]
-#        print len(colslowz[0])
 
         writefitres(fr,np.random.randint(len(fr.CID),size=nsne),fitresoutfile,fitresheader=fitresheader,
                     fitresvars=fitresvars,fitresfmt=fitresfmt)
