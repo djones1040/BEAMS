@@ -483,7 +483,6 @@ skew B: %.3f +/- %.3f frac. B: %.3f +/- %.3f frac. B2: %.3f +/- %.3f Lstep: %.3f
     def mcmc(self,inp,zcontrol):
         from scipy.optimize import minimize
         import emcee
-        import cosmo
         if not inp.__dict__.has_key('PL'):
             inp.PL = 0
 
