@@ -28,156 +28,156 @@ class BEAMS:
 
         if config:
             # Input file
-            parser.add_option('--pacol', default=config.get('all','pacol'), type="string",
+            parser.add_option('--pacol', default=config.get('doSNBEAMS','pacol'), type="string",
                               help='column in input file used as prior P(A)')
-            parser.add_option('--mucol', default=config.get('all','mucol'), type="string",
+            parser.add_option('--mucol', default=config.get('doSNBEAMS','mucol'), type="string",
                               help='column name in input file header for distance modulus')
-            parser.add_option('--muerrcol', default=config.get('all','muerrcol'), type="string",
+            parser.add_option('--muerrcol', default=config.get('doSNBEAMS','muerrcol'), type="string",
                               help='column name in input file header for distance modulus errors')
-            parser.add_option('--zcol', default=config.get('all','zcol'), type="string",
+            parser.add_option('--zcol', default=config.get('doSNBEAMS','zcol'), type="string",
                               help='column name in input file header for z')
 
 
             # population A guesses and priors (the pop we care about)
-            parser.add_option('--popAguess', default=map(float,config.get('all','popAguess').split(',')),type='float',
+            parser.add_option('--popAguess', default=map(float,config.get('doSNBEAMS','popAguess').split(',')),type='float',
                               help='comma-separated initial guesses for population A: mean, standard deviation',nargs=2)
-            parser.add_option('--popAprior_mean', default=map(float,config.get('all','popAprior_mean').split(',')),type='float',
+            parser.add_option('--popAprior_mean', default=map(float,config.get('doSNBEAMS','popAprior_mean').split(',')),type='float',
                               help="""comma-separated gaussian prior for mean of population A: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
-            parser.add_option('--popAprior_std', default=map(float,config.get('all','popAprior_std').split(',')),type='float',
+            parser.add_option('--popAprior_std', default=map(float,config.get('doSNBEAMS','popAprior_std').split(',')),type='float',
                               help="""comma-separated gaussian prior for std dev. of population A: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
-            parser.add_option('--popAfixed', default=map(float,config.get('all','popAfixed').split(',')),type='float',
+            parser.add_option('--popAfixed', default=map(float,config.get('doSNBEAMS','popAfixed').split(',')),type='float',
                               help="""comma-separated values for population A params: mean, standard deviation.  
 For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""",nargs=2)
 
 
             # population B guesses and priors (the pop we care about)
-            parser.add_option('--popBguess', default=map(float,config.get('all','popBguess').split(',')),type='float',
+            parser.add_option('--popBguess', default=map(float,config.get('doSNBEAMS','popBguess').split(',')),type='float',
                               help='comma-separated initial guesses for population B: mean, standard deviation',nargs=2)
-            parser.add_option('--popBprior_mean', default=map(float,config.get('all','popBprior_mean').split(',')),type='float',
+            parser.add_option('--popBprior_mean', default=map(float,config.get('doSNBEAMS','popBprior_mean').split(',')),type='float',
                               help="""comma-separated gaussian prior for mean of population B: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
-            parser.add_option('--popBprior_std', default=map(float,config.get('all','popBprior_std').split(',')),type='float',
+            parser.add_option('--popBprior_std', default=map(float,config.get('doSNBEAMS','popBprior_std').split(',')),type='float',
                               help="""comma-separated gaussian prior for std dev. of population B: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
-            parser.add_option('--popBfixed', default=map(float,config.get('all','popBfixed').split(',')),type='float',
+            parser.add_option('--popBfixed', default=map(float,config.get('doSNBEAMS','popBfixed').split(',')),type='float',
                               help="""comma-separated values for population B params: mean, standard deviation.  
 For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""",nargs=2)
 
             # population B guesses and priors for second gaussian (the pop we care about)
-            parser.add_option('--popB2guess', default=map(float,config.get('all','popB2guess').split(',')),type='float',
+            parser.add_option('--popB2guess', default=map(float,config.get('doSNBEAMS','popB2guess').split(',')),type='float',
                               help='comma-separated initial guesses for population B: mean, standard deviation',nargs=2)
-            parser.add_option('--popB2prior_mean', default=map(float,config.get('all','popB2prior_mean').split(',')),type='float',
+            parser.add_option('--popB2prior_mean', default=map(float,config.get('doSNBEAMS','popB2prior_mean').split(',')),type='float',
                               help="""comma-separated gaussian prior for mean of population B: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
-            parser.add_option('--popB2prior_std', default=map(float,config.get('all','popB2prior_std').split(',')),type='float',
+            parser.add_option('--popB2prior_std', default=map(float,config.get('doSNBEAMS','popB2prior_std').split(',')),type='float',
                               help="""comma-separated gaussian prior for std dev. of population B: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
-            parser.add_option('--popB2fixed', default=map(float,config.get('all','popB2fixed').split(',')),type='float',
+            parser.add_option('--popB2fixed', default=map(float,config.get('doSNBEAMS','popB2fixed').split(',')),type='float',
                               help="""comma-separated values for population B params: mean, standard deviation.  
 For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""",nargs=2)
 
             # the skewness of the pop. B gaussian
-            parser.add_option('--skewBguess', default=config.get('all','skewBguess'),type='float',
+            parser.add_option('--skewBguess', default=config.get('doSNBEAMS','skewBguess'),type='float',
                               help='comma-separated initial guesses for population B: mean, standard deviation')
-            parser.add_option('--skewBprior', default=map(float,config.get('all','skewBprior').split(',')),type='float',
+            parser.add_option('--skewBprior', default=map(float,config.get('doSNBEAMS','skewBprior').split(',')),type='float',
                               help="""comma-separated gaussian prior for skewness of population B: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
-            parser.add_option('--skewBfixed', default=config.get('all','skewBfixed'),type='int',
+            parser.add_option('--skewBfixed', default=config.get('doSNBEAMS','skewBfixed'),type='int',
                               help="""set to 0 to include skewness in parameter estimation, set to 1 to keep fixed""")
 
             # fraction of contaminants: guesses and priors
-            parser.add_option('--fracBguess', default=config.get('all','fracBguess'),type='float',
+            parser.add_option('--fracBguess', default=config.get('doSNBEAMS','fracBguess'),type='float',
                               help='initial guess for fraction of contaminants, set to negative to omit')
-            parser.add_option('--fracBprior', default=map(float,config.get('all','fracBprior').split(',')),type='float',
+            parser.add_option('--fracBprior', default=map(float,config.get('doSNBEAMS','fracBprior').split(',')),type='float',
                               help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
-            parser.add_option('--fracBfixed', default=config.get('all','fracBfixed'),type='int',
+            parser.add_option('--fracBfixed', default=config.get('doSNBEAMS','fracBfixed'),type='int',
                               help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
 
            # fraction of contaminants: guesses and priors for gaussian 2
-            parser.add_option('--fracB2guess', default=config.get('all','fracBguess'),type='float',
+            parser.add_option('--fracB2guess', default=config.get('doSNBEAMS','fracBguess'),type='float',
                               help='initial guess for fraction of contaminants, set to negative to omit')
-            parser.add_option('--fracB2prior', default=map(float,config.get('all','fracBprior').split(',')),type='float',
+            parser.add_option('--fracB2prior', default=map(float,config.get('doSNBEAMS','fracBprior').split(',')),type='float',
                               help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
-            parser.add_option('--fracB2fixed', default=config.get('all','fracBfixed'),type='int',
+            parser.add_option('--fracB2fixed', default=config.get('doSNBEAMS','fracBfixed'),type='int',
                               help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
 
             # options to fit to a second-order "step" effect on luminosity.
             # This is the host mass bias for SNe.
-            parser.add_option('--plcol', default=config.get('all','plcol'), type="string",
+            parser.add_option('--plcol', default=config.get('doSNBEAMS','plcol'), type="string",
                               help='column in input file used as probability for an additional luminosity correction P(L)')
-            parser.add_option('--lstep', default=config.get('all','lstep'), type="int",
+            parser.add_option('--lstep', default=config.get('doSNBEAMS','lstep'), type="int",
                               help='make step correction if set to 1 (default=%default)')
-            parser.add_option('--lstepguess', default=config.get('all','lstepguess'),type='float',
+            parser.add_option('--lstepguess', default=config.get('doSNBEAMS','lstepguess'),type='float',
                               help='initial guesses for luminosity correction')
-            parser.add_option('--lstepprior', default=map(float,config.get('all','lstepprior').split(',')),type='float',
+            parser.add_option('--lstepprior', default=map(float,config.get('doSNBEAMS','lstepprior').split(',')),type='float',
                               help="""comma-separated gaussian prior for mean of luminosity correction: centroid, sigma.  
 For flat prior, use empty strings""",nargs=2)
-            parser.add_option('--lstepfixed', default=config.get('all','lstepfixed'),type='float',
+            parser.add_option('--lstepfixed', default=config.get('doSNBEAMS','lstepfixed'),type='float',
                               help="""comma-separated values for luminosity correction.
 For each param, set to 0 to include in parameter estimation, set to 1 to keep fixed""")
 
             # SALT2 SN parameters: guesses and priors
-            parser.add_option('--salt2alphaguess', default=config.get('all','salt2alphaguess'),type='float',
+            parser.add_option('--salt2alphaguess', default=config.get('doSNBEAMS','salt2alphaguess'),type='float',
                               help='initial guess for fraction of contaminants, set to negative to omit')
             parser.add_option('--salt2alphaprior',
-                              default=map(float,config.get('all','salt2alphaprior').split(',')),type='float',
+                              default=map(float,config.get('doSNBEAMS','salt2alphaprior').split(',')),type='float',
                               help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.
 For flat prior, use empty string""",nargs=2)
-            parser.add_option('--salt2alphafixed', default=config.get('all','salt2alphafixed'),type='int',
+            parser.add_option('--salt2alphafixed', default=config.get('doSNBEAMS','salt2alphafixed'),type='int',
                               help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
-            parser.add_option('--salt2betaguess', default=config.get('all','salt2betaguess'),type='float',
+            parser.add_option('--salt2betaguess', default=config.get('doSNBEAMS','salt2betaguess'),type='float',
                               help='initial guess for fraction of contaminants, set to negative to omit')
             parser.add_option('--salt2betaprior',
-                              default=map(float,config.get('all','salt2betaprior').split(',')),type='float',
+                              default=map(float,config.get('doSNBEAMS','salt2betaprior').split(',')),type='float',
                               help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.
 For flat prior, use empty string""",nargs=2)
-            parser.add_option('--salt2betafixed', default=config.get('all','salt2betafixed'),type='int',
+            parser.add_option('--salt2betafixed', default=config.get('doSNBEAMS','salt2betafixed'),type='int',
                               help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
 
-            parser.add_option('--salt2alpha', default=config.get('all','salt2alpha'), type="float",
+            parser.add_option('--salt2alpha', default=config.get('doSNBEAMS','salt2alpha'), type="float",
                               help='SALT2 alpha parameter from a spectroscopic sample (default=%default)')
-            parser.add_option('--salt2alphaerr', default=config.get('all','salt2alphaerr'), type="float",
+            parser.add_option('--salt2alphaerr', default=config.get('doSNBEAMS','salt2alphaerr'), type="float",
                               help='nominal SALT2 alpha uncertainty from a spectroscopic sample (default=%default)')
-            parser.add_option('--salt2beta', default=config.get('all','salt2beta'), type="float",
+            parser.add_option('--salt2beta', default=config.get('doSNBEAMS','salt2beta'), type="float",
                               help='nominal SALT2 beta parameter from a spec. sample (default=%default)')
-            parser.add_option('--salt2betaerr', default=config.get('all','salt2betaerr'), type="float",
+            parser.add_option('--salt2betaerr', default=config.get('doSNBEAMS','salt2betaerr'), type="float",
                               help='nominal SALT2 beta uncertainty from a spec. sample (default=%default)')        
 
             # output and number of threads
-            parser.add_option('--nthreads', default=config.get('all','nthreads'), type="int",
+            parser.add_option('--nthreads', default=config.get('doSNBEAMS','nthreads'), type="int",
                               help='Number of threads for MCMC')
-            parser.add_option('--nwalkers', default=config.get('all','nwalkers'), type="int",
+            parser.add_option('--nwalkers', default=config.get('doSNBEAMS','nwalkers'), type="int",
                               help='Number of walkers for MCMC')
-            parser.add_option('--nsteps', default=config.get('all','nsteps'), type="int",
+            parser.add_option('--nsteps', default=config.get('doSNBEAMS','nsteps'), type="int",
                               help='Number of steps for MCMC')
-            parser.add_option('--ninit', default=config.get('all','ninit'), type="int",
+            parser.add_option('--ninit', default=config.get('doSNBEAMS','ninit'), type="int",
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
 
 
-            parser.add_option('--nzbins', default=config.get('all','nzbins'), type="int",
+            parser.add_option('--nzbins', default=config.get('doSNBEAMS','nzbins'), type="int",
                               help='Number of z bins')
-            parser.add_option('--zmin', default=config.get('all','zmin'), type="float",
+            parser.add_option('--zmin', default=config.get('doSNBEAMS','zmin'), type="float",
                               help='min redshift')
-            parser.add_option('--zmax', default=config.get('all','zmax'), type="float",
+            parser.add_option('--zmax', default=config.get('doSNBEAMS','zmax'), type="float",
                               help='max redshift')
 
             # alternate functional models
-            parser.add_option('--twogauss', default=map(int,config.get('all','twogauss'))[0], action="store_true",
+            parser.add_option('--twogauss', default=map(int,config.get('doSNBEAMS','twogauss'))[0], action="store_true",
                               help='two gaussians for pop. B')
-            parser.add_option('--skewedgauss', default=map(int,config.get('all','skewedgauss'))[0], action="store_true",
+            parser.add_option('--skewedgauss', default=map(int,config.get('doSNBEAMS','skewedgauss'))[0], action="store_true",
                               help='skewed gaussian for pop. B')
-            parser.add_option('--simcc', default=config.get('all','simcc'), type="string",
+            parser.add_option('--simcc', default=config.get('doSNBEAMS','simcc'), type="string",
                               help='if filename is given, construct a polynomial-altered empirical CC SN function')
-            parser.add_option('--snpars', default=map(int,config.get('all','snpars'))[0], action="store_true",
+            parser.add_option('--snpars', default=map(int,config.get('doSNBEAMS','snpars'))[0], action="store_true",
                               help='use BEAMS to constrain SALT2 alpha and beta')
 
-            parser.add_option('-i','--inputfile', default=config.get('all','inputfile'), type="string",
+            parser.add_option('-i','--inputfile', default=config.get('doSNBEAMS','inputfile'), type="string",
                               help='file with the input data')
-            parser.add_option('-o','--outputfile', default=config.get('all','outputfile'), type="string",
+            parser.add_option('-o','--outputfile', default=config.get('doSNBEAMS','outputfile'), type="string",
                               help='Output file with the derived parameters for each redshift bin')
 
         else:
