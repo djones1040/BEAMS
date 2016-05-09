@@ -104,6 +104,7 @@ class snbeams:
                               help='minimum redshift')
             parser.add_option('--zmax', default=config.get('main','zmax'), type="float",
                               help='maximum redshift')
+
             parser.add_option('--nbins', default=config.get('main','nbins'), type="float",
                               help='number of bins in log redshift space')
             parser.add_option('--equalbins', default=config.get('main','equalbins'), action="store_true",
@@ -142,6 +143,14 @@ class snbeams:
                               help='skewed gaussian for pop. B')
             parser.add_option('--simcc', default=config.get('main','simcc'), type='string',
                               help='if filename is given, construct a polynomial-altered empirical CC SN function')
+            parser.add_option('--zCCdist', default=map(int,config.get('main','zCCdist'))[0], action="store_true",
+                              help='fit for different CC SN parameters at each redshift control point')
+
+            # emcee options
+            parser.add_option('--nthreads', default=config.get('doSNBEAMS','nthreads'), type="int",
+                              help='Number of threads for MCMC')
+            parser.add_option('--nwalkers', default=config.get('doSNBEAMS','nwalkers'), type="int",
+                              help='Number of walkers for MCMC')
 
         else:
             parser.add_option('--piacol', default='FITPROB', type="string",
@@ -159,7 +168,7 @@ class snbeams:
             parser.add_option('--x1cellipse',default=False,action="store_true",
                               help='Circle cut in x1 and c')
             parser.add_option(
-                '--fitprobmin', default=0.0,type="float",
+                '--fitprobmin', default=0.001,type="float",
                 help='Peculiar velocity error (default=%default)')
             parser.add_option(
                 '--x1errmax', default=1.0,type="float",
@@ -195,8 +204,9 @@ class snbeams:
                               help='Number of threads for MCMC')
             parser.add_option('--zmin', default=0.01, type="float",
                               help='minimum redshift')
-            parser.add_option('--zmax', default=0.75, type="float",
+            parser.add_option('--zmax', default=1.0, type="float",
                               help='maximum redshift')
+
             parser.add_option('--nbins', default=25, type="float",
                               help='number of bins in log redshift space')
             parser.add_option('--equalbins', default=False, action="store_true",
@@ -235,6 +245,14 @@ class snbeams:
                               help='skewed gaussian for pop. B')
             parser.add_option('--simcc', default='', type='string',
                               help='if filename is given, construct a polynomial-altered empirical CC SN function')
+            parser.add_option('--zCCdist', default=False, action="store_true",
+                              help='fit for different CC parameters at each redshift control point')
+
+            # emcee options
+            parser.add_option('--nthreads', default=8, type="int",
+                              help='Number of threads for MCMC')
+            parser.add_option('--nwalkers', default=200, type="int",
+                              help='Number of walkers for MCMC')
             
         parser.add_option('-p','--paramfile', default='', type="string",
                           help='fitres file with the SN Ia data')
@@ -248,6 +266,8 @@ class snbeams:
         fr = txtobj(fitres,fitresheader=True)
         if self.options.simcc:
             simcc = txtobj(self.options.simcc,fitresheader=True)
+        if self.options.zmin < np.min(fr.zHD): self.options.zmin = np.min(fr.zHD)
+        if self.options.zmax > np.max(fr.zHD): self.options.zmax = np.max(fr.zHD)
         
         from doSNBEAMS import salt2mu_aberr
         fr.MU,fr.MUERR = salt2mu_aberr(x1=fr.x1,x1err=fr.x1ERR,c=fr.c,cerr=fr.cERR,mb=fr.mB,mberr=fr.mBERR,
@@ -272,16 +292,16 @@ class snbeams:
             if self.options.x1cellipse:
                 # I'm just going to assume cmax = abs(cmin) and same for x1
                 cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
-                                (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax/(1+fr.zHD)) &
+                                (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax*(1+fr.zHD)) &
                                 (fr.FITPROB >= self.options.fitprobmin) &
-                                (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
+                                (fr.zHD > self.options.zmin) & (fr.zHD < self.options.zmax) &
                                 (fr.__dict__[self.options.piacol] >= 0) & (invvars > 0))
             else:
                 cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
                                 (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
-                                (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax) &
+                                (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax*(1+fr.zHD)) &
                                 (fr.FITPROB >= self.options.fitprobmin) &
-                                (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
+                                (fr.zHD > self.options.zmin) & (fr.zHD < self.options.zmax) &
                                 (fr.__dict__[self.options.piacol] >= 0) & (invvars > 0))
 
             for k in fr.__dict__.keys():
@@ -298,20 +318,20 @@ class snbeams:
                     cols = np.where((simcc.x1**2./self.options.x1range[0]**2. + simcc.c**2./self.options.crange[0]**2. < 1) &
                                     (simcc.x1ERR < self.options.x1errmax) & (simcc.PKMJDERR < self.options.pkmjderrmax/(1+simcc.zHD)) &
                                     (simcc.FITPROB >= self.options.fitprobmin) &
-                                    (simcc.z > self.options.zmin) & (simcc.z < self.options.zmax) &
+                                    (simcc.zHD > self.options.zmin) & (simcc.z < self.options.zmax) &
                                     (simcc.__dict__[self.options.piacol] >= 0) & (invvars > 0))
                 else:
                     cols = np.where((simcc.x1 > self.options.x1range[0]) & (simcc.x1 < self.options.x1range[1]) &
                                     (simcc.c > self.options.crange[0]) & (simcc.c < self.options.crange[1]) &
                                     (simcc.x1ERR < self.options.x1errmax) & (simcc.PKMJDERR < self.options.pkmjderrmax) &
                                     (simcc.FITPROB >= self.options.fitprobmin) &
-                                    (simcc.z > self.options.zmin) & (simcc.z < self.options.zmax) &
+                                    (simcc.zHD > self.options.zmin) & (simcc.z < self.options.zmax) &
                                     (simcc.__dict__[self.options.piacol] >= 0) & (invvars > 0))
 
                 for k in simcc.__dict__.keys():
                     simcc.__dict__[k] = simcc.__dict__[k][cols]
         if self.options.onlyIa:
-            cols = np.where(fr.TYPE == 1)
+            cols = np.where((fr.SIM_TYPE_INDEX == 1) & (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
 
@@ -344,6 +364,7 @@ class snbeams:
         beam.options.twogauss = self.options.twogauss
         beam.options.skewedgauss = self.options.skewedgauss
         beam.options.snpars = self.options.snpars
+        beam.options.zCCdist = self.options.zCCdist
 
         beam.transformOptions()
         options.inputfile = '%s.input'%root
@@ -392,7 +413,8 @@ class snbeams:
         return
 
     def writeBinCorrFitres(self,outfile,bms,skip=0,fr=None):
-        import os,cosmo
+        import os
+        from astropy.cosmology import Planck13 as cosmo
 
         from txtobj import txtobj
         from iterstat import iterstat
@@ -413,7 +435,7 @@ class snbeams:
                 elif v == 'z':
                     outvars += (zcntrl,)
                 elif v == 'mB':
-                    outvars += (bms.muA[i]-19.3,)
+                    outvars += (bms.muA[i]-19.36,)
                 elif v == 'mBERR':
                     outvars += (bms.muAerr[i],)
                 else:
@@ -455,14 +477,14 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_E
             cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax/(1+fr.zHD)) &
                             (fr.FITPROB >= self.options.fitprobmin) &
-                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
+                            (fr.zHD > self.options.zmin) & (fr.zHD < self.options.zmax) &
                             (fr.__dict__[self.options.piacol] >= 0))
         else:
             cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
                             (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax) &
                             (fr.FITPROB >= self.options.fitprobmin) &
-                            (fr.z > self.options.zmin) & (fr.z < self.options.zmax) &
+                            (fr.zHD > self.options.zmin) & (fr.zHD < self.options.zmax) &
                             (fr.__dict__[self.options.piacol] >= 0))
         for k in fr.__dict__.keys():
             fr.__dict__[k] = fr.__dict__[k][cols]
@@ -515,7 +537,7 @@ def salt2mu(x1=None,x1err=None,
                            [cov_mb_c[i],cov_x1_c[i],cerr[i]**2.]])
         mb_single,x1_single,c_single = correlated_values([mb[i],x1[i],c[i]],covmat)
 
-        mu = mb_single + x1_single*alpha - beta*c_single + 19.3
+        mu = mb_single + x1_single*alpha - beta*c_single + 19.36
         if sigint: mu = mu + ufloat(0,sigint)
         zerr = peczerr*5.0/np.log(10)*(1.0+z[i])/(z[i]*(1.0+z[i]/2.0))
 
@@ -576,7 +598,7 @@ examples:
 
     from scipy.optimize import minimize
     import emcee
-    import cosmo
+    from astropy.cosmology import Planck13 as cosmo
 
     if options.mcsubset:
         outfile_orig = options.outfile[:]

@@ -13,7 +13,7 @@ residerrcol = resid_err
 
 popAguess = 0.0,0.1
 popAprior_mean = 0.0,0.1
-popAprior_std = 0.1,0.2
+popAprior_std = 0.1,0.02
 popAfixed = 0,1
 
 # params for pop. B (the contaminating distribution)
@@ -66,8 +66,12 @@ salt2betaerr = 0.12
 # params for the MCMC
 nthreads = 8
 nwalkers = 100
-nsteps = 500
+nsteps = 1000
+nstepsinit = 200
 ninit = 50
+
+# sig
+sigIabounds = 0.075,0.085
 
 # model changes
 twogauss = 0

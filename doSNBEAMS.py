@@ -165,6 +165,10 @@ For flat prior, use empty string""",nargs=2)
             parser.add_option('--zmax', default=config.get('doSNBEAMS','zmax'), type="float",
                               help='max redshift')
 
+            # bounded minimization
+            parser.add_option('--sigIabounds', default=map(float,config.get('doSNBEAMS','popAguess').split(',')), type="float",
+                              help='bounded sigma of Ia population in miminization step; stops alpha and beta from getting too biased',nargs=2)
+
             # alternate functional models
             parser.add_option('--twogauss', default=map(int,config.get('doSNBEAMS','twogauss'))[0], action="store_true",
                               help='two gaussians for pop. B')
@@ -174,6 +178,8 @@ For flat prior, use empty string""",nargs=2)
                               help='if filename is given, construct a polynomial-altered empirical CC SN function')
             parser.add_option('--snpars', default=map(int,config.get('doSNBEAMS','snpars'))[0], action="store_true",
                               help='use BEAMS to constrain SALT2 alpha and beta')
+            parser.add_option('--zCCdist', default=map(int,config.get('doSNBEAMS','zCCdist'))[0], action="store_true",
+                              help='fit for different CC SN parameters at each redshift control point')
 
             parser.add_option('-i','--inputfile', default=config.get('doSNBEAMS','inputfile'), type="string",
                               help='file with the input data')
@@ -281,14 +287,14 @@ For each param, set to 0 to include in parameter estimation, set to 1 to keep fi
             # SALT2 SN parameters: guesses and priors
             parser.add_option('--salt2alphaguess', default=0.147,type='float',
                               help='initial guess for fraction of contaminants, set to negative to omit')
-            parser.add_option('--salt2alphaprior', default=(0.147,0.1),type='float',
+            parser.add_option('--salt2alphaprior', default=(0.147,0.02),type='float',
                               help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
             parser.add_option('--salt2alphafixed', default=0,type='int',
                               help="""0 to return posterior frac. of contaminants, 1 to keep fixed""")
             parser.add_option('--salt2betaguess', default=3.13,type='float',
                               help='initial guess for fraction of contaminants, set to negative to omit')
-            parser.add_option('--salt2betaprior', default=(3.13,0.5),type='float',
+            parser.add_option('--salt2betaprior', default=(3.13,0.1),type='float',
                               help="""comma-separated gaussian prior on fraction of contaminants: centroid, sigma.  
 For flat prior, use empty string""",nargs=2)
             parser.add_option('--salt2betafixed', default=0,type='int',
@@ -311,9 +317,8 @@ For flat prior, use empty string""",nargs=2)
                               help='Number of walkers for MCMC')
             parser.add_option('--nsteps', default=1000, type="int",
                               help='Number of steps for MCMC')
-            parser.add_option('--ninit', default=50, type="int",
+            parser.add_option('--ninit', default=300, type="int",
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
-
 
             parser.add_option('--nzbins', default=30, type="int",
                               help='Number of z bins')
@@ -321,6 +326,10 @@ For flat prior, use empty string""",nargs=2)
                               help='min redshift')
             parser.add_option('--zmax', default=0.7, type="float",
                               help='max redshift')
+
+            # bounded minimization
+            parser.add_option('--sigIabounds', default=(None,None), type='float',
+                              help='bounded sigma of Ia population in miminization step; stops alpha and beta from getting too biased',nargs=2)
 
             # alternate functional models
             parser.add_option('--twogauss', default=False, action="store_true",
@@ -331,6 +340,8 @@ For flat prior, use empty string""",nargs=2)
                               help='if filename is given, construct a polynomial-altered empirical CC SN function')
             parser.add_option('--snpars', default=False, action="store_true",
                               help='use BEAMS to constrain SALT2 alpha and beta')
+            parser.add_option('--zCCdist', default=False, action="store_true",
+                              help='fit for different CC parameters at each redshift control point')
 
 
             parser.add_option('-i','--inputfile', default='BEAMS.input', type="string",
@@ -398,57 +409,71 @@ For flat prior, use empty string""",nargs=2)
         sigA,residB,sigB,residB2,sigB2,skewB,fracB,fracB2,lstep,alpha,beta = params[:11]
         mupar = params[11:]
 
-        chain_len = len(samples[:,0])
-
-        count = 0
-        sigAmean = np.mean(samples[:,count])
-        sigAerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
-        count += 1
-
-        residBmean = np.mean(samples[:,count])
-        residBerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
-        count += 1
-
-        sigBmean = np.mean(samples[:,count])
-        sigBerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
-        count += 1
-
-        residB2mean = np.mean(samples[:,count])
-        residB2err = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
-        count += 1
-
-        sigB2mean = np.mean(samples[:,count])
-        sigB2err = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
-        count += 1
-
-        skewBmean = np.mean(samples[:,count])
-        skewBerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
-        count += 1
-
-        fracBmean = np.mean(samples[:,count])
-        fracBerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
-        count +=1
-
-        fracB2mean = np.mean(samples[:,count])
-        fracB2err = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
-        count +=1
-
-        lstepmean = np.mean(samples[:,count])
-        lsteperr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
-        count += 1
-
-        alphamean = np.mean(samples[:,count])
-        alphaerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
-        count += 1
-
-        betamean = np.mean(samples[:,count])
-        betaerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
-        count += 1
+        sigAmean,sigAerr,residBmean,residBerr,sigBmean,sigBerr,residB2mean,residB2err,\
+            sigB2mean,sigB2err,skewBmean,skewBerr,fracBmean,fracBerr,fracB2mean,fracB2err,\
+            lstepmean,lsteperr,alphamean,alphaerr,betamean,betaerr = getParsfromMCMC(samples)
 
         outlinefmt = "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f "
         outlinefmt += "%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
+
+
+        smpshape = np.shape(samples)
+        if self.options.zCCdist:
+            if not self.options.twogauss and not self.options.skewedgauss:
+                mupartmp1 = np.zeros([len(zcontrol),6,3])
+                mupartmp2 = np.array(mupar).reshape([len(zcontrol),3,3])
+                mupartmp1[:,0,:] = mupartmp2[:,0,:]; mupartmp1[:,1,:] = mupartmp2[:,1,:]; mupartmp1[:,2,:] = mupartmp2[:,2,:]
+                mupar = mupartmp1[:]
+                samplestmp1 = np.zeros([smpshape[0],(smpshape[1]-11.)/3,6])
+                samplestmp2 = samples[:,11:].reshape([smpshape[0],(smpshape[1]-11.)/3,3])
+                samplestmp1[:,:,0] = samplestmp2[:,:,0]; samplestmp1[:,:,1] = samplestmp2[:,:,1]; samplestmp1[:,:,2] = samplestmp2[:,:,2]
+                samples = samplestmp1[:]
+            elif self.options.twogauss:
+                mupartmp1 = np.zeros([len(zcontrol),6,3])
+                mupartmp2 = np.array(mupar).reshape([len(zcontrol),5,3])
+                mupartmp1[:,0,:] = mupartmp2[:,0,:]; mupartmp1[:,1,:] = mupartmp2[:,1,:]; mupartmp1[:,2,:] = mupartmp2[:,2,:]
+                mupartmp1[:,3,:] = mupartmp2[:,3,:]; mupartmp1[:,4,:] = mupartmp2[:,4,:]
+                mupar = mupartmp1[:]
+                samplestmp1 = np.zeros([smpshape[0],(smpshape[1]-11.)/5,6])
+                samplestmp2 = samples[:,11:].reshape([smpshape[0],(smpshape[1]-11.)/5,5])
+                samplestmp1[:,:,0] = samplestmp2[:,:,0]; samplestmp1[:,:,1] = samplestmp2[:,:,1]; samplestmp1[:,:,2] = samplestmp2[:,:,2]
+                samplestmp1[:,:,3] = samplestmp2[:,:,3]; samplestmp1[:,:,4] = samplestmp2[:,:,4]
+                samples = samplestmp1[:]
+            elif self.options.skewedgauss:
+                mupartmp1 = np.zeros([len(zcontrol),6,3])
+                mupartmp2 = np.array(mupar).reshape([len(zcontrol),4,3])
+                mupartmp1[:,0,:] = mupartmp2[:,0,:]; mupartmp1[:,1,:] = mupartmp2[:,1,:]; mupartmp1[:,2,:] = mupartmp2[:,2,:]
+                mupartmp1[:,3,:] = mupartmp2[:,3,:]
+                mupar = mupartmp1[:]
+                samplestmp1 = np.zeros([smpshape[0],(smpshape[1]-11.)/4,6])
+                samplestmp2 = samples[:,11:].reshape([smpshape[0],(smpshape[1]-11.)/4,4])
+                samplestmp1[:,:,0] = samplestmp2[:,:,0]; samplestmp1[:,:,1] = samplestmp2[:,:,1]; samplestmp1[:,:,2] = samplestmp2[:,:,2]
+                samplestmp1[:,:,3] = samplestmp2[:,:,3]
+                samples = samplestmp1[:]
+        else:
+            mupartmp = np.zeros([len(zcontrol),6,3])
+            mupartmp[:,0,:] = mupar[:]; mupar = mupartmp
+            samplestmp = np.zeros([smpshape[0],(smpshape[1]-11.),6])
+            samplestmp[:,:,0] = samples[:,11:]; samples = samplestmp[:]
+
+        coverr = lambda samp: np.sqrt(np.sum((samp-np.mean(samp))*(samp-np.mean(samp)))/len(samp))
         for par,zcntrl,i in zip(mupar,zcontrol,range(len(mupar))):
-            outline = outlinefmt%(np.mean(samples[:,i+11]),np.sqrt(cov[i,i]),par[1],par[2],
+            if self.options.zCCdist:
+                mp,residB,sigB,residB2,sigB2,skewB = par
+                residB[0] = residB[0] - mp[0]
+                residB2[0] =  residB2[0] - mp[0]
+                mumean,residBmean,sigBmean,residB2mean,sigB2mean,skewBmean = \
+                    np.mean(samples[:,i,0]),np.mean(samples[:,i,1]),np.mean(samples[:,i,2]),\
+                    np.mean(samples[:,i,3]),np.mean(samples[:,i,4]),np.mean(samples[:,i,5])
+                muerr,residBerr,sigBerr,residB2err,sigB2err,skewBerr = \
+                    coverr(samples[:,i,0]),coverr(samples[:,i,1]),coverr(samples[:,i,2]),\
+                    coverr(samples[:,i,3]),coverr(samples[:,i,4]),coverr(samples[:,i,5])
+                residBmean -= mp[0]; residB2mean -= mp[0]
+            else:
+                mp = par[0]
+                mumean,muerr = np.mean(samples[:,i,0]),coverr(samples[:,i,0])
+
+            outline = outlinefmt%(mumean,muerr,mp[1],mp[2],
                                   sigAmean,sigAerr,sigA[1],sigA[2],
                                   residBmean,residBerr,residB[1],residB[2],
                                   sigBmean,sigBerr,sigB[1],sigB[2],
@@ -464,11 +489,11 @@ For flat prior, use empty string""",nargs=2)
                 fout = open(self.options.outputfile,'a')
                 print >> fout, outline
                 fout.close()
-
+                
             if self.options.verbose:
                 print("""muA: %.3f +/- %.3f muB: %.3f +/- %.3f sigB: %.3f +/- %.3f muB2: %.3f +/- %.3f sigB2: %.3f +/- %.3f 
 skew B: %.3f +/- %.3f frac. B: %.3f +/- %.3f frac. B2: %.3f +/- %.3f Lstep: %.3f +/- %.3f alpha: %.3f +/- %.3f beta: %.3f +/- %.3f"""%(
-                        np.mean(samples[:,i+11]),np.sqrt(cov[i,i]),
+                        mumean,muerr,
                         residBmean,residBerr,
                         sigBmean,sigBerr,
                         residB2mean,residB2err,
@@ -507,32 +532,73 @@ skew B: %.3f +/- %.3f frac. B: %.3f +/- %.3f frac. B2: %.3f +/- %.3f Lstep: %.3f
                                          x0=inp.x0,z=inp.zHD)
         inp.residerr = inp.muerr[:]
         inp.resid = inp.mu - cosmo.distmod(inp.zHD).value
-        guess = (self.options.popAguess[1],
-                 self.options.popBguess[0],self.options.popBguess[1],
-                 self.options.popB2guess[0],self.options.popB2guess[1],
-                 self.options.skewBguess,
-                 self.options.fracBguess,self.options.fracB2guess,
-                 self.options.lstepguess,self.options.salt2alphaguess,
-                 self.options.salt2betaguess)
+        if self.options.zCCdist:
+            guess = (self.options.popAguess[1],
+                     self.options.fracBguess,self.options.fracB2guess,
+                     self.options.lstepguess,self.options.salt2alphaguess,
+                     self.options.salt2betaguess)
+        else:
+            guess = (self.options.popAguess[1],
+                     self.options.popBguess[0],self.options.popBguess[1],
+                     self.options.popB2guess[0],self.options.popB2guess[1],
+                     self.options.skewBguess,
+                     self.options.fracBguess,self.options.fracB2guess,
+                     self.options.lstepguess,self.options.salt2alphaguess,
+                     self.options.salt2betaguess)
         for z in zcontrol:
-            guess += (self.options.popAguess[0]+cosmo.distmod(z).value,)
-        md = minimize(lnlikefunc,guess,
-                      args=(inp,zcontrol,False,False))
+            if self.options.zCCdist:
+                if self.options.twogauss:
+                    guess += (self.options.popAguess[0]+cosmo.distmod(z).value,
+                              self.options.popBguess[0]+cosmo.distmod(z).value,
+                              self.options.popBguess[1],
+                              self.options.popB2guess[0]+cosmo.distmod(z).value,
+                              self.options.popB2guess[1],)
+                elif self.options.skewedgauss:
+                    guess += (self.options.popAguess[0]+cosmo.distmod(z).value,
+                              self.options.popBguess[0]+cosmo.distmod(z).value,
+                              self.options.popBguess[1],
+                              self.options.skewBguess,)
+                else:
+                    guess += (self.options.popAguess[0]+cosmo.distmod(z).value,
+                              self.options.popBguess[0]+cosmo.distmod(z).value,
+                              self.options.popBguess[1],)
+            else:
+                guess += (self.options.popAguess[0]+cosmo.distmod(z).value,)
+                
+        if self.options.sigIabounds[0]:
+            bounds = ((self.options.sigIabounds),)
+            for i in xrange(len(guess)-1): 
+                bounds += ((None,None),)
+        else:
+            bounds = ((None,None),)
+            for i in xrange(len(guess)-1): bounds += ((None,None),)
+
+        if self.options.sigIabounds[0]:
+            md = minimize(lnlikefunc,guess,
+                          args=(inp,zcontrol,True,self.options.snpars,self.options.zCCdist),bounds=bounds)
+        else:
+            md = minimize(lnlikefunc,guess,
+                          args=(inp,zcontrol,True,self.options.snpars,self.options.zCCdist))
+
         if md.message != 'Optimization terminated successfully.':
             print("""Warning : Minimization Failed!!!  
 Try some different initial guesses, or let the MCMC try and take care of it""")
 
         # for the fixed parameters, make really narrow priors
         md = self.fixedpriors(md)
-        md["x"][9] = self.options.salt2alphaguess
-        md["x"][10] = self.options.salt2betaguess
+        #if self.options.zCCdist:
+        #    md["x"][4] = self.options.salt2alphaguess
+        #    md["x"][5] = self.options.salt2betaguess
+        #else:
+        #    md["x"][9] = self.options.salt2alphaguess
+        #    md["x"][10] = self.options.salt2betaguess
 
         ndim, nwalkers = len(md["x"]), int(self.options.nwalkers)
         pos = [md["x"] + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
 
         sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, 
                                         args=(inp,zcontrol,
-                                              omitfracB,self.options.snpars,
+                                              omitfracB,self.options.snpars,self.options.zCCdist,
                                               self.options.twogauss,self.options.skewedgauss,
                                               self.options.simcc,
                                               self.options.p_residA,self.options.psig_residA,
@@ -548,70 +614,91 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                                               self.options.p_salt2alpha,self.options.psig_salt2alpha,
                                               self.options.p_salt2beta,self.options.psig_salt2beta),
                                         threads=int(self.options.nthreads))
-        pos, prob, state = sampler.run_mcmc(pos, 200)
+        pos, prob, state = sampler.run_mcmc(pos, self.options.ninit)
         sampler.reset()
         sampler.run_mcmc(pos, self.options.nsteps, thin=1)
         samples = sampler.flatchain
-
+        smpshape = np.shape(samples)
+        if self.options.zCCdist:
+            zerosamp = np.zeros([smpshape[0],5])
+            samples = np.concatenate((samples[:,0].reshape(smpshape[0],1),zerosamp,samples[:,1:]),axis=1)
+            smpshape = np.shape(samples)
         # get the error bars - should really return the full posterior
         params = \
             map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
                 zip(*np.percentile(samples, [16, 50, 84],
                                    axis=0)))
 
-        cov = covmat(samples[:,np.shape(samples)[1] - self.options.nzbins:])
+        if self.options.zCCdist:
+            if not self.options.twogauss and not self.options.skewedgauss:
+                samples_covtmp = np.zeros([smpshape[0],(smpshape[1]-11.)/3,6])
+                samples_covtmp_data = samples[:,11:].reshape(smpshape[0],(smpshape[1]-11.)/3,3)
+                samples_covtmp[:,:,0] = samples_covtmp_data[:,:,0]; samples_covtmp[:,:,1] = samples_covtmp_data[:,:,1]; samples_covtmp[:,:,2] = samples_covtmp_data[:,:,2]
+            elif self.options.twogauss:
+                samples_covtmp = np.zeros([smpshape[0],(smpshape[1]-11.)/5,6])
+                samples_covtmp_data = samples[:,11:].reshape(smpshape[0],(smpshape[1]-11.)/5,5)
+                samples_covtmp[:,:,0] = samples_covtmp_data[:,:,0]; samples_covtmp[:,:,1] = samples_covtmp_data[:,:,1]; samples_covtmp[:,:,2] = samples_covtmp_data[:,:,2]
+                samples_covtmp[:,:,3] = samples_covtmp_data[:,:,3]; samples_covtmp[:,:,4] = samples_covtmp_data[:,:,4]
+            elif self.options.skewedgauss:
+                samples_covtmp = np.zeros([smpshape[0],(smpshape[1]-11.)/4,6])
+                samples_covtmp_data = samples[:,11:].reshape(smpshape[0],(smpshape[1]-11.)/4,4)
+                samples_covtmp[:,:,0] = samples_covtmp_data[:,:,0]; samples_covtmp[:,:,1] = samples_covtmp_data[:,:,1]; samples_covtmp[:,:,2] = samples_covtmp_data[:,:,2]
+                samples_covtmp[:,:,3] = samples_covtmp_data[:,:,3]
+        else:
+            samples_covtmp = np.zeros([smpshape[0],(smpshape[1]-11.),6])
+            samples_covtmp[:,:,0] = samples[:,11:]
+        cov = covmat(samples_covtmp[:,:,0])
+        
         return(cov,params,samples)
 
     def fixedpriors(self,md):
+        if self.options.zCCdist: ccoff = 5
+        else: ccoff = 0
 
-        if self.options.popAfixed[0]:
-            self.options.p_residA = self.options.popAguess[0]
-            self.options.psig_residA = 1e-3
-            md["x"][0] = self.options.popAguess[0]
         if self.options.popAfixed[1]:
             self.options.p_sigA = self.options.popAguess[1]
             self.options.psig_sigA = 1e-3
-            md["x"][1] = self.options.popAguess[1]
+            md["x"][0] = self.options.popAguess[1]
         if self.options.popBfixed[0]:
             self.options.p_residB = self.options.popBguess[0]
             self.options.psig_residB = 1e-3
-            md["x"][2] = self.options.popBguess[0]
+            md["x"][1] = self.options.popBguess[0]
         if self.options.popBfixed[1]:
             self.options.p_sigB = self.options.popBguess[1]
             self.options.psig_sigB = 1e-3
-            md["x"][3] = self.options.popBguess[1]
+            md["x"][2] = self.options.popBguess[1]
         if self.options.popB2fixed[0]:
             self.options.p_residB2 = self.options.popB2guess[0]
             self.options.psig_residB2 = 1e-3
-            md["x"][4] = self.options.popBguess[0]
+            md["x"][3] = self.options.popBguess[0]
         if self.options.popB2fixed[1]:
             self.options.p_sigB2 = self.options.popB2guess[1]
             self.options.psig_sigB2 = 1e-3
-            md["x"][5] = self.options.popB2guess[1]
+            md["x"][4] = self.options.popB2guess[1]
         if self.options.skewBfixed:
             self.options.p_skewB = self.options.skewBguess
             self.options.psig_skewB = 1e-3
-            md["x"][6] = self.options.skewBguess
+            md["x"][5] = self.options.skewBguess
         if self.options.fracBfixed:
             self.options.p_fracB = self.options.fracBguess[0]
             self.options.psig_fracB = 1e-3
-            md["x"][7] = self.options.fracBguess[0]
+            md["x"][6-ccoff] = self.options.fracBguess[0]
         if self.options.fracB2fixed:
             self.options.p_fracB2 = self.options.fracB2guess[0]
             self.options.psig_fracB2 = 1e-3
-            md["x"][8] = self.options.fracB2guess[0]
+            md["x"][7-ccoff] = self.options.fracB2guess[0]
         if self.options.lstepfixed:
             self.options.p_lstep = self.options.lstepguess
             self.options.psig_lstep = 1e-3
-            md["x"][9] = self.options.lstepguess
+            md["x"][8-ccoff] = self.options.lstepguess
         if self.options.salt2alphafixed:
             self.options.p_salt2alpha = self.options.salt2alphaguess
             self.options.psig_salt2alpha = 1e-3
-            md["x"][10] = self.options.salt2alpha
+            md["x"][9-ccoff] = self.options.salt2alpha
         if self.options.salt2betafixed:
             self.options.p_salt2beta = self.options.salt2betaguess
             self.options.psig_salt2beta = 1e-3
-            md["x"][10] = self.options.salt2beta
+            md["x"][10-ccoff] = self.options.salt2beta
 
         if not self.options.twogauss:
             self.options.p_residB2 = None
@@ -651,8 +738,8 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         self.options.p_salt2beta = self.options.salt2betaprior[0]
         self.options.psig_salt2beta = self.options.salt2betaprior[1]
 
-def twogausslike(x,inp=None,zcontrol=None,frac=True,snpars=True):
-
+def twogausslike(x,inp=None,zcontrol=None,omitfrac=True,snpars=True,zCCdist=False,debug=False):
+    if zCCdist: x = np.concatenate(([x[0]],[0,0,0,0,0],x[1:]))
     if snpars:
         muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                              cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
@@ -660,27 +747,56 @@ def twogausslike(x,inp=None,zcontrol=None,frac=True,snpars=True):
                              x0=inp.x0,z=inp.zHD)
     else: muA,muAerr = inp.mu[:],inp.muerr[:]
 
-    if frac: fracIa = 1-x[6]; fracCC = x[6]
+    if not omitfrac: fracIa = 1-x[6]; fracCC = x[6]
     else: fracIa = 1; fracCC = 1
 
     muB,muBerr = inp.mu[:],inp.muerr[:]
-    mumodel = np.zeros(len(inp.zHD))
-    for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
-        cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
-        alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
-        mumodel[cols] = (1-alpha)*mub + alpha*mub1
+    # keep only the ones where invvars isn't messed up for muA
+    muB,muBerr = muB[muAerr == muAerr],muBerr[muAerr == muAerr]
+    zHD,PA,PL = inp.zHD[muAerr == muAerr],inp.PA[muAerr == muAerr],inp.PL[muAerr == muAerr]
+    muA,muAerr = muA[muAerr == muAerr],muAerr[muAerr == muAerr]
 
-    lnlike = np.sum(logsumexp([-(muA-mumodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-                                    np.log(fracIa*inp.PA*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
-                                -(muA-mumodel+x[8])**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-                                    np.log(fracIa*inp.PA*inp.PL/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
-                                -(muB-mumodel-x[1])**2./(2.0*(muBerr**2.+x[2]**2.)) + \
-                                    np.log(fracCC*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muBerr**2.)))],axis=0))
+    muAmodel = np.zeros(len(zHD))
+    if zCCdist:
+        muBmodel = np.zeros(len(zHD))
+        sigBmodel = np.zeros(len(zHD))
+
+        distvars = np.zeros([len(x[11:])/3,6])
+        distvars_small = x[11:].reshape(len(x[11:])/3,3)
+        distvars[:,0] = distvars_small[:,0]; distvars[:,1] = distvars_small[:,1]; distvars[:,2] = distvars_small[:,2]
+    else:
+        distvars = np.zeros([len(x[11:]),6])
+        distvars[:,0] = x[11:]
+
+    for dvb,dvb1,zb,zb1 in zip(distvars[:-1],distvars[1:],zcontrol[:-1],zcontrol[1:]):
+        mua,mub_1,sigb_1,mub_2,sigb_2,skewb = dvb
+        mua1,mub1_1,sigb1_1,mub1_2,sigb1_2,skewb1 = dvb1
+        cols = np.where((zHD >= zb) & (zHD < zb1))[0]
+        alpha = np.log10(zHD[cols]/zb)/np.log10(zb1/zb)
+        muAmodel[cols] = (1-alpha)*mua + alpha*mua1
+        if zCCdist:
+            muBmodel[cols] = (1-alpha)*mub_1 + alpha*mub1_1
+            sigBmodel[cols] = (1-alpha)*sigb_1 + alpha*sigb1_1
+    if not zCCdist:
+        muBmodel = muAmodel + x[1]
+        sigBmodel = x[2]
+
+    lnliketmp = logsumexp([-(muA-muAmodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+                                np.log(fracIa*PA*(1-PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.))),
+                            -(muA-muAmodel+x[8])**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+                                np.log(fracIa*PA*PL/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.))),
+                            -(muB-muBmodel)**2./(2.0*(muBerr**2.+sigBmodel**2.)) + \
+                                np.log(fracCC*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(sigBmodel**2.+muBerr**2.)))],axis=0)
+    lnlike = np.sum(lnliketmp)
+
+    if debug:
+        print np.sum(logsumexp([-(muA[PA == 1] - muAmodel[PA == 1])**2./(2.0*(muAerr[PA == 1]**2.+x[0]**2.)) + \
+                                     np.log(fracIa*PA[PA == 1]*(1-PL[PA == 1])/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr[PA == 1]**2.)))],axis=0))
 
     return(lnlike)
 
-def threegausslike(x,inp=None,zcontrol=None,frac=True,snpars=True):
-
+def threegausslike(x,inp=None,zcontrol=None,omitfrac=True,snpars=True,zCCdist=False):
+    if zCCdist: x = np.concatenate(([x[0]],[0,0,0,0,0],x[1:]))
     if snpars:
         muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                              cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
@@ -690,27 +806,60 @@ def threegausslike(x,inp=None,zcontrol=None,frac=True,snpars=True):
         muA,muAerr = inp.mu[:],inp.muerr[:]
     muB,muBerr = inp.mu[:],inp.muerr[:]
 
-    mumodel = np.zeros(len(inp.zHD))
-    for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
-        cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
-        alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
-        mumodel[cols] = (1-alpha)*mub + alpha*mub1
+    # keep only the ones where invvars isn't messed up for muA
+    muB,muBerr = muB[muAerr == muAerr],muBerr[muAerr == muAerr]
+    zHD,PA,PL = inp.zHD[muAerr == muAerr],inp.PA[muAerr == muAerr],inp.PL[muAerr == muAerr]
+    muA,muAerr = muA[muAerr == muAerr],muAerr[muAerr == muAerr]
 
-    if frac: fracIa = 1-x[6]; fracCCA = x[6]; fracCCB = x[7]
+    if not omitfrac: fracIa = 1-x[6]; fracCCA = x[6]; fracCCB = x[7]
     else: fracIa = 1; fracCCA = 1; fracCCB = 1
 
-    sum = logsumexp([-(muA-mumodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-                          np.log(fracIa*inp.PA*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
-                      -(muA-mumodel-x[8])**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-                          np.log(fracIa*inp.PA*inp.PL/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.))),
-                      -(muB-mumodel-x[1])**2./(2.0*(muBerr**2.+x[2]**2.)) + \
-                          np.log(fracCCA*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muBerr**2.))),
-                      -(muB-mumodel-x[3])**2./(2.0*(muBerr**2.+x[4]**2.)) + \
-                          np.log(fracCCB*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[4]**2.+muBerr**2.)))],axis=0)
+    if zCCdist:
+        muBmodel = np.zeros(len(inp.zHD))
+        sigBmodel = np.zeros(len(inp.zHD))
+        muB2model = np.zeros(len(inp.zHD))
+        sigB2model = np.zeros(len(inp.zHD))
+
+        distvars = np.zeros([len(x[11:])/5,6])
+        distvars_small = x[11:].reshape(len(x[11:])/5,5)
+        distvars[:,0] = distvars_small[:,0]; distvars[:,1] = distvars_small[:,1]; distvars[:,2] = distvars_small[:,2]
+        distvars[:,3] = distvars_small[:,3]; distvars[:,4] = distvars_small[:,4]
+    else:
+        distvars = np.zeros([len(x[11:]),6])
+        distvars[:,0] = x[11:]
+    muAmodel = np.zeros(len(inp.zHD))
+    for dvb,dvb1,zb,zb1 in zip(distvars[:-1],distvars[1:],zcontrol[:-1],zcontrol[1:]):
+        mua,mub_1,sigb_1,mub_2,sigb_2,skewb = dvb
+        mua1,mub1_1,sigb1_1,mub1_2,sigb1_2,skewb1 = dvb1
+        cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
+        alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
+        muAmodel[cols] = (1-alpha)*mua + alpha*mua1
+        if zCCdist:
+            muBmodel[cols] = (1-alpha)*mub_1 + alpha*mub1_1
+            sigBmodel[cols] = (1-alpha)*sigb_1 + alpha*sigb1_1
+            muB2model[cols] = (1-alpha)*mub_2 + alpha*mub1_2
+            sigB2model[cols] = (1-alpha)*sigb_2 + alpha*sigb1_2
+    if not zCCdist:
+        muBmodel = muAmodel + x[1]
+        sigBmodel = x[2]
+        muB2model = muAmodel + x[3]
+        sigB2model = x[4]
+
+    sum = logsumexp([-(muA-muAmodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+                          np.log(fracIa*inp.PA*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.))),
+                      -(muA-muAmodel-x[8])**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+                          np.log(fracIa*inp.PA*inp.PL/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.))),
+                      -(muB-muBmodel)**2./(2.0*(muBerr**2.+sigBmodel**2.)) + \
+                          np.log(fracCCA*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(sigBmodel**2.+muBerr**2.))),
+                      -(muB-muB2model)**2./(2.0*(muBerr**2.+sigB2model**2.)) + \
+                          np.log(fracCCB*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(sigB2model**2.+muBerr**2.)))],axis=0)
 
     return np.sum(sum)
 
-def twogausslike_skew(x,inp=None,zcontrol=None,frac=True,snpars=True):
+def twogausslike_skew(x,inp=None,zcontrol=None,omitfrac=True,snpars=True,zCCdist=False):
+    if zCCdist: x = np.concatenate(([x[0]],[0,0,0,0,0],x[1:]))
+    if not omitfrac: fracIa = 1-x[6]; fracCC = x[6]
+    else: fracIa = 1; fracCC = 1
 
     if snpars:
         muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
@@ -720,32 +869,56 @@ def twogausslike_skew(x,inp=None,zcontrol=None,frac=True,snpars=True):
     else:
         muA,muAerr = inp.mu[:],inp.muerr[:]
     muB,muBerr = inp.mu[:],inp.muerr[:]
+    # keep only the ones where invvars isn't messed up for muA
+    muB,muBerr = muB[muAerr == muAerr],muBerr[muAerr == muAerr]
+    zHD,PA,PL = inp.zHD[muAerr == muAerr],inp.PA[muAerr == muAerr],inp.PL[muAerr == muAerr]
+    muA,muAerr = muA[muAerr == muAerr],muAerr[muAerr == muAerr]
 
-    if frac: fracIa = 1-x[6]; fracCC = x[6]
-    else: fracIa = 1; fracCC = 1
-    
-    mumodel = np.zeros(len(inp.zHD))
-    for mub,mub1,zb,zb1 in zip(x[11:-1],x[12:],zcontrol[:-1],zcontrol[1:]):
+    if zCCdist:
+        muBmodel = np.zeros(len(inp.zHD))
+        sigBmodel = np.zeros(len(inp.zHD))
+        skewBmodel = np.zeros(len(inp.zHD))
+
+        distvars = np.zeros([len(x[11:])/4,6])
+        distvars_small = x[11:].reshape(len(x[11:])/4,4)
+        distvars[:,0] = distvars_small[:,0]; distvars[:,1] = distvars_small[:,1]; distvars[:,2] = distvars_small[:,2]
+        distvars[:,3] = distvars_small[:,3]
+    else:
+        distvars = np.zeros([len(x[11:]),6])
+        distvars[:,0] = x[11:]
+
+    muAmodel = np.zeros(len(inp.zHD))
+    for dvb,dvb1,zb,zb1 in zip(distvars[:-1],distvars[1:],zcontrol[:-1],zcontrol[1:]):
+        mua,mub_1,sigb_1,mub_2,sigb_2,skewb = dvb
+        mua1,mub1_1,sigb1_1,mub1_2,sigb1_2,skewb1 = dvb1
         cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
         alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
-        mumodel[cols] = (1-alpha)*mub + alpha*mub1
+        muAmodel[cols] = (1-alpha)*mua + alpha*mua1
+        if zCCdist:
+            muBmodel[cols] = (1-alpha)*mub_1 + alpha*mub1_1
+            sigBmodel[cols] = (1-alpha)*sigb_1 + alpha*sigb1_1
+            skewBmodel[cols] = (1-alpha)*skewb + alpha*skewb1
+    if not zCCdist:
+        muBmodel = muAmodel + x[1]
+        sigBmodel = x[2]
+        skewBmodel = x[5]
 
-    gaussA = -(muA-mumodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-        np.log(fracIa*(inp.PA)*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.)))
-    gaussAhm = -(muA-mumodel-x[8])**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-        np.log(fracIa*(inp.PA*inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muAerr**2.)))
+    gaussA = -(muA-muAmodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+        np.log(fracIa*(inp.PA)*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.)))
+    gaussAhm = -(muA-muAmodel-x[8])**2./(2.0*(muAerr**2.+x[0]**2.)) + \
+        np.log(fracIa*(inp.PA*inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.)))
 
-    normB = fracCC*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(x[2]**2.+muBerr**2.))
-    gaussB = -(muB-mumodel-x[1])**2./(2*(x[2]**2.+muBerr**2.))
-    skewB = 1 + erf(x[5]*(muB-mumodel-x[1])/np.sqrt(2*(x[2]**2.+muBerr**2.)))
+    normB = fracCC*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(sigBmodel**2.+muBerr**2.))
+    gaussB = -(muB-muBmodel)**2./(2*(sigBmodel**2.+muBerr**2.))
+    skewB = 1 + erf(skewBmodel*(muB-muBmodel)/np.sqrt(2*(sigBmodel**2.+muBerr**2.)))
     skewgaussB = gaussB + np.log(normB*skewB)
 
     lnlike = np.sum(logsumexp([gaussA,gaussAhm,skewgaussB],axis=0))
-
     return(lnlike)
 
 def lnprior(theta,
             twogauss,skewedgauss,simcc,zcntrl=None,
+            zCCdist=False,
             p_residA=None,psig_residA=None,
             p_residB=None,psig_residB=None,
             p_residB2=None,psig_residB2=None,
@@ -758,26 +931,64 @@ def lnprior(theta,
             p_lstep=None,psig_lstep=None,
             p_salt2alpha=None,psig_salt2alpha=None,
             p_salt2beta=None,psig_salt2beta=None):
-
+    if zCCdist: theta = np.concatenate(([theta[0]],[0,0,0,0,0],theta[1:]))
     sigA,residB,sigB,residB2,sigB2,skewB,fracB,fracB2,lstep,alpha,beta = theta[:11]
-    residAlist = theta[11:]
+
+    if zCCdist:
+        if not twogauss and not skewedgauss:
+            distvars = np.zeros([len(theta[11:])/3,6])
+            distvars_small = theta[11:].reshape(len(theta[11:])/3,3)
+            distvars[:,0] = distvars_small[:,0]; distvars[:,1] = distvars_small[:,1]; distvars[:,2] = distvars_small[:,2]
+        elif twogauss:
+            distvars = np.zeros([len(theta[11:])/5,6])
+            distvars_small = theta[11:].reshape(len(theta[11:])/5,5)
+            distvars[:,0] = distvars_small[:,0]; distvars[:,1] = distvars_small[:,1]; distvars[:,2] = distvars_small[:,2]
+            distvars[:,3] = distvars_small[:,3]; distvars[:,4] = distvars_small[:,4]
+        elif skewedgauss:
+            distvars = np.zeros([len(theta[11:])/4,6])
+            distvars_small = theta[11:].reshape(len(theta[11:])/4,4)
+            distvars[:,0] = distvars_small[:,0]; distvars[:,1] = distvars_small[:,1]; distvars[:,2] = distvars_small[:,2]
+            distvars[:,3] = distvars_small[:,3]
+    else:
+        distvars = np.zeros([len(theta[11:]),6])
+        distvars[:,0] = theta[11:]
 
     p_theta = 0.0
     if p_residA or p_residA == 0.0:
-        for residA,z in zip(residAlist,zcntrl):
+        for residA,z in zip(distvars[:,0],zcntrl):
             p_theta += norm.logpdf(residA,p_residA+cosmo.distmod(z).value,psig_residA)
     if p_residB:
-        p_theta += norm.logpdf(residB,p_residB,psig_residB)
+        if zCCdist:
+            for residB,z in zip(distvars[:,1],zcntrl):
+                p_theta += norm.logpdf(residB,p_residB+cosmo.distmod(z).value,psig_residB)
+        else:
+            p_theta += norm.logpdf(residB,p_residB,psig_residB)
     if p_residB2:
-        p_theta += norm.logpdf(residB2,p_residB2,psig_residB2)
+        if zCCdist:
+            for residB2,z in zip(distvars[:,3],zcntrl):
+                p_theta += norm.logpdf(residB2,p_residB2+cosmo.distmod(z).value,psig_residB2)
+        else:
+            p_theta += norm.logpdf(residB2,p_residB2,psig_residB2)
     if p_sig_A:
         p_theta += norm.logpdf(sigA,p_sig_A,psig_sig_A)
     if p_sig_B:
-        p_theta += norm.logpdf(sigB,p_sig_B,psig_sig_B)
+        if zCCdist:
+            for sigB,z in zip(distvars[:,2],zcntrl):
+                p_theta += norm.logpdf(np.abs(sigB),p_sig_B,psig_sig_B)
+        else:
+            p_theta += norm.logpdf(np.abs(sigB),p_sig_B,psig_sig_B)
     if p_sig_B2:
-        p_theta += norm.logpdf(sigB2,p_sig_B2,psig_sig_B2)
+        if zCCdist:
+            for sigB2,z in zip(distvars[:,4],zcntrl):
+                p_theta += norm.logpdf(np.abs(sigB2),p_sig_B2,psig_sig_B2)
+        else:
+            p_theta += norm.logpdf(np.abs(sigB2),p_sig_B2,psig_sig_B2)
     if p_sig_skewB:
-        p_theta += norm.logpdf(skewB,p_sig_skewB,psig_sig_skewB)
+        if zCCdist:
+            for skewB,z in zip(distvars[:,5],zcntrl):
+                p_theta += norm.logpdf(skewB,p_sig_skewB,psig_sig_skewB)
+        else:
+            p_theta += norm.logpdf(skewB,p_sig_skewB,psig_sig_skewB)
     if p_fracB:
         p_theta += norm.logpdf(fracB,p_fracB,psig_fracB)
     if p_fracB2:
@@ -795,7 +1006,7 @@ def lnprior(theta,
 
 def lnprob(theta,inp=None,zcontrol=None,
            omitfracB=False,snpars=False,
-           twogauss=False,
+           zCCdist=False,twogauss=False,
            skewedgauss=False,
            simcc=None,
            p_residA=None,psig_residA=None,
@@ -820,7 +1031,7 @@ def lnprob(theta,inp=None,zcontrol=None,
     else:
         lnlikefunc = lambda *args: twogausslike(*args)
 
-    lp = lnprior(theta,twogauss,skewedgauss,simcc,zcontrol,
+    lp = lnprior(theta,twogauss,skewedgauss,simcc,zcontrol,zCCdist,
                  p_residA=p_residA,psig_residA=psig_residA,
                  p_residB=p_residB,psig_residB=psig_residB,
                  p_residB2=p_residB2,psig_residB2=psig_residB2,
@@ -837,7 +1048,8 @@ def lnprob(theta,inp=None,zcontrol=None,
     if not np.isfinite(lp) or np.isnan(lp):
         return -np.inf
 
-    post = lp+lnlikefunc(theta,inp,zcontrol,omitfracB,snpars)
+    post = lp + lnlikefunc(theta,inp,zcontrol,omitfracB,snpars,zCCdist)
+#    post = lp + lnlikefunc(theta,inp,zcontrol,True,True,zCCdist)
 
     if post != post: return -np.inf
     else: return post
@@ -876,7 +1088,7 @@ def salt2mu(x1=None,x1err=None,
     sf = -2.5/(x0*np.log(10.0))
     cov_mb_c = cov_c_x0*sf
     cov_mb_x1 = cov_x1_x0*sf
-    mu_out = mb + x1*alpha - beta*c + 19.3
+    mu_out = mb + x1*alpha - beta*c + 19.36
     invvars = 1.0 / (mberr**2.+ alpha**2. * x1err**2. + beta**2. * cerr**2. + \
                          2.0 * alpha * (cov_x1_x0*sf) - 2.0 * beta * (cov_c_x0*sf) - \
                          2.0 * alpha*beta * (cov_x1_c) )
@@ -909,7 +1121,7 @@ def salt2mu_aberr(x1=None,x1err=None,
                            [cov_mb_c[i],cov_x1_c[i],cerr[i]**2.]])
         mb_single,x1_single,c_single = correlated_values([mb[i],x1[i],c[i]],covmat)
 
-        mu = mb_single + x1_single*alpha - beta*c_single + 19.3
+        mu = mb_single + x1_single*alpha - beta*c_single + 19.36
         if sigint: mu = mu + ufloat(0,sigint)
         zerr = peczerr*5.0/np.log(10)*(1.0+z[i])/(z[i]*(1.0+z[i]/2.0))
 
@@ -917,6 +1129,58 @@ def salt2mu_aberr(x1=None,x1err=None,
         mu_out,muerr_out = np.append(mu_out,mu.n),np.append(muerr_out,mu.std_dev)
 
     return(mu_out,muerr_out)
+
+def getParsfromMCMC(samples):
+    chain_len = len(samples[:,0])
+    
+    count = 0
+    sigAmean = np.mean(samples[:,count])
+    sigAerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+    count += 1
+
+    residBmean = np.mean(samples[:,count])
+    residBerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+    count += 1
+
+    sigBmean = np.mean(samples[:,count])
+    sigBerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+    count += 1
+
+    residB2mean = np.mean(samples[:,count])
+    residB2err = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+    count += 1
+
+    sigB2mean = np.mean(samples[:,count])
+    sigB2err = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+    count += 1
+
+    skewBmean = np.mean(samples[:,count])
+    skewBerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+    count += 1
+
+    fracBmean = np.mean(samples[:,count])
+    fracBerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+    count +=1
+
+    fracB2mean = np.mean(samples[:,count])
+    fracB2err = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+    count +=1
+
+    lstepmean = np.mean(samples[:,count])
+    lsteperr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+    count += 1
+
+    alphamean = np.mean(samples[:,count])
+    alphaerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+    count += 1
+
+    betamean = np.mean(samples[:,count])
+    betaerr = np.sqrt(np.sum((samples[:,count]-np.mean(samples[:,count]))*(samples[:,count]-np.mean(samples[:,count])))/chain_len)
+    count += 1
+
+    return(sigAmean,sigAerr,residBmean,residBerr,sigBmean,sigBerr,residB2mean,residB2err,
+           sigB2mean,sigB2err,skewBmean,skewBerr,fracBmean,fracBerr,fracB2mean,fracB2err,
+           lstepmean,lsteperr,alphamean,alphaerr,betamean,betaerr)
 
 if __name__ == "__main__":
     usagestring="""An implementation of the BEAMS method (Kunz, Bassett, & Hlozek 2006).
