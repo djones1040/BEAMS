@@ -815,10 +815,10 @@ def threegausslike(x,inp=None,zcontrol=None,omitfrac=True,snpars=True,zCCdist=Fa
     else: fracIa = 1; fracCCA = 1; fracCCB = 1
 
     if zCCdist:
-        muBmodel = np.zeros(len(inp.zHD))
-        sigBmodel = np.zeros(len(inp.zHD))
-        muB2model = np.zeros(len(inp.zHD))
-        sigB2model = np.zeros(len(inp.zHD))
+        muBmodel = np.zeros(len(zHD))
+        sigBmodel = np.zeros(len(zHD))
+        muB2model = np.zeros(len(zHD))
+        sigB2model = np.zeros(len(zHD))
 
         distvars = np.zeros([len(x[11:])/5,6])
         distvars_small = x[11:].reshape(len(x[11:])/5,5)
@@ -827,12 +827,12 @@ def threegausslike(x,inp=None,zcontrol=None,omitfrac=True,snpars=True,zCCdist=Fa
     else:
         distvars = np.zeros([len(x[11:]),6])
         distvars[:,0] = x[11:]
-    muAmodel = np.zeros(len(inp.zHD))
+    muAmodel = np.zeros(len(zHD))
     for dvb,dvb1,zb,zb1 in zip(distvars[:-1],distvars[1:],zcontrol[:-1],zcontrol[1:]):
         mua,mub_1,sigb_1,mub_2,sigb_2,skewb = dvb
         mua1,mub1_1,sigb1_1,mub1_2,sigb1_2,skewb1 = dvb1
-        cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
-        alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
+        cols = np.where((zHD >= zb) & (zHD < zb1))[0]
+        alpha = np.log10(zHD[cols]/zb)/np.log10(zb1/zb)
         muAmodel[cols] = (1-alpha)*mua + alpha*mua1
         if zCCdist:
             muBmodel[cols] = (1-alpha)*mub_1 + alpha*mub1_1
@@ -846,13 +846,13 @@ def threegausslike(x,inp=None,zcontrol=None,omitfrac=True,snpars=True,zCCdist=Fa
         sigB2model = x[4]
 
     sum = logsumexp([-(muA-muAmodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-                          np.log(fracIa*inp.PA*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.))),
+                          np.log(fracIa*PA*(1-PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.))),
                       -(muA-muAmodel-x[8])**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-                          np.log(fracIa*inp.PA*inp.PL/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.))),
+                          np.log(fracIa*PA*PL/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.))),
                       -(muB-muBmodel)**2./(2.0*(muBerr**2.+sigBmodel**2.)) + \
-                          np.log(fracCCA*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(sigBmodel**2.+muBerr**2.))),
+                          np.log(fracCCA*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(sigBmodel**2.+muBerr**2.))),
                       -(muB-muB2model)**2./(2.0*(muBerr**2.+sigB2model**2.)) + \
-                          np.log(fracCCB*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(sigB2model**2.+muBerr**2.)))],axis=0)
+                          np.log(fracCCB*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(sigB2model**2.+muBerr**2.)))],axis=0)
 
     return np.sum(sum)
 
@@ -875,9 +875,9 @@ def twogausslike_skew(x,inp=None,zcontrol=None,omitfrac=True,snpars=True,zCCdist
     muA,muAerr = muA[muAerr == muAerr],muAerr[muAerr == muAerr]
 
     if zCCdist:
-        muBmodel = np.zeros(len(inp.zHD))
-        sigBmodel = np.zeros(len(inp.zHD))
-        skewBmodel = np.zeros(len(inp.zHD))
+        muBmodel = np.zeros(len(zHD))
+        sigBmodel = np.zeros(len(zHD))
+        skewBmodel = np.zeros(len(zHD))
 
         distvars = np.zeros([len(x[11:])/4,6])
         distvars_small = x[11:].reshape(len(x[11:])/4,4)
@@ -887,12 +887,12 @@ def twogausslike_skew(x,inp=None,zcontrol=None,omitfrac=True,snpars=True,zCCdist
         distvars = np.zeros([len(x[11:]),6])
         distvars[:,0] = x[11:]
 
-    muAmodel = np.zeros(len(inp.zHD))
+    muAmodel = np.zeros(len(zHD))
     for dvb,dvb1,zb,zb1 in zip(distvars[:-1],distvars[1:],zcontrol[:-1],zcontrol[1:]):
         mua,mub_1,sigb_1,mub_2,sigb_2,skewb = dvb
         mua1,mub1_1,sigb1_1,mub1_2,sigb1_2,skewb1 = dvb1
-        cols = np.where((inp.zHD >= zb) & (inp.zHD < zb1))[0]
-        alpha = np.log10(inp.zHD[cols]/zb)/np.log10(zb1/zb)
+        cols = np.where((zHD >= zb) & (zHD < zb1))[0]
+        alpha = np.log10(zHD[cols]/zb)/np.log10(zb1/zb)
         muAmodel[cols] = (1-alpha)*mua + alpha*mua1
         if zCCdist:
             muBmodel[cols] = (1-alpha)*mub_1 + alpha*mub1_1
@@ -904,11 +904,11 @@ def twogausslike_skew(x,inp=None,zcontrol=None,omitfrac=True,snpars=True,zCCdist
         skewBmodel = x[5]
 
     gaussA = -(muA-muAmodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-        np.log(fracIa*(inp.PA)*(1-inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.)))
+        np.log(fracIa*PA*(1-PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.)))
     gaussAhm = -(muA-muAmodel-x[8])**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-        np.log(fracIa*(inp.PA*inp.PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.)))
+        np.log(fracIa*(PA*PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.)))
 
-    normB = fracCC*(1-inp.PA)/(np.sqrt(2*np.pi)*np.sqrt(sigBmodel**2.+muBerr**2.))
+    normB = fracCC*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(sigBmodel**2.+muBerr**2.))
     gaussB = -(muB-muBmodel)**2./(2*(sigBmodel**2.+muBerr**2.))
     skewB = 1 + erf(skewBmodel*(muB-muBmodel)/np.sqrt(2*(sigBmodel**2.+muBerr**2.)))
     skewgaussB = gaussB + np.log(normB*skewB)
