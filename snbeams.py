@@ -365,6 +365,8 @@ class snbeams:
         beam.options.skewedgauss = self.options.skewedgauss
         beam.options.snpars = self.options.snpars
         beam.options.zCCdist = self.options.zCCdist
+        beam.options.nthreads = self.options.nthreads
+        beam.options.nwalkers = self.options.nwalkers
 
         beam.transformOptions()
         options.inputfile = '%s.input'%root
