@@ -617,6 +617,8 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         pos, prob, state = sampler.run_mcmc(pos, self.options.ninit)
         sampler.reset()
         sampler.run_mcmc(pos, self.options.nsteps, thin=1)
+        print("Mean acceptance fraction: {0:.3f}"
+              .format(np.mean(sampler.acceptance_fraction)))
         samples = sampler.flatchain
         smpshape = np.shape(samples)
         if self.options.zCCdist:
