@@ -237,6 +237,8 @@ class snbeams:
             
             parser.add_option('--onlyIa', default=False, action="store_true",
                               help='remove the TYPE != 1 SNe from the bunch')
+            parser.add_option('--zminphot', default=0.1, type='float',
+                              help='set a minimum redshift for P(Ia) != 1 sample')
 
             # alternate functional models
             parser.add_option('--twogauss', default=False, action="store_true",
@@ -334,6 +336,11 @@ class snbeams:
             cols = np.where((fr.SIM_TYPE_INDEX == 1) & (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
+        if self.options.zminphot:
+            cols = np.where((fr.zHD >= self.options.zminphot) | (fr.__dict__[self.options.piacol] == 1))
+            for k in fr.__dict__.keys():
+                fr.__dict__[k] = fr.__dict__[k][cols]
+
 
         root = os.path.splitext(fitres)[0]
         
