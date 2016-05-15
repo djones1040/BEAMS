@@ -1,0 +1,23 @@
+# param guess prior sigma use fixed addcosmo bins poly
+
+# population A guesses and priors (the pop we care about)
+popAmean    0.0   0.0   0.5   1 0 1 1 0
+popAstd     0.1   0.1   0.2   1 0 0 0 0
+# population B guesses and priors (the pop we don't care about)
+popBmean    1.0   1.0   1.0   1 0 1 1 1
+popBstd     1.0   1.0   0.5   1 0 0 1 1
+# population B guesses and priors for second gaussian (the pop we don't care about)
+popB2mean   0.0   0.0   5.0   0 0 1 1 1
+popB2std    1.0   1.0   3.0   0 0 0 1 1
+# the skewness of the pop. B gaussian
+skewB       0.0   0.0   4.0   0 0 0 1 1
+# fraction of contaminants: guesses and priors
+fracB       0.1   0.1   0.1   0 0 0 0 0
+# fraction of contaminants: guesses and priors for gaussian 2
+fracB2      0.1   0.1   0.1   0 0 0 0 0
+# options to fit to a second-order "step" effect on luminosity.
+# This is the host mass bias for SNe.
+lstep       0.07  0.07  0.023 0 0 0 0 0
+# SALT2 SN parameters: guesses and priors
+salt2alpha  0.147 0.147 0.05  1 0 0 0 0
+salt2beta   3.13  3.13  0.5   1 0 0 0 0

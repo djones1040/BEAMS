@@ -105,7 +105,7 @@ class snbeams:
             parser.add_option('--zmax', default=config.get('main','zmax'), type="float",
                               help='maximum redshift')
 
-            parser.add_option('--nbins', default=config.get('main','nbins'), type="float",
+            parser.add_option('--nbins', default=config.get('main','nbins'), type="int",
                               help='number of bins in log redshift space')
             parser.add_option('--equalbins', default=config.get('main','equalbins'), action="store_true",
                               help='if set, every bin contains the same number of SNe')
@@ -135,6 +135,8 @@ class snbeams:
 
             parser.add_option('--onlyIa', default=config.get('main','onlyIa'), action="store_true",
                               help='remove the TYPE != 1 SNe from the bunch')
+            parser.add_option('--zminphot', default=config.get('main','zminphot'), type='float',
+                              help='set a minimum redshift for P(Ia) != 1 sample')
 
             # alternate functional models
             parser.add_option('--twogauss', default=config.get('main','twogauss'), action="store_true",
@@ -207,7 +209,7 @@ class snbeams:
             parser.add_option('--zmax', default=1.0, type="float",
                               help='maximum redshift')
 
-            parser.add_option('--nbins', default=25, type="float",
+            parser.add_option('--nbins', default=25, type="int",
                               help='number of bins in log redshift space')
             parser.add_option('--equalbins', default=False, action="store_true",
                               help='if set, every bin contains the same number of SNe')
@@ -237,7 +239,7 @@ class snbeams:
             
             parser.add_option('--onlyIa', default=False, action="store_true",
                               help='remove the TYPE != 1 SNe from the bunch')
-            parser.add_option('--zminphot', default=0.1, type='float',
+            parser.add_option('--zminphot', default=0.0, type='float',
                               help='set a minimum redshift for P(Ia) != 1 sample')
 
             # alternate functional models
@@ -258,6 +260,9 @@ class snbeams:
             
         parser.add_option('-p','--paramfile', default='', type="string",
                           help='fitres file with the SN Ia data')
+        parser.add_option('-m','--mcmcparamfile', default='mcmcparams.input', type="string",
+                          help='file that describes the MCMC input parameters')
+
 
         return(parser)
 
@@ -374,11 +379,10 @@ class snbeams:
         beam.options.zCCdist = self.options.zCCdist
         beam.options.nthreads = self.options.nthreads
         beam.options.nwalkers = self.options.nwalkers
+        beam.options.mcmcparamfile = self.options.mcmcparamfile
 
-        beam.transformOptions()
         options.inputfile = '%s.input'%root
         if self.options.masscorr:
-            beam.options.lstep = True
             beam.options.plcol = 'PL'
             import scipy.stats
             cols = np.where(fr.HOST_LOGMASS > 0)
@@ -430,23 +434,19 @@ class snbeams:
 
         fout = open(outfile,'w')
         print >> fout, fitresheader
-        z = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nbins)
-        if self.options.equalbins:
-            from scipy import stats
-            z = stats.mstats.mquantiles(fr.zHD,np.arange(0,1,1./self.options.nbins))
 
-        for zcntrl,i in zip(z[skip:],range(len(z[skip:]))):
+        for i in range(self.options.nbins):
 
             outvars = ()
             for v in fitresvars:
                 if v == 'zHD':
-                    outvars += (zcntrl,)
+                    outvars += (bms.zCMB[i],)
                 elif v == 'z':
-                    outvars += (zcntrl,)
+                    outvars += (bms.zCMB[i],)
                 elif v == 'mB':
-                    outvars += (bms.muA[i]-19.36,)
+                    outvars += (bms.popAmean[i]-19.36,)
                 elif v == 'mBERR':
-                    outvars += (bms.muAerr[i],)
+                    outvars += (bms.popAmean_err[i],)
                 else:
                     outvars += (0,)
             print >> fout, fitresfmt%outvars

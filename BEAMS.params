@@ -6,43 +6,6 @@ pacol = PA
 residcol = resid
 residerrcol = resid_err
 
-# params for population A (the one we care about)
-# first the guess, then 2 parameters to describe gaussian prior on the mean (prior centroid and sigma),
-# then 2 parameters to describe gaussian prior on the std. dev (prior centroid and sigma),
-# then give 1 to say if prior is fixed
-
-popAguess = 0.0,0.1
-popAprior_mean = 0.0,0.1
-popAprior_std = 0.1,0.02
-popAfixed = 0,1
-
-# params for pop. B (the contaminating distribution)
-popBguess = 0.0,5.0
-popBprior_mean = 1.0,1.0
-popBprior_std = 1.0,3.0
-popBfixed = 0,0
-
-# params for pop. B 2 (2nd contaminating distribution or skew parameters)
-popB2guess = 0.0,5.0
-popB2prior_mean = 0.0,1.0
-popB2prior_std = 1.0,3.0
-popB2fixed = 0,0
-
-# skewness params
-skewBguess = 0
-skewBprior = 0,4
-skewBfixed = 0
-
-# params for the fraction of contaminants
-fracBguess = 0.1
-fracBprior = 0.05,0.1
-fracBfixed = 0
-
-# params for the 2nd fraction of contaminants
-fracB2guess = 0.1
-fracB2prior = 0.05,0.1
-fracB2fixed = 0
-
 # luminosity step correction
 plcol = PL
 lstep = 0
@@ -50,14 +13,7 @@ lstepguess = 0.07
 lstepprior = 0.07,0.023
 lstepfixed = 0
 
-# SALT2 alpha and beta
-salt2alphaguess = 0.147
-salt2alphaprior = 0.147,0.1
-salt2alphafixed = 0
-salt2betaguess = 3.13
-salt2betaprior = 3.13,1.0
-salt2betafixed = 0
-
+# default alpha and beta for distances
 salt2alpha = 0.147
 salt2alphaerr = 0.01
 salt2beta = 3.13
@@ -69,6 +25,7 @@ nwalkers = 100
 nsteps = 1000
 nstepsinit = 200
 ninit = 50
+mcrandstep = 1e-4
 
 # sig
 sigIabounds = 0.075,0.085
