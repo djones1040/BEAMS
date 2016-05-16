@@ -245,12 +245,10 @@ class BEAMS:
             inp.PL = 0
 
         # minimize, not maximize
-        if self.options.twogauss:
+        if self.pardict['popB2mean']['use']:
             lnlikefunc = lambda *args: -threegausslike(*args)
-        elif self.options.skewedgauss:
+        elif self.pardict['skewB']['use']:
             lnlikefunc = lambda *args: -twogausslike_skew(*args)
-        elif self.options.simcc:
-            lnlikefunc = lambda *args: -twogausslike_simcc(*args)
         else:
             lnlikefunc = lambda *args: -twogausslike(*args)
 
@@ -427,6 +425,20 @@ def zmodel(x,zcontrol,zHD,pardict,corr=True):
                        range(len(pardict['popBstd']['idx']))):
             sigBmodel += x[pardict['popBstd']['idx'][j]]*zHD**j/(1+pardict['popBstd']['idx'][-1]*zHD)
 
+    if pardict['popB2mean']['use'] and not pardict['popB2mean']['bins'] and not pardict['popB2mean']['zpoly']:
+        muB2model = muAmodel + x[pardict['popB2mean']['idx']]
+        sigB2model = x[pardict['popB2std']['idx']]
+    if pardict['popB2mean']['use'] and pardict['popB2mean']['zpoly']:
+        muB2model = 1*muAmodel
+        sigB2model = 0
+        for i,j in zip(pardict['popB2mean']['idx'],
+                       range(len(pardict['popB2mean']['idx'])-1)):
+            muB2model += x[pardict['popB2mean']['idx'][j]]*zHD**j/(1+pardict['popB2mean']['idx'][-1]*zHD)
+        for i,j in zip(pardict['popB2std']['idx'],
+                       range(len(pardict['popB2std']['idx']))):
+            sigB2model += x[pardict['popB2std']['idx'][j]]*zHD**j/(1+pardict['popB2std']['idx'][-1]*zHD)
+
+
     outdict = {'muAmodel':muAmodel,
                'muBmodel':muBmodel,
                'sigBmodel':sigBmodel,
@@ -475,125 +487,94 @@ def twogausslike(x,inp=None,zcontrol=None,omitfrac=True,pardict=None,debug=True)
 
     return(lnlike)
 
-def threegausslike(x,inp=None,zcontrol=None,omitfrac=True,snpars=True,zCCdist=False):
-    if zCCdist: x = np.concatenate(([x[0]],[0,0,0,0,0],x[1:]))
-    if snpars:
+def threegausslike(x,inp=None,zcontrol=None,omitfrac=True,pardict=None,debug=True):
+
+    if pardict['salt2alpha']['use'] and pardict['salt2beta']['use']:
         muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                              cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                             alpha=x[9],beta=x[10],
+                             alpha=x[pardict['salt2alpha']['idx']],beta=x[pardict['salt2beta']['idx']],
                              x0=inp.x0,z=inp.zHD)
-    else:
-        muA,muAerr = inp.mu[:],inp.muerr[:]
-    muB,muBerr = inp.mu[:],inp.muerr[:]
+    else: muA,muAerr = inp.mu[:],inp.muerr[:]
 
+    if not omitfrac: 
+        fracIa = 1-x[pardict['fracB']['idx']] - x[pardict['fracB2']['idx']]
+        fracCCA = x[pardict['fracB']['idx']]; fracCCB = x[pardict['fracB2']['idx']]
+    else: fracIa = 1; fracCCA = 1; fracCCB = 1
+
+    muB,muBerr = inp.mu[:],inp.muerr[:]
     # keep only the ones where invvars isn't messed up for muA
     muB,muBerr = muB[muAerr == muAerr],muBerr[muAerr == muAerr]
     zHD,PA,PL = inp.zHD[muAerr == muAerr],inp.PA[muAerr == muAerr],inp.PL[muAerr == muAerr]
     muA,muAerr = muA[muAerr == muAerr],muAerr[muAerr == muAerr]
 
-    if not omitfrac: fracIa = 1-x[6]; fracCCA = x[6]; fracCCB = x[7]
-    else: fracIa = 1; fracCCA = 1; fracCCB = 1
+    modeldict = zmodel(x,zcontrol,zHD,pardict)
+    
+    if pardict['lstep']['use']:
+        lsteplike = -(muA-modeldict['muAmodel']+x[pardict['lstep']['idx']])**2./(2.0*(muAerr**2.+x[pardict['popAstd']['idx']]**2.)) + \
+            np.log(fracIa*PA*PL/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2.+muBerr**2.))),
+    else: lsteplike = np.zeros(len(muA)) - np.inf
 
-    if zCCdist:
-        muBmodel = np.zeros(len(zHD))
-        sigBmodel = np.zeros(len(zHD))
-        muB2model = np.zeros(len(zHD))
-        sigB2model = np.zeros(len(zHD))
+    sum = logsumexp([-(muA-modeldict['muAmodel'])**2./(2.0*(muAerr**2.+x[pardict['popAstd']['idx']]**2.)) + \
+                          np.log(fracIa*PA*(1-PL)/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2.+muBerr**2.))),
+                      lsteplike,
+                      -(muB-modeldict['muBmodel'])**2./(2.0*(muBerr**2.+modeldict['sigBmodel']**2.)) + \
+                          np.log(fracCCA*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(modeldict['sigBmodel']**2.+muBerr**2.))),
+                      -(muB-modeldict['muB2model'])**2./(2.0*(muBerr**2.+modeldict['sigB2model']**2.)) + \
+                          np.log(fracCCB*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(modeldict['sigB2model']**2.+muBerr**2.)))],axis=0)
 
-        distvars = np.zeros([len(x[11:])/5,6])
-        distvars_small = x[11:].reshape(len(x[11:])/5,5)
-        distvars[:,0] = distvars_small[:,0]; distvars[:,1] = distvars_small[:,1]; distvars[:,2] = distvars_small[:,2]
-        distvars[:,3] = distvars_small[:,3]; distvars[:,4] = distvars_small[:,4]
-    else:
-        distvars = np.zeros([len(x[11:]),6])
-        distvars[:,0] = x[11:]
-    muAmodel = np.zeros(len(zHD))
-    for dvb,dvb1,zb,zb1 in zip(distvars[:-1],distvars[1:],zcontrol[:-1],zcontrol[1:]):
-        mua,mub_1,sigb_1,mub_2,sigb_2,skewb = dvb
-        mua1,mub1_1,sigb1_1,mub1_2,sigb1_2,skewb1 = dvb1
-        cols = np.where((zHD >= zb) & (zHD < zb1))[0]
-        alpha = np.log10(zHD[cols]/zb)/np.log10(zb1/zb)
-        muAmodel[cols] = (1-alpha)*mua + alpha*mua1
-        if zCCdist:
-            muBmodel[cols] = (1-alpha)*mub_1 + alpha*mub1_1
-            sigBmodel[cols] = (1-alpha)*sigb_1 + alpha*sigb1_1
-            muB2model[cols] = (1-alpha)*mub_2 + alpha*mub1_2
-            sigB2model[cols] = (1-alpha)*sigb_2 + alpha*sigb1_2
-    if not zCCdist:
-        muBmodel = muAmodel + x[1]
-        sigBmodel = x[2]
-        muB2model = muAmodel + x[3]
-        sigB2model = x[4]
-
-    sum = logsumexp([-(muA-muAmodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-                          np.log(fracIa*PA*(1-PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.))),
-                      -(muA-muAmodel-x[8])**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-                          np.log(fracIa*PA*PL/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.))),
-                      -(muB-muBmodel)**2./(2.0*(muBerr**2.+sigBmodel**2.)) + \
-                          np.log(fracCCA*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(sigBmodel**2.+muBerr**2.))),
-                      -(muB-muB2model)**2./(2.0*(muBerr**2.+sigB2model**2.)) + \
-                          np.log(fracCCB*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(sigB2model**2.+muBerr**2.)))],axis=0)
+    if debug:
+        likeIa = np.sum(logsumexp([-(muA[PA == 1] - \
+                                         modeldict['muAmodel'][PA == 1])**2./(2.0*(muAerr[PA == 1]**2. + x[pardict['popAstd']['idx']]**2.)) + \
+                                        np.log(fracIa*PA[PA == 1]*(1-PL[PA == 1])/(np.sqrt(2*np.pi)*\
+                                                                                       np.sqrt(x[pardict['popAstd']['idx']]**2. + \
+                                                                                                   muBerr[PA == 1]**2.)))],axis=0))
+        print len(muA),likeIa
 
     return np.sum(sum)
 
-def twogausslike_skew(x,inp=None,zcontrol=None,omitfrac=True,snpars=True,zCCdist=False):
-    if zCCdist: x = np.concatenate(([x[0]],[0,0,0,0,0],x[1:]))
-    if not omitfrac: fracIa = 1-x[6]; fracCC = x[6]
-    else: fracIa = 1; fracCC = 1
+def twogausslike_skew(x,inp=None,zcontrol=None,omitfrac=True,pardict=None,debug=False):
 
-    if snpars:
+    if pardict['salt2alpha']['use'] and pardict['salt2beta']['use']:
         muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                              cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                             alpha=x[9],beta=x[10],
+                             alpha=x[pardict['salt2alpha']['idx']],beta=x[pardict['salt2beta']['idx']],
                              x0=inp.x0,z=inp.zHD)
-    else:
-        muA,muAerr = inp.mu[:],inp.muerr[:]
+    else: muA,muAerr = inp.mu[:],inp.muerr[:]
+
+    if not omitfrac: fracIa = 1-x[pardict['fracB']['idx']]; fracCC = x[pardict['fracB']['idx']]
+    else: fracIa = 1; fracCC = 1
+
     muB,muBerr = inp.mu[:],inp.muerr[:]
     # keep only the ones where invvars isn't messed up for muA
     muB,muBerr = muB[muAerr == muAerr],muBerr[muAerr == muAerr]
     zHD,PA,PL = inp.zHD[muAerr == muAerr],inp.PA[muAerr == muAerr],inp.PL[muAerr == muAerr]
     muA,muAerr = muA[muAerr == muAerr],muAerr[muAerr == muAerr]
 
-    if zCCdist:
-        muBmodel = np.zeros(len(zHD))
-        sigBmodel = np.zeros(len(zHD))
-        skewBmodel = np.zeros(len(zHD))
+    modeldict = zmodel(x,zcontrol,zHD,pardict)
+    
 
-        distvars = np.zeros([len(x[11:])/4,6])
-        distvars_small = x[11:].reshape(len(x[11:])/4,4)
-        distvars[:,0] = distvars_small[:,0]; distvars[:,1] = distvars_small[:,1]; distvars[:,2] = distvars_small[:,2]
-        distvars[:,3] = distvars_small[:,3]
+    gaussA = -(muA-muAmodel)**2./(2.0*(muAerr**2.+x[pardict['popAstd']['idx']]**2.)) + \
+        np.log(fracIa*PA*(1-PL)/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2.+muBerr**2.)))
+    if pardict['lstep']['use']:
+        gaussAhm = -(muA-muAmodel-x[8])**2./(2.0*(muAerr**2.+x[pardict['popAstd']['idx']]**2.)) + \
+            np.log(fracIa*(PA*PL)/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2.+muBerr**2.)))
     else:
-        distvars = np.zeros([len(x[11:]),6])
-        distvars[:,0] = x[11:]
+        gaussAhm = np.zeros(len(muA)) - np.inf
 
-    muAmodel = np.zeros(len(zHD))
-    for dvb,dvb1,zb,zb1 in zip(distvars[:-1],distvars[1:],zcontrol[:-1],zcontrol[1:]):
-        mua,mub_1,sigb_1,mub_2,sigb_2,skewb = dvb
-        mua1,mub1_1,sigb1_1,mub1_2,sigb1_2,skewb1 = dvb1
-        cols = np.where((zHD >= zb) & (zHD < zb1))[0]
-        alpha = np.log10(zHD[cols]/zb)/np.log10(zb1/zb)
-        muAmodel[cols] = (1-alpha)*mua + alpha*mua1
-        if zCCdist:
-            muBmodel[cols] = (1-alpha)*mub_1 + alpha*mub1_1
-            sigBmodel[cols] = (1-alpha)*sigb_1 + alpha*sigb1_1
-            skewBmodel[cols] = (1-alpha)*skewb + alpha*skewb1
-    if not zCCdist:
-        muBmodel = muAmodel + x[1]
-        sigBmodel = x[2]
-        skewBmodel = x[5]
-
-    gaussA = -(muA-muAmodel)**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-        np.log(fracIa*PA*(1-PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.)))
-    gaussAhm = -(muA-muAmodel-x[8])**2./(2.0*(muAerr**2.+x[0]**2.)) + \
-        np.log(fracIa*(PA*PL)/(np.sqrt(2*np.pi)*np.sqrt(x[0]**2.+muBerr**2.)))
-
-    normB = fracCC*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(sigBmodel**2.+muBerr**2.))
-    gaussB = -(muB-muBmodel)**2./(2*(sigBmodel**2.+muBerr**2.))
-    skewB = 1 + erf(skewBmodel*(muB-muBmodel)/np.sqrt(2*(sigBmodel**2.+muBerr**2.)))
+    normB = fracCC*(1-PA)/(np.sqrt(2*np.pi)*np.sqrt(modeldict['sigBmodel']**2.+muBerr**2.))
+    gaussB = -(muB-modeldict['muBmodel'])**2./(2*(modeldict['sigBmodel']**2.+muBerr**2.))
+    skewB = 1 + erf(modeldict['skewBmodel']*(muB-modeldict['muBmodel'])/np.sqrt(2*(modeldict['sigBmodel']**2.+muBerr**2.)))
     skewgaussB = gaussB + np.log(normB*skewB)
 
     lnlike = np.sum(logsumexp([gaussA,gaussAhm,skewgaussB],axis=0))
+    if debug:
+        likeIa = np.sum(logsumexp([-(muA[PA == 1] - modeldict['muAmodel'][PA == 1])**2./ \
+                                        (2.0*(muAerr[PA == 1]**2.+x[pardict['popAstd']['idx']]**2.)) + \
+                                        np.log(fracIa*PA[PA == 1]*(1-PL[PA == 1])/(np.sqrt(2*np.pi)*\
+                                                                                       np.sqrt(x[pardict['popAstd']['idx']]**2. + \
+                                                                                                   muBerr[PA == 1]**2.)))],axis=0))
+        print len(muA),likeIa
+
     return(lnlike)
 
 def lnprior(theta,zcntrl=None,pardict=None):
