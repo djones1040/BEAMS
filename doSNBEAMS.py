@@ -121,9 +121,9 @@ class BEAMS:
             # output and number of threads
             parser.add_option('--nthreads', default=20, type="int",
                               help='Number of threads for MCMC')
-            parser.add_option('--nwalkers', default=100, type="int",
+            parser.add_option('--nwalkers', default=150, type="int",
                               help='Number of walkers for MCMC')
-            parser.add_option('--nsteps', default=6000, type="int",
+            parser.add_option('--nsteps', default=1000, type="int",
                               help='Number of steps for MCMC')
             parser.add_option('--ninit', default=200, type="int",
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
@@ -224,6 +224,7 @@ class BEAMS:
             for v in outlinevars:
                 if self.pardict[v]["use"]:
                     idx = self.pardict[v]["idx"]
+                    if self.pardict[v]['zpoly']: idx = self.pardict[v]["idx"][0]
                     if hasattr(idx,"__len__"):
                         mean,err = np.mean(samples[:,idx[i]]),np.std(samples[:,idx[i]])
                     else:
@@ -276,7 +277,7 @@ class BEAMS:
         else:
             md = minimize(lnlikefunc,guess,
                           args=(inp,zcontrol,True,self.pardict))
-
+    
         if md.message != 'Optimization terminated successfully.':
             print("""Warning : Minimization Failed!!!  
 Try some different initial guesses, or let the MCMC try and take care of it""")
@@ -296,6 +297,10 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         sampler.run_mcmc(pos, self.options.nsteps, thin=1)
         print("Mean acceptance fraction: {0:.3f}"
               .format(np.mean(sampler.acceptance_fraction)))
+        for a,i in zip(sampler.acor,range(len(sampler.acor))):
+            print("autocorrelation time for parameter %s: %s"%(
+                    getpar(i,self.pardict),a))
+
         samples = sampler.flatchain
 
         cov = covmat(samples[:,self.pardict['popAmean']['idx']])
@@ -313,7 +318,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                                  'prior_std':pf.sigma[i],'fixed':pf.fixed[i],
                                  'use':pf.use[i],'addcosmo':pf.addcosmo[i],
                                  'mcstep':self.options.mcrandstep,
-                                 'bins':pf.bins[i]}
+                                 'bins':pf.bins[i],'zpoly':pf.zpoly[i]}
             if not pf.use[i]: self.pardict[par]['idx'] = -1
             else: self.pardict[par]['idx'] = idx
             if pf.addcosmo[i]:
@@ -326,6 +331,11 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                 self.pardict[par]['prior_mean'] = np.zeros(len(zcontrol)) + pf.prior[i]
                 self.pardict[par]['idx'] = idx + np.arange(len(zcontrol))
                 if pf.use[i]: idx += len(zcontrol)
+            elif pf.zpoly[i]:
+                self.pardict[par]['guess'] = np.append(pf.guess[i],np.array([0.]*int(pf.zpoly[i])))
+                self.pardict[par]['prior_mean'] = np.append(pf.prior[i],np.array([0.]*int(pf.zpoly[i])))
+                self.pardict[par]['idx'] = idx + np.arange(int(pf.zpoly[i])+1)
+                if pf.use[i]: idx += int(pf.zpoly[i])+1
             elif pf.use[i]: idx += 1
 
             if pf.fixed[i]:
@@ -348,19 +358,19 @@ def zmodel(x,zcontrol,zHD,pardict,corr=True):
     if not corr: from astropy.cosmology import Planck13 as cosmo
 
     muAmodel = np.zeros(len(zHD))
-    if pardict['popBmean']['bins']:
+    if pardict['popBmean']['bins'] or pardict['popBmean']['zpoly']:
         muBmodel = np.zeros(len(zHD))
     else: muBmodel = None
-    if pardict['popBstd']['bins']:
+    if pardict['popBstd']['bins'] or pardict['popBstd']['zpoly']:
         sigBmodel = np.zeros(len(zHD))
     else: sigBmodel = None
-    if pardict['popB2mean']['bins']:
+    if pardict['popB2mean']['bins'] or pardict['popB2mean']['zpoly']:
         muB2model = np.zeros(len(zHD))
     else: muB2model = None
-    if pardict['popB2std']['bins']:
+    if pardict['popB2std']['bins'] or pardict['popB2std']['zpoly']:
         sigB2model = np.zeros(len(zHD))
     else: sigB2model = None
-    if pardict['skewB']['bins']:
+    if pardict['skewB']['bins'] or pardict['skewB']['zpoly']:
         skewBmodel = np.zeros(len(zHD))
     else: skewBmodel = None
 
@@ -404,9 +414,18 @@ def zmodel(x,zcontrol,zHD,pardict,corr=True):
                 skewBmodel[cols] = (1-alpha)*skewb + alpha*skewb1
             else:
                 skewBmodel[cols] = skewb
-    if pardict['popBmean']['use'] and not pardict['popBmean']['bins']:
+    if pardict['popBmean']['use'] and not pardict['popBmean']['bins'] and not pardict['popBmean']['zpoly']:
         muBmodel = muAmodel + x[pardict['popBmean']['idx']]
         sigBmodel = x[pardict['popBstd']['idx']]
+    if pardict['popBmean']['use'] and pardict['popBmean']['zpoly']:
+        muBmodel = 1*muAmodel
+        sigBmodel = 0
+        for i,j in zip(pardict['popBmean']['idx'],
+                       range(len(pardict['popBmean']['idx'])-1)):
+            muBmodel += x[pardict['popBmean']['idx'][j]]*zHD**j/(1+pardict['popBmean']['idx'][-1]*zHD)
+        for i,j in zip(pardict['popBstd']['idx'],
+                       range(len(pardict['popBstd']['idx']))):
+            sigBmodel += x[pardict['popBstd']['idx'][j]]*zHD**j/(1+pardict['popBstd']['idx'][-1]*zHD)
 
     outdict = {'muAmodel':muAmodel,
                'muBmodel':muBmodel,
@@ -449,9 +468,11 @@ def twogausslike(x,inp=None,zcontrol=None,omitfrac=True,pardict=None,debug=True)
     lnlike = np.sum(lnliketmp)
 
     if debug:
-        print len(muA),np.sum(logsumexp([-(muA[PA == 1] - modeldict['muAmodel'][PA == 1])**2./(2.0*(muAerr[PA == 1]**2.+x[pardict['popAstd']['idx']]**2.)) + \
+        likeIa = np.sum(logsumexp([-(muA[PA == 1] - modeldict['muAmodel'][PA == 1])**2./(2.0*(muAerr[PA == 1]**2.+x[pardict['popAstd']['idx']]**2.)) + \
                                               np.log(fracIa*PA[PA == 1]*(1-PL[PA == 1])/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2. + \
                                                                                                                       muBerr[PA == 1]**2.)))],axis=0))
+        print len(muA),likeIa
+
     return(lnlike)
 
 def threegausslike(x,inp=None,zcontrol=None,omitfrac=True,snpars=True,zCCdist=False):
@@ -612,6 +633,17 @@ def getparval(idx,pardict,valkey):
         else:
             if idx == pardict[k]['idx']:
                 return(pardict[k][valkey])
+
+    return()
+
+def getpar(idx,pardict):
+    for k in pardict.keys():
+        if hasattr(pardict[k]['idx'],"__len__"):
+            if idx in pardict[k]['idx']:
+                return(k)
+        else:
+            if idx == pardict[k]['idx']:
+                return(k)
 
     return()
 

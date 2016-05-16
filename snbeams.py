@@ -341,6 +341,9 @@ class snbeams:
             cols = np.where((fr.SIM_TYPE_INDEX == 1) & (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
+        elif self.options.piacol == 'PTRUE_Ia':
+            cols = np.where(np.abs(fr.SIM_ZCMB - fr.zHD) > 0.001)
+            fr.PTRUE_Ia[cols] = 0
         if self.options.zminphot:
             cols = np.where((fr.zHD >= self.options.zminphot) | (fr.__dict__[self.options.piacol] == 1))
             for k in fr.__dict__.keys():

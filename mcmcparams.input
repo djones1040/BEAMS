@@ -1,11 +1,11 @@
-# param guess prior sigma use fixed addcosmo bins poly
+# param guess prior sigma use fixed addcosmo bins zpoly
 
 # population A guesses and priors (the pop we care about)
 popAmean    0.0   0.0   0.5   1 0 1 1 0
 popAstd     0.1   0.1   0.2   1 0 0 0 0
 # population B guesses and priors (the pop we don't care about)
-popBmean    1.0   1.0   1.0   1 0 1 1 1
-popBstd     1.0   1.0   0.5   1 0 0 1 1
+popBmean    1.0   1.0   1.0   1 0 0 0 4
+popBstd     1.0   1.0   0.5   1 0 0 0 1
 # population B guesses and priors for second gaussian (the pop we don't care about)
 popB2mean   0.0   0.0   5.0   0 0 1 1 1
 popB2std    1.0   1.0   3.0   0 0 0 1 1
