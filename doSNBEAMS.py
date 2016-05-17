@@ -258,19 +258,20 @@ class BEAMS:
         for i in xrange(len(guess)): 
             key = getpar(i,self.pardict)
             if self.pardict[key]['bounds'][0] != self.pardict[key]['bounds'][1]: 
-                if hasattr(self.pardict[key],"__len__"):
-                    if i in self.pardict[k]['idx']:
-                        bounds += (self.pardict[k]['bounds'],)
+                if hasattr(self.pardict[key]['idx'],"__len__"):
+                    if i in self.pardict[key]['idx']:
+                        bounds += (self.pardict[key]['bounds'],)
                         usebounds = True
                     else:
                         bounds += ((None,None),)
                 else:
-                    if i == self.pardict[k]['idx']:
-                        bounds += (self.pardict[k]['bounds'],)
+                    if i == self.pardict[key]['idx']:
+                        bounds += (self.pardict[key]['bounds'],)
                         usebounds = True
                     else:
                         bounds += ((None,None),)
-
+            else:
+                bounds += ((None,None),)
 
         if usebounds:
             md = minimize(lnlikefunc,guess,
@@ -322,41 +323,42 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                                  'bins':pf.bins[i],'zpoly':pf.zpoly[i],
                                  'bounds':(pf.lbound[i],pf.ubound[i])}
             if not pf.use[i]: self.pardict[par]['idx'] = -1
-            else: self.pardict[par]['idx'] = idx
-            if pf.addcosmo[i]:
-                if pf.bins[i] == 1:
-                    self.pardict[par]['guess'] = pf.guess[i] + cosmo.distmod(zcontrol).value
-                    self.pardict[par]['prior_mean'] = pf.prior[i] + cosmo.distmod(zcontrol).value
-                    self.pardict[par]['idx'] = idx + np.arange(len(zcontrol))
-                    if pf.use[i]: idx += len(zcontrol)
-                else:
-                    zcontrolCC = np.logspace(np.log10(min(zcontrol)),np.log10(max(zcontrol)),pf.bins[i])
-                    self.pardict[par]['guess'] = pf.guess[i] + cosmo.distmod(zcontrolCC).value
-                    self.pardict[par]['prior_mean'] = pf.prior[i] + cosmo.distmod(zcontrolCC).value
-                    self.pardict[par]['idx'] = idx + np.arange(len(zcontrolCC))
-                    if pf.use[i]: idx += len(zcontrolCC)
-            elif pf.bins[i]:
-                if pf.bins[i] == 1:
-                    self.pardict[par]['guess'] = np.zeros(len(zcontrol)) + pf.guess[i]
-                    self.pardict[par]['prior_mean'] = np.zeros(len(zcontrol)) + pf.prior[i]
-                    self.pardict[par]['idx'] = idx + np.arange(len(zcontrol))
-                    if pf.use[i]: idx += len(zcontrol)
-                else:
-                    zcontrolCC = np.logspace(np.log10(min(zcontrol)),np.log10(max(zcontrol)),pf.bins[i])
-                    self.pardict[par]['guess'] = np.zeros(len(zcontrolCC)) + pf.guess[i]
-                    self.pardict[par]['prior_mean'] = np.zeros(len(zcontrolCC)) + pf.prior[i]
-                    self.pardict[par]['idx'] = idx + np.arange(len(zcontrolCC))
-                    if pf.use[i]: idx += len(zcontrolCC)
-            elif pf.zpoly[i]:
-                self.pardict[par]['guess'] = np.append(pf.guess[i],np.array([0.]*int(pf.zpoly[i])))
-                self.pardict[par]['prior_mean'] = np.append(pf.prior[i],np.array([0.]*int(pf.zpoly[i])))
-                self.pardict[par]['idx'] = idx + np.arange(int(pf.zpoly[i])+1)
-                if pf.use[i]: idx += int(pf.zpoly[i])+1
-            elif pf.use[i]: idx += 1
+            else:
+                self.pardict[par]['idx'] = idx
+                if pf.addcosmo[i]:
+                    if pf.bins[i] == 1:
+                        self.pardict[par]['guess'] = pf.guess[i] + cosmo.distmod(zcontrol).value
+                        self.pardict[par]['prior_mean'] = pf.prior[i] + cosmo.distmod(zcontrol).value
+                        self.pardict[par]['idx'] = idx + np.arange(len(zcontrol))
+                        if pf.use[i]: idx += len(zcontrol)
+                    else:
+                        zcontrolCC = np.logspace(np.log10(min(zcontrol)),np.log10(max(zcontrol)),pf.bins[i])
+                        self.pardict[par]['guess'] = pf.guess[i] + cosmo.distmod(zcontrolCC).value
+                        self.pardict[par]['prior_mean'] = pf.prior[i] + cosmo.distmod(zcontrolCC).value
+                        self.pardict[par]['idx'] = idx + np.arange(len(zcontrolCC))
+                        if pf.use[i]: idx += len(zcontrolCC)
+                elif pf.bins[i]:
+                    if pf.bins[i] == 1:
+                        self.pardict[par]['guess'] = np.zeros(len(zcontrol)) + pf.guess[i]
+                        self.pardict[par]['prior_mean'] = np.zeros(len(zcontrol)) + pf.prior[i]
+                        self.pardict[par]['idx'] = idx + np.arange(len(zcontrol))
+                        if pf.use[i]: idx += len(zcontrol)
+                    else:
+                        zcontrolCC = np.logspace(np.log10(min(zcontrol)),np.log10(max(zcontrol)),pf.bins[i])
+                        self.pardict[par]['guess'] = np.zeros(len(zcontrolCC)) + pf.guess[i]
+                        self.pardict[par]['prior_mean'] = np.zeros(len(zcontrolCC)) + pf.prior[i]
+                        self.pardict[par]['idx'] = idx + np.arange(len(zcontrolCC))
+                        if pf.use[i]: idx += len(zcontrolCC)
+                elif pf.zpoly[i]:
+                    self.pardict[par]['guess'] = np.append(pf.guess[i],np.array([0.]*int(pf.zpoly[i])))
+                    self.pardict[par]['prior_mean'] = np.append(pf.prior[i],np.array([0.]*int(pf.zpoly[i])))
+                    self.pardict[par]['idx'] = idx + np.arange(int(pf.zpoly[i])+1)
+                    if pf.use[i]: idx += int(pf.zpoly[i])+1
+                elif pf.use[i]: idx += 1
 
-            if pf.fixed[i]:
-                self.pardict[par]['prior_std'] = 1e-5
-                self.pardict[par]['mcstep'] = 0
+                if pf.fixed[i]:
+                    self.pardict[par]['prior_std'] = 1e-5
+                    self.pardict[par]['mcstep'] = 0
 
         guess = ()
         for k in pf.param:
