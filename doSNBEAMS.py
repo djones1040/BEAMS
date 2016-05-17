@@ -275,7 +275,6 @@ class BEAMS:
         if usebounds:
             md = minimize(lnlikefunc,guess,
                           args=(inp,zcontrol,True,self.pardict),bounds=bounds,method='SLSQP')
-            import pdb; pdb.set_trace()
         else:
             md = minimize(lnlikefunc,guess,
                           args=(inp,zcontrol,True,self.pardict))
