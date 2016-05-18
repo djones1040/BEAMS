@@ -366,6 +366,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                 if pf.fixed[i]:
                     self.pardict[par]['prior_std'] = 1e-5
                     self.pardict[par]['mcstep'] = 0
+                    self.pardict[par]['bounds'] = (self.pardict[par]['prior_mean']-1e-5,self.pardict[par]['prior_mean']+1e-5)
 
         guess = ()
         for k in pf.param:
@@ -524,7 +525,7 @@ def twogausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=True)
         likeIa = np.sum(logsumexp([-(muA[PA == 1] - modeldict['muAmodel'][PA == 1])**2./(2.0*(muAerr[PA == 1]**2.+x[pardict['popAstd']['idx']]**2.)) + \
                                               np.log(scaleIa*PA[PA == 1]*(1-PL[PA == 1])/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2. + \
                                                                                                                       muBerr[PA == 1]**2.)))],axis=0))
-        print len(muA[PA == 1]),likeIa
+        print len(muA[PA == 1]),likeIa,x[pardict['popAstd']['idx']]
 
     return(lnlike)
 
