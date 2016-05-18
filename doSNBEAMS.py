@@ -275,11 +275,11 @@ class BEAMS:
 
         if usebounds:
             md = minimize(lnlikefunc,guess,
-                          args=(inp,zcontrol,True,self.pardict),bounds=bounds,method='SLSQP')
+                          args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict),bounds=bounds,method='SLSQP')
         else:
             md = minimize(lnlikefunc,guess,
-                          args=(inp,zcontrol,True,self.pardict))
-    
+                          args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict))
+
         if md.message != 'Optimization terminated successfully.':
             print("""Warning : Minimization Failed!!!  
 Try some different initial guesses, or let the MCMC try and take care of it""")
@@ -313,6 +313,13 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         """Make a dictionary to store all info about parameters"""
         from txtobj import txtobj
         pf = txtobj(self.options.mcmcparamfile)
+
+        if self.options.twogauss: 
+            pf.use[pf.param == 'popB2mean'] = 1
+            pf.use[pf.param == 'popB2std'] = 1
+        if self.options.skewedgauss:
+            pf.use[pf.param == 'skewB'] = 1
+
         self.pardict = {}
         idx = 0
         for par,i in zip(pf.param,xrange(len(pf.param))):
@@ -481,7 +488,7 @@ def zmodel(x,zcontrol,zHD,pardict,corr=True):
                'skewBmodel':skewBmodel}
     return(outdict)
 
-def twogausslike(x,inp=None,zcontrol=None,omitscale=True,pardict=None,debug=True):
+def twogausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=True):
 
     if pardict['salt2alpha']['use'] and pardict['salt2beta']['use']:
         muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
@@ -490,7 +497,7 @@ def twogausslike(x,inp=None,zcontrol=None,omitscale=True,pardict=None,debug=True
                              x0=inp.x0,z=inp.zHD)
     else: muA,muAerr = inp.mu[:],inp.muerr[:]
 
-    if not omitscale: scaleIa = x[pardict['scaleA']['idx']]; scaleCC = x[pardict['scaleB']['idx']]
+    if usescale: scaleIa = x[pardict['scaleA']['idx']]; scaleCC = 1 - x[pardict['scaleA']['idx']]
     else: scaleIa = 1; scaleCC = 1
 
     muB,muBerr = inp.mu[:],inp.muerr[:]
@@ -521,7 +528,7 @@ def twogausslike(x,inp=None,zcontrol=None,omitscale=True,pardict=None,debug=True
 
     return(lnlike)
 
-def threegausslike(x,inp=None,zcontrol=None,omitscale=True,pardict=None,debug=True):
+def threegausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=True):
 
     if pardict['salt2alpha']['use'] and pardict['salt2beta']['use']:
         muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
@@ -530,10 +537,10 @@ def threegausslike(x,inp=None,zcontrol=None,omitscale=True,pardict=None,debug=Tr
                              x0=inp.x0,z=inp.zHD)
     else: muA,muAerr = inp.mu[:],inp.muerr[:]
 
-    if not omitscale:
+    if usescale:
         scaleIa = x[pardict['scaleA']['idx']]
-        scaleCCA = x[pardict['scaleB']['idx']]
-        scaleCCB = x[pardict['scaleB2']['idx']]
+        scaleCCA = 1 - x[pardict['scaleA']['idx']]
+        scaleCCB = 1 - x[pardict['scaleA']['idx']]
     else: scaleIa = 1; scaleCCA = 1; scaleCCB = 1
 
     muB,muBerr = inp.mu[:],inp.muerr[:]
@@ -567,7 +574,7 @@ def threegausslike(x,inp=None,zcontrol=None,omitscale=True,pardict=None,debug=Tr
 
     return np.sum(sum)
 
-def twogausslike_skew(x,inp=None,zcontrol=None,omitscale=True,pardict=None,debug=True):
+def twogausslike_skew(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=True):
 
     if pardict['salt2alpha']['use'] and pardict['salt2beta']['use']:
         muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
@@ -576,7 +583,7 @@ def twogausslike_skew(x,inp=None,zcontrol=None,omitscale=True,pardict=None,debug
                              x0=inp.x0,z=inp.zHD)
     else: muA,muAerr = inp.mu[:],inp.muerr[:]
 
-    if not omitscale: scaleIa = x[pardict['scaleA']['idx']]; scaleCC = x[pardict['scaleB']['idx']]
+    if usescale: scaleIa = x[pardict['scaleA']['idx']]; scaleCC = 1 - x[pardict['scaleA']['idx']]
     else: scaleIa = 1; scaleCC = 1
 
     muB,muBerr = inp.mu[:],inp.muerr[:]
@@ -681,9 +688,9 @@ def lnprob(theta,inp=None,zcontrol=None,
     if not np.isfinite(lp) or np.isnan(lp):
         return -np.inf
 
-    if pardict['scaleB']['use']: omitscale = False
-    else: omitscale = True
-    post = lp + lnlikefunc(theta,inp,zcontrol,omitscale,pardict)
+    if pardict['scaleA']['use']: usescale = True
+    else: usescale = False
+    post = lp + lnlikefunc(theta,inp,zcontrol,usescale,pardict)
     
     if post != post: return -np.inf
     else: return post

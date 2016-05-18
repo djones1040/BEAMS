@@ -10,10 +10,10 @@ popBstd     1.0   1.0   0.5   1 0 0 5  0  0  0
 popB2mean   0.0   0.0   5.0   0 0 1 5  0  0  0
 popB2std    1.0   1.0   3.0   0 0 0 5  0  0  0
 # the skewness of the pop. B gaussian
-skewB       0.0   0.0   4.0   1 0 0 5  1 -10 10
+skewB       0.0   0.0   4.0   0 0 0 5  1 -10 10
 # scale P(Ia) and P(CC): guesses and priors
-scaleA      1.0   1.0   0.2   0 0 0 0  0  0  0
-scaleB      1.0   1.0   0.2   0 0 0 0  0  0  0
+scaleA      0.95  0.95  0.2   1 0 0 0  0  0.01  0.99
+scaleB      1.0   1.0   0.2   0 0 0 0  0  0.01  0.99
 # scale P(CC): guesses and priors for gaussian 2
 scaleB2     1.0   1.0   0.2   0 0 0 0  0  0  0
 # options to fit to a second-order "step" effect on luminosity.
