@@ -109,9 +109,6 @@ class snbeams:
                               help='number of bins in log redshift space')
             parser.add_option('--equalbins', default=config.get('main','equalbins'), action="store_true",
                               help='if set, every bin contains the same number of SNe')
-            parser.add_option('--snpars', default=config.get('main','snpars'), action="store_true",
-                              help='if set, marginalize over alpha and beta for SNe Ia (CC SNe set to priors)')
-
 
             parser.add_option('-f','--fitresfile', default=config.get('main','fitresfile'), type="string",
                               help='fitres file with the SN Ia data')
@@ -153,6 +150,8 @@ class snbeams:
                               help='Number of threads for MCMC')
             parser.add_option('--nwalkers', default=config.get('doSNBEAMS','nwalkers'), type="int",
                               help='Number of walkers for MCMC')
+            parser.add_option('--nsteps', default=config.get('doSNBEAMS','nsteps'), type="int",
+                              help='Number of steps (per walker) for MCMC')
 
         else:
             parser.add_option('--piacol', default='FITPROB', type="string",
@@ -212,10 +211,7 @@ class snbeams:
             parser.add_option('--nbins', default=25, type="int",
                               help='number of bins in log redshift space')
             parser.add_option('--equalbins', default=False, action="store_true",
-                              help='if set, every bin contains the same number of SNe')
-            parser.add_option('--snpars', default=False, action="store_true",
-                              help='if set, marginalize over alpha and beta for SNe Ia (CC SNe set to priors)')
-            
+                              help='if set, every bin contains the same number of SNe')            
             
             parser.add_option('-f','--fitresfile', default='ps1_psnidprob.fitres', type="string",
                               help='fitres file with the SN Ia data')
@@ -257,12 +253,17 @@ class snbeams:
                               help='Number of threads for MCMC')
             parser.add_option('--nwalkers', default=200, type="int",
                               help='Number of walkers for MCMC')
+            parser.add_option('--nsteps', default=200, type="int",
+                              help='Number of steps (per walker) for MCMC')
+
             
         parser.add_option('-p','--paramfile', default='', type="string",
                           help='fitres file with the SN Ia data')
         parser.add_option('-m','--mcmcparamfile', default='mcmcparams.input', type="string",
                           help='file that describes the MCMC input parameters')
-
+        parser.add_option('--fix',default=[],
+                          type='string',action='append',
+                          help='parameter range for specified variable')
 
         return(parser)
 
@@ -378,11 +379,12 @@ class snbeams:
         beam.options = options
         beam.options.twogauss = self.options.twogauss
         beam.options.skewedgauss = self.options.skewedgauss
-        beam.options.snpars = self.options.snpars
         beam.options.zCCdist = self.options.zCCdist
         beam.options.nthreads = self.options.nthreads
         beam.options.nwalkers = self.options.nwalkers
+        beam.options.nsteps = self.options.nsteps
         beam.options.mcmcparamfile = self.options.mcmcparamfile
+        beam.options.fix = self.options.fix
 
         options.inputfile = '%s.input'%root
         if self.options.masscorr:

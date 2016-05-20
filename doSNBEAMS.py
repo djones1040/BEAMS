@@ -78,8 +78,6 @@ class BEAMS:
                               help='skewed gaussian for pop. B')
             parser.add_option('--simcc', default=config.get('doSNBEAMS','simcc'), type="string",
                               help='if filename is given, construct a polynomial-altered empirical CC SN function')
-            parser.add_option('--snpars', default=map(int,config.get('doSNBEAMS','snpars'))[0], action="store_true",
-                              help='use BEAMS to constrain SALT2 alpha and beta')
             parser.add_option('--zCCdist', default=map(int,config.get('doSNBEAMS','zCCdist'))[0], action="store_true",
                               help='fit for different CC SN parameters at each redshift control point')
 
@@ -87,6 +85,10 @@ class BEAMS:
                               help='file with the input data')
             parser.add_option('-o','--outputfile', default=config.get('doSNBEAMS','outputfile'), type="string",
                               help='Output file with the derived parameters for each redshift bin')
+
+            parser.add_option('--fix',default=config.get('doSNBEAMS','outputfile'),
+                              type='string',action='append',
+                              help='parameter range for specified variable')
 
         else:
             # Input file
@@ -140,8 +142,7 @@ class BEAMS:
                               help='skewed gaussian for pop. B')
             parser.add_option('--simcc', default=None, type='string',
                               help='if filename is given, construct a polynomial-altered empirical CC SN function')
-            parser.add_option('--snpars', default=False, action="store_true",
-                              help='use BEAMS to constrain SALT2 alpha and beta')
+
             parser.add_option('--zCCdist', default=False, action="store_true",
                               help='fit for different CC parameters at each redshift control point')
 
@@ -150,6 +151,10 @@ class BEAMS:
                               help='file with the input data')
             parser.add_option('-o','--outputfile', default='beamsCosmo.out', type="string",
                               help='Output file with the derived parameters for each redshift bin')
+
+            parser.add_option('--fix',default=[],
+                              type='string',action='append',
+                              help='parameter range for specified variable')
 
         parser.add_option('-p','--paramfile', default='', type="string",
                           help='BEAMS parameter file')
@@ -319,6 +324,10 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
             pf.use[pf.param == 'popB2std'] = 1
         if self.options.skewedgauss:
             pf.use[pf.param == 'skewB'] = 1
+        if len(self.options.fix):
+            for fixvar in self.options.fix:
+                print('Fixing parameter %s!!'%fixvar)
+                pf.fixed[pf.param == fixvar] = 1
 
         self.pardict = {}
         idx = 0
