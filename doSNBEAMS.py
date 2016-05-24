@@ -280,10 +280,10 @@ class BEAMS:
 
         if usebounds:
             md = minimize(lnlikefunc,guess,
-                          args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict),bounds=bounds,method='SLSQP')
+                          args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict),bounds=bounds,method='SLSQP',options={'maxiter':10000})
         else:
             md = minimize(lnlikefunc,guess,
-                          args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict))
+                          args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict),options={'maxiter':10000})
 
         if md.message != 'Optimization terminated successfully.':
             print("""Warning : Minimization Failed!!!  

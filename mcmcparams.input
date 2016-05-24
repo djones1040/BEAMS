@@ -2,7 +2,7 @@
 
 # population A guesses and priors (the pop we care about)
 popAmean    0.0   0.0   0.5   1 0 1 1  0  0  0
-popAstd     0.1   0.1   0.2   1 0 0 0  0  0  0
+popAstd     0.115 0.115 0.2   1 0 0 0  0  0.01  0.2
 # population B guesses and priors (the pop we don't care about)
 popBmean    1.0   1.0   1.0   1 0 1 5  0  0  0
 popBstd     1.0   1.0   0.5   1 0 0 5  0  0  0
@@ -12,7 +12,7 @@ popB2std    1.0   1.0   3.0   0 0 0 5  0  0  0
 # the skewness of the pop. B gaussian
 skewB       0.0   0.0   4.0   0 0 0 5  1 -10 10
 # scale P(Ia) and P(CC): guesses and priors
-scaleA      0.95  0.95  0.2   1 0 0 0  0  0.01  0.99
+scaleA      0.95  0.95  0.2   0 0 0 0  0  0.01  0.99
 scaleB      1.0   1.0   0.2   0 0 0 0  0  0.01  0.99
 # scale P(CC): guesses and priors for gaussian 2
 scaleB2     1.0   1.0   0.2   0 0 0 0  0  0  0

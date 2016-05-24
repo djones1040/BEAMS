@@ -465,7 +465,7 @@ class snbeams:
 # FITOPT:  NONE
 # ---------------------------------------- 
 NVAR: 31 
-VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PBAYES_Ia PGAL_Ia PFITPROB_Ia
+VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PBAYES_Ia PGAL_Ia PFITPROB_Ia PNN_Ia
 # VERSION_SNANA      = v10_39i 
 # VERSION_PHOTOMETRY = PS1_PS1MD 
 # TABLE NAME: FITRES 
@@ -477,26 +477,28 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_E
                       "SNRMAX3","PKMJD","PKMJDERR","x1","x1ERR",
                       "c","cERR","mB","mBERR","x0","x0ERR","COV_x1_c",
                       "COV_x1_x0","COV_c_x0","NDOF","FITCHI2","FITPROB",
-                      "PBAYES_Ia","PGAL_Ia","PFITPROB_Ia"]
-        fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.5f %.5f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f %.4f'
+                      "PBAYES_Ia","PGAL_Ia","PFITPROB_Ia","PNN_Ia"]
+        fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.5f %.5f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f %.4f %.4f'
 
         name,ext = os.path.splitext(fitresfile)
-        fitresoutfile = '%s_mc%i%s'%(name,mciter,ext)
+        outname,outext = os.path.splitext(self.options.outfile)
+        fitresoutfile = '%s_%s_mc%i%s'%(name,outname.split('/')[-1],mciter,ext)
 
         fr = txtobj(fitresfile,fitresheader=True)
-        frlowz = txtobj(lowzfile,fitresheader=True)    
+        if lowzfile:
+            frlowz = txtobj(lowzfile,fitresheader=True)    
         # Light curve cuts
         if self.options.x1cellipse:
             # I'm just going to assume cmax = abs(cmin) and same for x1
             cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
-                            (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax/(1+fr.zHD)) &
+                            (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax*(1+fr.zHD)) &
                             (fr.FITPROB >= self.options.fitprobmin) &
                             (fr.zHD > self.options.zmin) & (fr.zHD < self.options.zmax) &
                             (fr.__dict__[self.options.piacol] >= 0))
         else:
             cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
                             (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
-                            (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax) &
+                            (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax*(1+fr.zHD)) &
                             (fr.FITPROB >= self.options.fitprobmin) &
                             (fr.zHD > self.options.zmin) & (fr.zHD < self.options.zmax) &
                             (fr.__dict__[self.options.piacol] >= 0))
@@ -505,8 +507,9 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_E
 
         writefitres(fr,np.random.randint(len(fr.CID),size=nsne),fitresoutfile,fitresheader=fitresheader,
                     fitresvars=fitresvars,fitresfmt=fitresfmt)
-        writefitres(frlowz,range(len(frlowz.CID)),fitresoutfile,append=True,fitresheader=fitresheader,
-                    fitresvars=fitresvars,fitresfmt=fitresfmt)
+        if lowzfile:
+            writefitres(frlowz,range(len(frlowz.CID)),fitresoutfile,append=True,fitresheader=fitresheader,
+                        fitresvars=fitresvars,fitresfmt=fitresfmt)
 
         return(fitresoutfile)
 
@@ -620,7 +623,7 @@ examples:
             frfile = sne.mcsamp(options.fitresfile,i,options.mclowz,options.subsetsize)
             name,ext = os.path.splitext(outfile_orig)
             options.outfile = '%s_mc%i%s'%(name,i,ext)
-            sne.main(frfile,mkcuts=False)
+            sne.main(frfile)
     else:
         sne.main(options.fitresfile)
 
