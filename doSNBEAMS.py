@@ -280,7 +280,7 @@ class BEAMS:
 
         if usebounds:
             md = minimize(lnlikefunc,guess,
-                          args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict),bounds=bounds,method='SLSQP',options={'maxiter':10000})
+                          args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict),bounds=bounds,method='L-BFGS-B',options={'maxiter':10000})
         else:
             md = minimize(lnlikefunc,guess,
                           args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict),options={'maxiter':10000})

@@ -7,17 +7,17 @@ fitresheader = """# VERSION: PS1_PS1MD
 # FITOPT:  NONE
 # ---------------------------------------- 
 NVAR: 30 
-VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB 
+VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB 
 # VERSION_SNANA      = v10_39i 
 # VERSION_PHOTOMETRY = PS1_PS1MD 
 # TABLE NAME: FITRES 
 # 
 """
-fitresheaderbeams = """# CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PA PL
+fitresheaderbeams = """# CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PA PL
 """
-fitresfmtbeams = '%s %i %i %s %.5f %.5f %.5f %.5f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f'
+fitresfmtbeams = '%s %i %i %s %.5f %.5f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f'
 fitresvarsbeams = ["CID","IDSURVEY","TYPE","FIELD",
-                   "zHD","zHDERR","z","zERR","HOST_LOGMASS",
+                   "zHD","zHDERR","HOST_LOGMASS",
                    "HOST_LOGMASS_ERR","SNRMAX1","SNRMAX2",
                    "SNRMAX3","PKMJD","PKMJDERR","x1","x1ERR",
                    "c","cERR","mB","mBERR","x0","x0ERR","COV_x1_c",
@@ -26,12 +26,12 @@ fitresvarsbeams = ["CID","IDSURVEY","TYPE","FIELD",
 
 
 fitresvars = ["CID","IDSURVEY","TYPE","FIELD",
-              "zHD","zHDERR","z","zERR","HOST_LOGMASS",
+              "zHD","zHDERR","HOST_LOGMASS",
               "HOST_LOGMASS_ERR","SNRMAX1","SNRMAX2",
               "SNRMAX3","PKMJD","PKMJDERR","x1","x1ERR",
               "c","cERR","mB","mBERR","x0","x0ERR","COV_x1_c",
               "COV_x1_x0","COV_c_x0","NDOF","FITCHI2","FITPROB"]
-fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.5f %.5f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f'
+fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f'
 
 class snbeams:
     def __init__(self):
@@ -127,11 +127,15 @@ class snbeams:
                               help='number of SNe in each MC subset ')
             parser.add_option('--nmc', default=config.get('main','nmc'), type="int",
                               help='number of MC samples ')
+            parser.add_option('--nmcstart', default=config.get('main','nmcstart'), type="int",
+                              help='start at this MC sample')
             parser.add_option('--mclowz', default=config.get('main','mclowz'), type="string",
                               help='low-z SNe, to be appended to the MC sample')
 
             parser.add_option('--onlyIa', default=config.get('main','onlyIa'), action="store_true",
                               help='remove the TYPE != 1 SNe from the bunch')
+            parser.add_option('--nobadzsim', default=config.get('main','nobadzsim'), action="store_true",
+                              help='If working with simulated data, remove the bad redshifts')
             parser.add_option('--zminphot', default=config.get('main','zminphot'), type='float',
                               help='set a minimum redshift for P(Ia) != 1 sample')
 
@@ -230,11 +234,15 @@ class snbeams:
                               help='number of SNe in each MC subset ')
             parser.add_option('--nmc', default=100, type="int",
                               help='number of MC samples ')
+            parser.add_option('--nmcstart', default=1, type="int",
+                              help='start at this MC sample')
             parser.add_option('--mclowz', default="", type="string",
                               help='low-z SNe, to be appended to the MC sample')
             
             parser.add_option('--onlyIa', default=False, action="store_true",
                               help='remove the TYPE != 1 SNe from the bunch')
+            parser.add_option('--nobadzsim', default=False, action="store_true",
+                              help='If working with simulated data, remove the bad redshifts')
             parser.add_option('--zminphot', default=0.0, type='float',
                               help='set a minimum redshift for P(Ia) != 1 sample')
 
@@ -253,7 +261,7 @@ class snbeams:
                               help='Number of threads for MCMC')
             parser.add_option('--nwalkers', default=200, type="int",
                               help='Number of walkers for MCMC')
-            parser.add_option('--nsteps', default=200, type="int",
+            parser.add_option('--nsteps', default=4000, type="int",
                               help='Number of steps (per walker) for MCMC')
 
             
@@ -349,7 +357,10 @@ class snbeams:
             cols = np.where((fr.zHD >= self.options.zminphot) | (fr.__dict__[self.options.piacol] == 1))
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
-
+        if self.options.nobadzsim:
+            cols = np.where((np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))
+            for k in fr.__dict__.keys():
+                fr.__dict__[k] = fr.__dict__[k][cols]
 
         root = os.path.splitext(fitres)[0]
         
@@ -619,7 +630,7 @@ examples:
 
     if options.mcsubset:
         outfile_orig = options.outfile[:]
-        for i in range(options.nmc):
+        for i in range(options.nmcstart,options.nmc):
             frfile = sne.mcsamp(options.fitresfile,i,options.mclowz,options.subsetsize)
             name,ext = os.path.splitext(outfile_orig)
             options.outfile = '%s_mc%i%s'%(name,i,ext)
