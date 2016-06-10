@@ -207,7 +207,7 @@ class BEAMS:
         coverr = lambda samp: np.sqrt(np.sum((samp-np.mean(samp))*(samp-np.mean(samp)))/len(samp))
 
         outlinevars = ['popAmean','popAstd','popBmean','popBstd','popB2mean','popB2std','skewB',
-                       'scaleA','scaleB','scaleB2','lstep','salt2alpha','salt2beta']
+                       'scaleA','scaleB','scaleB2','shift','lstep','salt2alpha','salt2beta']
         outlinefmt = " ".join(["%.4f"]*(1+len(outlinevars)*2))
         fout = open(self.options.outputfile,'w')
         headerline = "# zCMB "
@@ -516,6 +516,12 @@ def twogausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=True)
     zHD,PA,PL = inp.zHD[muAerr == muAerr],inp.PA[muAerr == muAerr],inp.PL[muAerr == muAerr]
     muA,muAerr = muA[muAerr == muAerr],muAerr[muAerr == muAerr]
 
+    # add in a shift
+    if pardict['shift']['use']:
+        PA += x[pardict['shift']['idx']]
+        PA[PA > 1] = 1
+        PA[PA < 0] = 0
+
     modeldict = zmodel(x,zcontrol,zHD,pardict)
     
     if pardict['lstep']['use']:
@@ -558,6 +564,12 @@ def threegausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=Tru
     muB,muBerr = muB[muAerr == muAerr],muBerr[muAerr == muAerr]
     zHD,PA,PL = inp.zHD[muAerr == muAerr],inp.PA[muAerr == muAerr],inp.PL[muAerr == muAerr]
     muA,muAerr = muA[muAerr == muAerr],muAerr[muAerr == muAerr]
+
+    # add in a shift
+    if pardict['shift']['use']:
+        PA += x[pardict['shift']['idx']]
+        PA[PA > 1] = 1
+        PA[PA < 0] = 0
 
     modeldict = zmodel(x,zcontrol,zHD,pardict)
     
@@ -604,6 +616,11 @@ def twogausslike_skew(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=
 
     modeldict = zmodel(x,zcontrol,zHD,pardict)
     
+    # add in a shift
+    if pardict['shift']['use']:
+        PA += x[pardict['shift']['idx']]
+        PA[PA > 1] = 1
+        PA[PA < 0] = 0
 
     gaussA = -(muA-modeldict['muAmodel'])**2./(2.0*(muAerr**2.+x[pardict['popAstd']['idx']]**2.)) + \
         np.log(scaleIa*PA*(1-PL)/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2.+muBerr**2.)))
