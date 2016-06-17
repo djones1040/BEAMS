@@ -140,16 +140,16 @@ class snbeams:
                               help='set a minimum redshift for P(Ia) != 1 sample')
             parser.add_option('--specidsurvey', default=config.get('main','specidsurvey'), type='float',
                               help='will fix P(Ia) at 1 for IDSURVEY = this value')
-            parser.add_option('--nspecsne', default=0, type='int',
+            parser.add_option('--nspecsne', default=config.get('main','nspecsne'), type='int',
                               help='a spectroscopic sample to help BEAMS (for sim SNe)')
+            parser.add_option('--nsne', default=config.get('main','nsne'), type='int',
+                              help='maximum number of SNe to fit')
 
             # alternate functional models
             parser.add_option('--twogauss', default=config.get('main','twogauss'), action="store_true",
                               help='two gaussians for pop. B')
             parser.add_option('--skewedgauss', default=config.get('main','skewedgauss'), action="store_true",
                               help='skewed gaussian for pop. B')
-            parser.add_option('--simcc', default=config.get('main','simcc'), type='string',
-                              help='if filename is given, construct a polynomial-altered empirical CC SN function')
             parser.add_option('--zCCdist', default=map(int,config.get('main','zCCdist'))[0], action="store_true",
                               help='fit for different CC SN parameters at each redshift control point')
 
@@ -253,14 +253,14 @@ class snbeams:
                               help='will fix P(Ia) at 1 for IDSURVEY = this value')
             parser.add_option('--nspecsne', default=0, type='int',
                               help='a spectroscopic sample to help BEAMS (for sim SNe)')
+            parser.add_option('--nsne', default=0, type='int',
+                              help='maximum number of SNe to fit')
 
             # alternate functional models
             parser.add_option('--twogauss', default=False, action="store_true",
                               help='two gaussians for pop. B')
             parser.add_option('--skewedgauss', default=False, action="store_true",
                               help='skewed gaussian for pop. B')
-            parser.add_option('--simcc', default='', type='string',
-                              help='if filename is given, construct a polynomial-altered empirical CC SN function')
             parser.add_option('--zCCdist', default=False, action="store_true",
                               help='fit for different CC parameters at each redshift control point')
 
@@ -288,8 +288,6 @@ class snbeams:
         from astropy.cosmology import Planck13 as cosmo
 
         fr = txtobj(fitres,fitresheader=True)
-        if self.options.simcc:
-            simcc = txtobj(self.options.simcc,fitresheader=True)
         if self.options.zmin < np.min(fr.zHD): self.options.zmin = np.min(fr.zHD)
         if self.options.zmax > np.max(fr.zHD): self.options.zmax = np.max(fr.zHD)
         
@@ -299,91 +297,9 @@ class snbeams:
                                        alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
                                        beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
                                        x0=fr.x0,sigint=self.options.sigint,z=fr.zHD)
-        if self.options.simcc:
-            simcc.MU,simcc.MUERR = salt2mu_aberr(x1=simcc.x1,x1err=simcc.x1ERR,c=simcc.c,cerr=simcc.cERR,mb=simcc.mB,mberr=simcc.mBERR,
-                                                 cov_x1_c=simcc.COV_x1_c,cov_x1_x0=simcc.COV_x1_x0,cov_c_x0=simcc.COV_c_x0,
-                                                 alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
-                                                 beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
-                                                 x0=simcc.x0,sigint=self.options.sigint,z=simcc.zHD)
 
-        if mkcuts:
-            # Light curve cuts
-            sf = -2.5/(fr.x0*np.log(10.0))
-            invvars = 1./(fr.mBERR**2.+ self.options.salt2alpha**2. * fr.x1ERR**2. + \
-                              self.options.salt2beta**2. * fr.cERR**2. +  2.0 * self.options.salt2alpha * (fr.COV_x1_x0*sf) - \
-                              2.0 * self.options.salt2beta * (fr.COV_c_x0*sf) - \
-                              2.0 * self.options.salt2alpha*self.options.salt2beta * (fr.COV_x1_c) )
-            if self.options.x1cellipse:
-                # I'm just going to assume cmax = abs(cmin) and same for x1
-                cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
-                                (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax*(1+fr.zHD)) &
-                                (fr.FITPROB >= self.options.fitprobmin) &
-                                (fr.zHD > self.options.zmin) & (fr.zHD < self.options.zmax) &
-                                (fr.__dict__[self.options.piacol] >= 0) & (invvars > 0))
-            else:
-                cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
-                                (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
-                                (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax*(1+fr.zHD)) &
-                                (fr.FITPROB >= self.options.fitprobmin) &
-                                (fr.zHD > self.options.zmin) & (fr.zHD < self.options.zmax) &
-                                (fr.__dict__[self.options.piacol] >= 0) & (invvars > 0))
+        fr = mkfitrescuts(self,fr,mkcuts=mkcuts)
 
-            for k in fr.__dict__.keys():
-                fr.__dict__[k] = fr.__dict__[k][cols]
-            if self.options.simcc:
-                # Light curve cuts
-                sf = -2.5/(simcc.x0*np.log(10.0))
-                invvars = 1./(simcc.mBERR**2.+ self.options.salt2alpha**2. * simcc.x1ERR**2. + \
-                                  self.options.salt2beta**2. * simcc.cERR**2. +  2.0 * self.options.salt2alpha * (simcc.COV_x1_x0*sf) - \
-                                  2.0 * self.options.salt2beta * (simcc.COV_c_x0*sf) - \
-                                  2.0 * self.options.salt2alpha*self.options.salt2beta * (simcc.COV_x1_c) )
-                if self.options.x1cellipse:
-                    # I'm just going to assume cmax = abs(cmin) and same for x1
-                    cols = np.where((simcc.x1**2./self.options.x1range[0]**2. + simcc.c**2./self.options.crange[0]**2. < 1) &
-                                    (simcc.x1ERR < self.options.x1errmax) & (simcc.PKMJDERR < self.options.pkmjderrmax/(1+simcc.zHD)) &
-                                    (simcc.FITPROB >= self.options.fitprobmin) &
-                                    (simcc.zHD > self.options.zmin) & (simcc.z < self.options.zmax) &
-                                    (simcc.__dict__[self.options.piacol] >= 0) & (invvars > 0))
-                else:
-                    cols = np.where((simcc.x1 > self.options.x1range[0]) & (simcc.x1 < self.options.x1range[1]) &
-                                    (simcc.c > self.options.crange[0]) & (simcc.c < self.options.crange[1]) &
-                                    (simcc.x1ERR < self.options.x1errmax) & (simcc.PKMJDERR < self.options.pkmjderrmax) &
-                                    (simcc.FITPROB >= self.options.fitprobmin) &
-                                    (simcc.zHD > self.options.zmin) & (simcc.z < self.options.zmax) &
-                                    (simcc.__dict__[self.options.piacol] >= 0) & (invvars > 0))
-
-                for k in simcc.__dict__.keys():
-                    simcc.__dict__[k] = simcc.__dict__[k][cols]
-        fr.SNSPEC = np.zeros(len(fr.CID))
-        if self.options.specidsurvey:
-            fr.SNSPEC[fr.IDSURVEY == self.options.specidsurvey] = 1
-        if self.options.nspecsne:
-            from random import sample
-            cols = sample(range(len(fr.CID[(fr.IDSURVEY != self.options.specidsurvey) & 
-                                           (fr.SIM_TYPE_INDEX == 1) &
-                                           (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001)])),
-                          self.options.nspecsne)
-            fr.SNSPEC[np.where((fr.IDSURVEY != self.options.specidsurvey) & 
-                               (fr.SIM_TYPE_INDEX == 1) &
-                               (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))[0][cols]] = 1
-            fr.__dict__[self.options.piacol][np.where((fr.IDSURVEY != self.options.specidsurvey) & 
-                                                      (fr.SIM_TYPE_INDEX == 1) &
-                                                      (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))[0][cols]] = 1
-        if self.options.onlyIa:
-            cols = np.where((fr.SIM_TYPE_INDEX == 1) & (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))
-            for k in fr.__dict__.keys():
-                fr.__dict__[k] = fr.__dict__[k][cols]
-        elif self.options.piacol == 'PTRUE_Ia':
-            cols = np.where(np.abs(fr.SIM_ZCMB - fr.zHD) > 0.001)
-            fr.PTRUE_Ia[cols] = 0
-        if self.options.zminphot:
-            cols = np.where((fr.zHD >= self.options.zminphot) | (fr.__dict__[self.options.piacol] == 1))
-            for k in fr.__dict__.keys():
-                fr.__dict__[k] = fr.__dict__[k][cols]
-        if self.options.nobadzsim:
-            cols = np.where((np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))
-            for k in fr.__dict__.keys():
-                fr.__dict__[k] = fr.__dict__[k][cols]
 
         root = os.path.splitext(fitres)[0]
         
@@ -463,6 +379,84 @@ class snbeams:
         bms = txtobj(self.options.outfile)
         self.writeBinCorrFitres('%s.fitres'%self.options.outfile.split('.')[0],bms,fr=fr)
         return
+
+    def mkfitrescuts(self,fr,mkcuts=False):
+
+        # Light curve cuts
+        if mkcuts:
+            sf = -2.5/(fr.x0*np.log(10.0))
+            invvars = 1./(fr.mBERR**2.+ self.options.salt2alpha**2. * fr.x1ERR**2. + \
+                              self.options.salt2beta**2. * fr.cERR**2. +  2.0 * self.options.salt2alpha * (fr.COV_x1_x0*sf) - \
+                              2.0 * self.options.salt2beta * (fr.COV_c_x0*sf) - \
+                              2.0 * self.options.salt2alpha*self.options.salt2beta * (fr.COV_x1_c) )
+            if self.options.x1cellipse:
+                # I'm just going to assume cmax = abs(cmin) and same for x1
+                cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
+                                (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax*(1+fr.zHD)) &
+                                (fr.FITPROB >= self.options.fitprobmin) &
+                                (fr.zHD > self.options.zmin) & (fr.zHD < self.options.zmax) &
+                                (fr.__dict__[self.options.piacol] >= 0) & (invvars > 0))
+            else:
+                cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
+                                (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
+                                (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax*(1+fr.zHD)) &
+                                (fr.FITPROB >= self.options.fitprobmin) &
+                                (fr.zHD > self.options.zmin) & (fr.zHD < self.options.zmax) &
+                                (fr.__dict__[self.options.piacol] >= 0) & (invvars > 0))
+
+            for k in fr.__dict__.keys():
+                fr.__dict__[k] = fr.__dict__[k][cols]
+
+        # create the SNSPEC field - these probabilities will be fixed at 1!!
+        fr.SNSPEC = np.zeros(len(fr.CID))
+        if self.options.specidsurvey:
+            fr.SNSPEC[fr.IDSURVEY == self.options.specidsurvey] = 1
+
+        # set a certain number of simulated SNe to be 'confirmed' SN Ia
+        if self.options.nspecsne:
+            from random import sample
+            cols = sample(range(len(fr.CID[(fr.IDSURVEY != self.options.specidsurvey) & 
+                                           (fr.SIM_TYPE_INDEX == 1) &
+                                           (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001)])),
+                          self.options.nspecsne)
+            fr.SNSPEC[np.where((fr.IDSURVEY != self.options.specidsurvey) & 
+                               (fr.SIM_TYPE_INDEX == 1) &
+                               (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))[0][cols]] = 1
+            fr.__dict__[self.options.piacol][np.where((fr.IDSURVEY != self.options.specidsurvey) & 
+                                                      (fr.SIM_TYPE_INDEX == 1) &
+                                                      (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))[0][cols]] = 1
+
+        # can get the Ia-only likelihood as a consistency check
+        if self.options.onlyIa:
+            cols = np.where((fr.SIM_TYPE_INDEX == 1) & (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))
+            for k in fr.__dict__.keys():
+                fr.__dict__[k] = fr.__dict__[k][cols]
+        elif self.options.piacol == 'PTRUE_Ia':
+            # Hack - bad redshifts are called CC SNe when running 'true' probabilities
+            cols = np.where(np.abs(fr.SIM_ZCMB - fr.zHD) > 0.001)
+            fr.PTRUE_Ia[cols] = 0
+
+        # all those low-z photometric SNe are probably CC SNe?
+        if self.options.zminphot:
+            cols = np.where((fr.zHD >= self.options.zminphot) | (fr.IDSURVEY == self.options.specidsurvey))
+            for k in fr.__dict__.keys():
+                fr.__dict__[k] = fr.__dict__[k][cols]
+
+        # try getting rid of the bad redshifts
+        if self.options.nobadzsim:
+            cols = np.where((np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))
+            for k in fr.__dict__.keys():
+                fr.__dict__[k] = fr.__dict__[k][cols]
+
+        # try a random subset of the fulll fitres file
+        if self.options.nsne and self.options.nsne > len(fr.CID):
+            from random import sample
+            cols = sample(range(len(fr.CID)),
+                          self.options.nspecsne)
+            for k in fr.__dict__.keys():
+                fr.__dict__[k] = fr.__dict__[k][cols]
+    
+        return(fr)
 
     def writeBinCorrFitres(self,outfile,bms,skip=0,fr=None):
         import os
