@@ -13,16 +13,16 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRM
 # TABLE NAME: FITRES 
 # 
 """
-fitresheaderbeams = """# CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PA PL
+fitresheaderbeams = """# CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PA PL SNSPEC
 """
-fitresfmtbeams = '%s %i %i %s %.5f %.5f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f'
+fitresfmtbeams = '%s %i %i %s %.5f %.5f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f %i'
 fitresvarsbeams = ["CID","IDSURVEY","TYPE","FIELD",
                    "zHD","zHDERR","HOST_LOGMASS",
                    "HOST_LOGMASS_ERR","SNRMAX1","SNRMAX2",
                    "SNRMAX3","PKMJD","PKMJDERR","x1","x1ERR",
                    "c","cERR","mB","mBERR","x0","x0ERR","COV_x1_c",
                    "COV_x1_x0","COV_c_x0","NDOF","FITCHI2","FITPROB",
-                   "PA","PL"]
+                   "PA","PL","SNSPEC"]
 
 
 fitresvars = ["CID","IDSURVEY","TYPE","FIELD",
@@ -138,6 +138,10 @@ class snbeams:
                               help='If working with simulated data, remove the bad redshifts')
             parser.add_option('--zminphot', default=config.get('main','zminphot'), type='float',
                               help='set a minimum redshift for P(Ia) != 1 sample')
+            parser.add_option('--specidsurvey', default=config.get('main','specidsurvey'), type='float',
+                              help='will fix P(Ia) at 1 for IDSURVEY = this value')
+            parser.add_option('--nspecsne', default=0, type='int',
+                              help='a spectroscopic sample to help BEAMS (for sim SNe)')
 
             # alternate functional models
             parser.add_option('--twogauss', default=config.get('main','twogauss'), action="store_true",
@@ -230,7 +234,7 @@ class snbeams:
             
             parser.add_option('--mcsubset', default=False, action="store_true",
                               help='generate a random subset of SNe from the fitres file')
-            parser.add_option('--subsetsize', default=125, type="int",
+            parser.add_option('--subsetsize', default=105, type="int",
                               help='number of SNe in each MC subset ')
             parser.add_option('--nmc', default=100, type="int",
                               help='number of MC samples ')
@@ -245,6 +249,10 @@ class snbeams:
                               help='If working with simulated data, remove the bad redshifts')
             parser.add_option('--zminphot', default=0.0, type='float',
                               help='set a minimum redshift for P(Ia) != 1 sample')
+            parser.add_option('--specidsurvey', default=53, type='float',
+                              help='will fix P(Ia) at 1 for IDSURVEY = this value')
+            parser.add_option('--nspecsne', default=0, type='int',
+                              help='a spectroscopic sample to help BEAMS (for sim SNe)')
 
             # alternate functional models
             parser.add_option('--twogauss', default=False, action="store_true",
@@ -346,6 +354,21 @@ class snbeams:
 
                 for k in simcc.__dict__.keys():
                     simcc.__dict__[k] = simcc.__dict__[k][cols]
+        fr.SNSPEC = np.zeros(len(fr.CID))
+        if self.options.specidsurvey:
+            fr.SNSPEC[fr.IDSURVEY == self.options.specidsurvey] = 1
+        if self.options.nspecsne:
+            from random import sample
+            cols = sample(range(len(fr.CID[(fr.IDSURVEY != self.options.specidsurvey) & 
+                                           (fr.SIM_TYPE_INDEX == 1) &
+                                           (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001)])),
+                          self.options.nspecsne)
+            fr.SNSPEC[np.where((fr.IDSURVEY != self.options.specidsurvey) & 
+                               (fr.SIM_TYPE_INDEX == 1) &
+                               (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))[0][cols]] = 1
+            fr.__dict__[self.options.piacol][np.where((fr.IDSURVEY != self.options.specidsurvey) & 
+                                                      (fr.SIM_TYPE_INDEX == 1) &
+                                                      (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))[0][cols]] = 1
         if self.options.onlyIa:
             cols = np.where((fr.SIM_TYPE_INDEX == 1) & (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))
             for k in fr.__dict__.keys():
