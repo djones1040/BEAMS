@@ -459,7 +459,7 @@ class snbeams:
                 fr.__dict__[k] = fr.__dict__[k][cols]
 
         # try a random subset of the fulll fitres file
-        if self.options.nsne and self.options.nsne > len(fr.CID):
+        if self.options.nsne and self.options.nsne < len(fr.CID):
             from random import sample
             cols = sample(range(len(fr.CID)),
                           self.options.nspecsne)
