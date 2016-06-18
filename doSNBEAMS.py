@@ -28,65 +28,67 @@ class BEAMS:
 
         if config:
             # Input file
-            parser.add_option('--pacol', default=config.get('doSNBEAMS','pacol'), type="string",
+            parser.add_option('--pacol', default=config.get('dobeams','pacol'), type="string",
                               help='column in input file used as prior P(A)')
-            parser.add_option('--mucol', default=config.get('doSNBEAMS','mucol'), type="string",
+            parser.add_option('--mucol', default=config.get('dobeams','mucol'), type="string",
                               help='column name in input file header for distance modulus')
-            parser.add_option('--muerrcol', default=config.get('doSNBEAMS','muerrcol'), type="string",
+            parser.add_option('--muerrcol', default=config.get('dobeams','muerrcol'), type="string",
                               help='column name in input file header for distance modulus errors')
-            parser.add_option('--zcol', default=config.get('doSNBEAMS','zcol'), type="string",
+            parser.add_option('--zcol', default=config.get('dobeams','zcol'), type="string",
                               help='column name in input file header for z')
 
             # options to fit to a second-order "step" effect on luminosity.
             # This is the host mass bias for SNe.
-            parser.add_option('--plcol', default=config.get('doSNBEAMS','plcol'), type="string",
+            parser.add_option('--plcol', default=config.get('dobeams','plcol'), type="string",
                               help='column in input file used as probability for an additional luminosity correction P(L)')
 
-            parser.add_option('--salt2alpha', default=config.get('doSNBEAMS','salt2alpha'), type="float",
+            parser.add_option('--salt2alpha', default=config.get('dobeams','salt2alpha'), type="float",
                               help='SALT2 alpha parameter from a spectroscopic sample (default=%default)')
-            parser.add_option('--salt2alphaerr', default=config.get('doSNBEAMS','salt2alphaerr'), type="float",
+            parser.add_option('--salt2alphaerr', default=config.get('dobeams','salt2alphaerr'), type="float",
                               help='nominal SALT2 alpha uncertainty from a spectroscopic sample (default=%default)')
-            parser.add_option('--salt2beta', default=config.get('doSNBEAMS','salt2beta'), type="float",
+            parser.add_option('--salt2beta', default=config.get('dobeams','salt2beta'), type="float",
                               help='nominal SALT2 beta parameter from a spec. sample (default=%default)')
-            parser.add_option('--salt2betaerr', default=config.get('doSNBEAMS','salt2betaerr'), type="float",
+            parser.add_option('--salt2betaerr', default=config.get('dobeams','salt2betaerr'), type="float",
                               help='nominal SALT2 beta uncertainty from a spec. sample (default=%default)')        
 
             # output and number of threads
-            parser.add_option('--nthreads', default=config.get('doSNBEAMS','nthreads'), type="int",
+            parser.add_option('--nthreads', default=config.get('dobeams','nthreads'), type="int",
                               help='Number of threads for MCMC')
-            parser.add_option('--nwalkers', default=config.get('doSNBEAMS','nwalkers'), type="int",
+            parser.add_option('--nwalkers', default=config.get('dobeams','nwalkers'), type="int",
                               help='Number of walkers for MCMC')
-            parser.add_option('--nsteps', default=config.get('doSNBEAMS','nsteps'), type="int",
+            parser.add_option('--nsteps', default=config.get('dobeams','nsteps'), type="int",
                               help='Number of steps for MCMC')
-            parser.add_option('--ninit', default=config.get('doSNBEAMS','ninit'), type="int",
+            parser.add_option('--ninit', default=config.get('dobeams','ninit'), type="int",
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
-            parser.add_option('--mcrandstep', default=config.get('doSNBEAMS','mcrandstep'), type="float",
+            parser.add_option('--mcrandstep', default=config.get('dobeams','mcrandstep'), type="float",
                               help="random step size for initializing MCMC")
+            parser.add_option('--minmethod', default=config.get('dobeams','minmethod'), type="float",
+                              help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.  
+SLSQP is faster.  Try others if using unbounded parameters""")
+            parser.add_option('--forceminsuccess', default=map(int,config.get('dobeams','forceminsuccess'))[0], type="store_true",
+                              help="""if true, minimizer must be successful or code will crash.
+Default is to let the MCMC try to find a minimum if minimizer fails""")
 
 
-            parser.add_option('--nzbins', default=config.get('doSNBEAMS','nzbins'), type="int",
+            parser.add_option('--nzbins', default=config.get('dobeams','nzbins'), type="int",
                               help='Number of z bins')
-            parser.add_option('--zmin', default=config.get('doSNBEAMS','zmin'), type="float",
+            parser.add_option('--zmin', default=config.get('dobeams','zmin'), type="float",
                               help='min redshift')
-            parser.add_option('--zmax', default=config.get('doSNBEAMS','zmax'), type="float",
+            parser.add_option('--zmax', default=config.get('dobeams','zmax'), type="float",
                               help='max redshift')
 
             # alternate functional models
-            parser.add_option('--twogauss', default=map(int,config.get('doSNBEAMS','twogauss'))[0], action="store_true",
+            parser.add_option('--twogauss', default=map(int,config.get('dobeams','twogauss'))[0], action="store_true",
                               help='two gaussians for pop. B')
-            parser.add_option('--skewedgauss', default=map(int,config.get('doSNBEAMS','skewedgauss'))[0], action="store_true",
+            parser.add_option('--skewedgauss', default=map(int,config.get('dobeams','skewedgauss'))[0], action="store_true",
                               help='skewed gaussian for pop. B')
-            parser.add_option('--zCCdist', default=map(int,config.get('doSNBEAMS','zCCdist'))[0], action="store_true",
+            parser.add_option('--zCCdist', default=map(int,config.get('dobeams','zCCdist'))[0], action="store_true",
                               help='fit for different CC SN parameters at each redshift control point')
 
-            parser.add_option('-i','--inputfile', default=config.get('doSNBEAMS','inputfile'), type="string",
+            parser.add_option('-i','--inputfile', default=config.get('dobeams','inputfile'), type="string",
                               help='file with the input data')
-            parser.add_option('-o','--outputfile', default=config.get('doSNBEAMS','outputfile'), type="string",
+            parser.add_option('-o','--outputfile', default=config.get('dobeams','outputfile'), type="string",
                               help='Output file with the derived parameters for each redshift bin')
-
-            parser.add_option('--fix',default=config.get('doSNBEAMS','outputfile'),
-                              type='string',action='append',
-                              help='parameter range for specified variable')
 
         else:
             # Input file
@@ -125,6 +127,14 @@ class BEAMS:
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
             parser.add_option('--mcrandstep', default=1e-4, type="float",
                               help="random step size for initializing MCMC")
+            parser.add_option('--minmethod', default='L-BFGS-B', type="float",
+                              help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.  
+SLSQP is faster.  Try others if using unbounded parameters""")
+            parser.add_option('--forceminsuccess', default=False, type="store_true",
+                              help="""if true, minimizer must be successful or code will crash.
+Default is to let the MCMC try to find a minimum if minimizer fails""")
+
+
 
             parser.add_option('--nzbins', default=30, type="int",
                               help='Number of z bins')
@@ -150,7 +160,20 @@ class BEAMS:
 
             parser.add_option('--fix',default=[],
                               type='string',action='append',
-                              help='parameter range for specified variable')
+                              help='fix specified variable to initial guess')
+            parser.add_option('--bounds',default=[],
+                              type='string',action='append',
+                              help='variable, lower bound, upper bound.  Overrides MCMC parameter file.')
+            parser.add_option('--guess',default=[],
+                              type='string',action='append',
+                              help='parameter guess for specified variable.  Overrides MCMC parameter file')
+            parser.add_option('--prior',default=[],
+                              type='string',action='append',
+                              help='parameter prior for specified variable.  Overrides MCMC parameter file')
+            parser.add_option('--bins',default=[],
+                              type='string',action='append',
+                              help='parameter prior for specified variable.  Overrides MCMC parameter file')
+
 
         parser.add_option('-p','--paramfile', default='', type="string",
                           help='BEAMS parameter file')
@@ -280,25 +303,21 @@ class BEAMS:
 
 
         if usebounds:
-            method = 'SLSQP' 
-            #method = 'L-BFGS-B'
-#            inp.mBERR *= 3.0
-#            md = minimize(lnlikefunc,guess,
-#                          args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict),bounds=bounds,method=method,options={'maxiter':10000})
-#            inp.mBERR /= 3.0
-            #import pdb; pdb.set_trace()
             md = minimize(lnlikefunc,guess,
-                          args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict),bounds=bounds,method=method,options={'maxiter':10000})
+                          args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict),
+                          bounds=bounds,method=self.options.minmethod,options={'maxiter':10000})
         else:
-            md = minimize(lnlikefunc,guess,
+            md = minimize(lnlikefunc,guess,method=self.options.minmethod,
                           args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict),options={'maxiter':10000})
 
         if md.message != 'Optimization terminated successfully.':
-#            print("""Error : Minimization Failed!!!
-#Try some different initial guesses, or let the MCMC try and take care of it""")
             print(md.message)
-#            import pdb; pdb.set_trace()
-#            raise RuntimeError('Error : Minimization Failed!!!')
+            if self.options.forceminsuccess:
+                raise RuntimeError('Error : Minimization Failed!!!')
+            else:
+                print("""Warning : Minimization Failed!!!
+Try some different initial guesses, or let the MCMC try and take care of it""")
+
         # add in the random steps
         ndim, nwalkers = len(md["x"]), int(self.options.nwalkers)
         mcstep = np.array([])
@@ -338,6 +357,29 @@ class BEAMS:
             for fixvar in self.options.fix:
                 print('Fixing parameter %s!!'%fixvar)
                 pf.fixed[pf.param == fixvar] = 1
+        if len(self.options.bounds):
+            for bounds in self.options.bounds:
+                print('Fixing parameter %s!!'%fixvar)
+                boundsvar,lbound,ubound = bounds
+                pf.lbound[pf.param == boundsvar] = lbound
+                pf.ubound[pf.param == boundsvar] = ubound
+        if len(self.options.guess):
+            for guess in self.options.guess:
+                print('Fixing parameter %s!!'%fixvar)
+                guessvar,guessval = guess
+                pf.guess[pf.param == guessvar] = guessval
+        if len(self.options.prior):
+            for prior in self.options.prior:
+                print('Fixing parameter %s!!'%fixvar)
+                priorvar,priormean,priorstd = prior
+                pf.prior[pf.param == priorvar] = priormean
+                pf.sigma[pf.param == priorvar] = sigma
+        if len(self.options.bins):
+            for bins in self.options.bins:
+                print('Fixing parameter %s!!'%fixvar)
+                binvar,nbins = bins
+                pf.bins[pf.param == binvar] = nbins
+
 
         self.pardict = {}
         idx = 0
@@ -462,6 +504,7 @@ def zmodel(x,zcontrol,zHD,pardict,corr=True):
                 else:
                     skewBmodel[cols] = skewb
 
+    # second gaussian - allowing for different # of bins
     if pardict['popB2mean']['use'] and pardict['popB2mean']['bins']:
         zcontrolCC = np.logspace(np.log10(min(zcontrol)),np.log10(max(zcontrol)),len(pardict['popB2mean']['idx']))
         for zb,zb1,i in zip(zcontrolCC[:-1],zcontrolCC[1:],range(len(zcontrol))):
@@ -840,7 +883,7 @@ Can specify or fix, with priors:
 2. The mean and standard deviation of the contaminant population
 3. The fraction of contaminants
 
-USAGE: doSNBEAMS.py -p param_file -i input_file [options]
+USAGE: dobeams.py -p param_file -i input_file [options]
 
 examples:
 """
