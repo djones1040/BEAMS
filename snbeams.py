@@ -369,6 +369,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         beam.options.bins = self.options.bins
         beam.options.use = self.options.use
         beam.options.minmethod = self.options.minmethod
+        beam.options.forceminsuccess = self.options.forceminsuccess
 
         options.inputfile = '%s.input'%root
         if self.options.masscorr:
