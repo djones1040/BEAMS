@@ -62,7 +62,7 @@ class BEAMS:
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
             parser.add_option('--mcrandstep', default=config.get('dobeams','mcrandstep'), type="float",
                               help="random step size for initializing MCMC")
-            parser.add_option('--minmethod', default=config.get('dobeams','minmethod'), type="float",
+            parser.add_option('--minmethod', default=config.get('dobeams','minmethod'), type="string",
                               help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.  
 SLSQP is faster.  Try others if using unbounded parameters""")
             parser.add_option('--forceminsuccess', default=map(int,config.get('dobeams','forceminsuccess'))[0], action="store_true",
@@ -127,7 +127,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
             parser.add_option('--mcrandstep', default=1e-4, type="float",
                               help="random step size for initializing MCMC")
-            parser.add_option('--minmethod', default='L-BFGS-B', type="float",
+            parser.add_option('--minmethod', default='L-BFGS-B', type="string",
                               help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.  
 SLSQP is faster.  Try others if using unbounded parameters""")
             parser.add_option('--forceminsuccess', default=False, action="store_true",
