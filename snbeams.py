@@ -380,13 +380,6 @@ class snbeams:
                     fitresheader=fitresheaderbeams,
                     fitresfmt=fitresfmtbeams,
                     fitresvars=fitresvarsbeams)
-        # make the sim. CC input file
-        if self.options.simcc:
-            writefitres(simcc,range(len(simcc.CID)),'%s.simcc.input'%root,
-                        fitresheader=fitresheaderbeams,
-                        fitresfmt=fitresfmtbeams,
-                        fitresvars=fitresvarsbeams)
-            beams.options.simcc = '%s.simcc.input'%root
 
         beam.options.append = False
         beam.options.clobber = self.options.clobber
