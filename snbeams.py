@@ -310,7 +310,7 @@ class snbeams:
                                        beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
                                        x0=fr.x0,sigint=self.options.sigint,z=fr.zHD)
 
-        fr = mkfitrescuts(self,fr,mkcuts=mkcuts)
+        fr = self.mkfitrescuts(fr,mkcuts=mkcuts)
 
 
         root = os.path.splitext(fitres)[0]
