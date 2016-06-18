@@ -375,7 +375,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                 guessvar,guessval = guess
                 print('initial guess = %.3f for parameter %s!!'%(
                         guessval,guessvar))
-               pf.guess[pf.param == guessvar] = guessval
+                pf.guess[pf.param == guessvar] = guessval
         if len(self.options.prior):
             for prior in self.options.prior:
                 priorvar,priormean,priorstd = prior
