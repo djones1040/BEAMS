@@ -160,6 +160,9 @@ class snbeams:
                               help='Number of walkers for MCMC')
             parser.add_option('--nsteps', default=config.get('dobeams','nsteps'), type="int",
                               help='Number of steps (per walker) for MCMC')
+            parser.add_option('--minmethod', default=config.get('dobeams','minmethod'), type="string",
+                              help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.
+SLSQP is faster.  Try others if using unbounded parameters""")
 
         else:
             parser.add_option('--piacol', default='FITPROB', type="string",
@@ -271,7 +274,9 @@ class snbeams:
                               help='Number of walkers for MCMC')
             parser.add_option('--nsteps', default=4000, type="int",
                               help='Number of steps (per walker) for MCMC')
-
+            parser.add_option('--minmethod', default='L-BFGS-B', type="string",
+                              help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.
+SLSQP is faster.  Try others if using unbounded parameters""")
             
         parser.add_option('-p','--paramfile', default='', type="string",
                           help='fitres file with the SN Ia data')
@@ -357,6 +362,7 @@ class snbeams:
         beam.options.prior = self.options.prior
         beam.options.bins = self.options.bins
         beam.options.use = self.options.use
+        beam.options.minmethod = self.options.minmethod
 
         options.inputfile = '%s.input'%root
         if self.options.masscorr:
