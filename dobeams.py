@@ -367,24 +367,26 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         if len(self.options.bounds):
             for bounds in self.options.bounds:
                 boundsvar,lbound,ubound = bounds
-                print('Fixing parameter %s!!'%boundsvar)
+                print('%.3f < %s < %.3f !!'%(lbound,boundsvar,ubound))
                 pf.lbound[pf.param == boundsvar] = lbound
                 pf.ubound[pf.param == boundsvar] = ubound
         if len(self.options.guess):
             for guess in self.options.guess:
                 guessvar,guessval = guess
-                print('Fixing parameter %s!!'%guessvar) 
+                print('initial guess = %.3f for parameter %s!!'%(
+                        guessval,guessvar))
                pf.guess[pf.param == guessvar] = guessval
         if len(self.options.prior):
             for prior in self.options.prior:
                 priorvar,priormean,priorstd = prior
-                print('Fixing parameter %s!!'%priorvar)
+                print('Prior = %.3f +/- %.3f for parameter %s!!'%(
+                        priormean,priorstd,priorvar))
                 pf.prior[pf.param == priorvar] = priormean
                 pf.sigma[pf.param == priorvar] = sigma
         if len(self.options.bins):
             for bins in self.options.bins:
                 binvar,nbins = bins
-                print('Fixing parameter %s!!'%binvar)
+                print('%i bins for parameter %s!!'%(nbins,binvar))
                 pf.bins[pf.param == binvar] = nbins
 
 
