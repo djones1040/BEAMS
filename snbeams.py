@@ -462,7 +462,7 @@ class snbeams:
         if self.options.nsne and self.options.nsne < len(fr.CID):
             from random import sample
             cols = sample(range(len(fr.CID)),
-                          self.options.nspecsne)
+                          self.options.nsne)
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
     
