@@ -163,6 +163,9 @@ class snbeams:
             parser.add_option('--minmethod', default=config.get('dobeams','minmethod'), type="string",
                               help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.
 SLSQP is faster.  Try others if using unbounded parameters""")
+            parser.add_option('--forceminsuccess', default=config.get('dobeams','forceminsuccess'), action="store_true",
+                              help="""if true, minimizer must be successful or code will crash.
+Default is to let the MCMC try to find a minimum if minimizer fails""")
 
         else:
             parser.add_option('--piacol', default='FITPROB', type="string",
@@ -277,6 +280,9 @@ SLSQP is faster.  Try others if using unbounded parameters""")
             parser.add_option('--minmethod', default='L-BFGS-B', type="string",
                               help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.
 SLSQP is faster.  Try others if using unbounded parameters""")
+            parser.add_option('--forceminsuccess', default=False, action="store_true",
+                              help="""if true, minimizer must be successful or code will crash.
+Default is to let the MCMC try to find a minimum if minimizer fails""")
             
         parser.add_option('-p','--paramfile', default='', type="string",
                           help='fitres file with the SN Ia data')
