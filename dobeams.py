@@ -172,8 +172,10 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help='parameter prior for specified variable.  Overrides MCMC parameter file')
             parser.add_option('--bins',default=[],
                               type='string',action='append',
-                              help='parameter prior for specified variable.  Overrides MCMC parameter file')
-
+                              help='number of bins for specified variable.  Overrides MCMC parameter file')
+            parser.add_option('--use',default=[],
+                              type='string',action='append',
+                              help='use specified variable.  Overrides MCMC parameter file')
 
         parser.add_option('-p','--paramfile', default='', type="string",
                           help='BEAMS parameter file')
@@ -357,27 +359,32 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
             for fixvar in self.options.fix:
                 print('Fixing parameter %s!!'%fixvar)
                 pf.fixed[pf.param == fixvar] = 1
+        if len(self.options.use):
+            for use in self.options.use:
+                usevar,useval = use
+                print('use = %i for parameter %s!!'%(use,usevar))
+                pf.use[pf.param == fixuse] = useval
         if len(self.options.bounds):
             for bounds in self.options.bounds:
-                print('Fixing parameter %s!!'%fixvar)
                 boundsvar,lbound,ubound = bounds
+                print('Fixing parameter %s!!'%boundsvar)
                 pf.lbound[pf.param == boundsvar] = lbound
                 pf.ubound[pf.param == boundsvar] = ubound
         if len(self.options.guess):
             for guess in self.options.guess:
-                print('Fixing parameter %s!!'%fixvar)
                 guessvar,guessval = guess
-                pf.guess[pf.param == guessvar] = guessval
+                print('Fixing parameter %s!!'%guessvar) 
+               pf.guess[pf.param == guessvar] = guessval
         if len(self.options.prior):
             for prior in self.options.prior:
-                print('Fixing parameter %s!!'%fixvar)
                 priorvar,priormean,priorstd = prior
+                print('Fixing parameter %s!!'%priorvar)
                 pf.prior[pf.param == priorvar] = priormean
                 pf.sigma[pf.param == priorvar] = sigma
         if len(self.options.bins):
             for bins in self.options.bins:
-                print('Fixing parameter %s!!'%fixvar)
                 binvar,nbins = bins
+                print('Fixing parameter %s!!'%binvar)
                 pf.bins[pf.param == binvar] = nbins
 
 

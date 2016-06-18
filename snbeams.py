@@ -291,7 +291,11 @@ class snbeams:
                           help='parameter prior for specified variable.  Overrides MCMC parameter file')
         parser.add_option('--bins',default=[],
                           type='string',action='append',
-                          help='parameter prior for specified variable.  Overrides MCMC parameter file')
+                          help='number of bins for specified variable.  Overrides MCMC parameter file')
+        parser.add_option('--use',default=[],
+                          type='string',action='append',
+                          help='use specified variable.  Overrides MCMC parameter file')
+
 
         return(parser)
 
@@ -352,6 +356,7 @@ class snbeams:
         beam.options.guess = self.options.guess
         beam.options.prior = self.options.prior
         beam.options.bins = self.options.bins
+        beam.options.use = self.options.use
 
         options.inputfile = '%s.input'%root
         if self.options.masscorr:
