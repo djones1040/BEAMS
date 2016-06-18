@@ -154,11 +154,11 @@ class snbeams:
                               help='fit for different CC SN parameters at each redshift control point')
 
             # emcee options
-            parser.add_option('--nthreads', default=config.get('doSNBEAMS','nthreads'), type="int",
+            parser.add_option('--nthreads', default=config.get('dobeams','nthreads'), type="int",
                               help='Number of threads for MCMC')
-            parser.add_option('--nwalkers', default=config.get('doSNBEAMS','nwalkers'), type="int",
+            parser.add_option('--nwalkers', default=config.get('dobeams','nwalkers'), type="int",
                               help='Number of walkers for MCMC')
-            parser.add_option('--nsteps', default=config.get('doSNBEAMS','nsteps'), type="int",
+            parser.add_option('--nsteps', default=config.get('dobeams','nsteps'), type="int",
                               help='Number of steps (per walker) for MCMC')
 
         else:
@@ -280,6 +280,18 @@ class snbeams:
         parser.add_option('--fix',default=[],
                           type='string',action='append',
                           help='parameter range for specified variable')
+        parser.add_option('--bounds',default=[],
+                          type='string',action='append',
+                          help='variable, lower bound, upper bound.  Overrides MCMC parameter file.')
+        parser.add_option('--guess',default=[],
+                          type='string',action='append',
+                          help='parameter guess for specified variable.  Overrides MCMC parameter file')
+        parser.add_option('--prior',default=[],
+                          type='string',action='append',
+                          help='parameter prior for specified variable.  Overrides MCMC parameter file')
+        parser.add_option('--bins',default=[],
+                          type='string',action='append',
+                          help='parameter prior for specified variable.  Overrides MCMC parameter file')
 
         return(parser)
 
@@ -291,7 +303,7 @@ class snbeams:
         if self.options.zmin < np.min(fr.zHD): self.options.zmin = np.min(fr.zHD)
         if self.options.zmax > np.max(fr.zHD): self.options.zmax = np.max(fr.zHD)
         
-        from doSNBEAMS import salt2mu_aberr
+        from dobeams import salt2mu_aberr
         fr.MU,fr.MUERR = salt2mu_aberr(x1=fr.x1,x1err=fr.x1ERR,c=fr.c,cerr=fr.cERR,mb=fr.mB,mberr=fr.mBERR,
                                        cov_x1_c=fr.COV_x1_c,cov_x1_x0=fr.COV_x1_x0,cov_c_x0=fr.COV_c_x0,
                                        alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
@@ -311,7 +323,7 @@ class snbeams:
                 if fr.__dict__[self.options.specconfcol][i] == 1:
                     P_Ia[i] = 1
 
-        from doSNBEAMS import BEAMS
+        from dobeams import BEAMS
         import ConfigParser, sys
         sys.argv = ['./doBEAMS.py']
         beam = BEAMS()
@@ -327,6 +339,7 @@ class snbeams:
         options,  args = parser.parse_args()
 
         beam.options = options
+        # clumsy - send some options to the code
         beam.options.twogauss = self.options.twogauss
         beam.options.skewedgauss = self.options.skewedgauss
         beam.options.zCCdist = self.options.zCCdist
@@ -335,6 +348,10 @@ class snbeams:
         beam.options.nsteps = self.options.nsteps
         beam.options.mcmcparamfile = self.options.mcmcparamfile
         beam.options.fix = self.options.fix
+        beam.options.bounds = self.options.bounds
+        beam.options.guess = self.options.guess
+        beam.options.prior = self.options.prior
+        beam.options.bins = self.options.bins
 
         options.inputfile = '%s.input'%root
         if self.options.masscorr:
