@@ -65,7 +65,7 @@ class BEAMS:
             parser.add_option('--minmethod', default=config.get('dobeams','minmethod'), type="float",
                               help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.  
 SLSQP is faster.  Try others if using unbounded parameters""")
-            parser.add_option('--forceminsuccess', default=map(int,config.get('dobeams','forceminsuccess'))[0], type="store_true",
+            parser.add_option('--forceminsuccess', default=map(int,config.get('dobeams','forceminsuccess'))[0], action="store_true",
                               help="""if true, minimizer must be successful or code will crash.
 Default is to let the MCMC try to find a minimum if minimizer fails""")
 
@@ -130,7 +130,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
             parser.add_option('--minmethod', default='L-BFGS-B', type="float",
                               help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.  
 SLSQP is faster.  Try others if using unbounded parameters""")
-            parser.add_option('--forceminsuccess', default=False, type="store_true",
+            parser.add_option('--forceminsuccess', default=False, action="store_true",
                               help="""if true, minimizer must be successful or code will crash.
 Default is to let the MCMC try to find a minimum if minimizer fails""")
 
