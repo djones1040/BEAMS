@@ -160,9 +160,16 @@ class snbeams:
                               help='Number of walkers for MCMC')
             parser.add_option('--nsteps', default=config.get('dobeams','nsteps'), type="int",
                               help='Number of steps (per walker) for MCMC')
+            parser.add_option('--ninit', default=config.get('dobeams','ninit'), type="int",
+                              help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
+            parser.add_option('--ntemps', default=config.get('dobeams','ninit'), type="int",
+                              help="Number of temperatures for the sampler")
             parser.add_option('--minmethod', default=config.get('dobeams','minmethod'), type="string",
                               help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.
 SLSQP is faster.  Try others if using unbounded parameters""")
+parser.add_option('--miniter', default=config.get('dobeams','miniter'), type="int",
+                              help="""number of minimization iterations - uses basinhopping
+algorithm for miniter > 1""")
             parser.add_option('--forceminsuccess', default=config.get('dobeams','forceminsuccess'), action="store_true",
                               help="""if true, minimizer must be successful or code will crash.
 Default is to let the MCMC try to find a minimum if minimizer fails""")
@@ -277,9 +284,16 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help='Number of walkers for MCMC')
             parser.add_option('--nsteps', default=4000, type="int",
                               help='Number of steps (per walker) for MCMC')
+            parser.add_option('--ninit', default=200, type="int",
+                              help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
+            parser.add_option('--ntemps', default=0, type="int",
+                              help="Number of temperatures for the sampler")
             parser.add_option('--minmethod', default='L-BFGS-B', type="string",
                               help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.
 SLSQP is faster.  Try others if using unbounded parameters""")
+            parser.add_option('--miniter', default=1, type="int",
+                              help="""number of minimization iterations - uses basinhopping
+algorithm for miniter > 1"""
             parser.add_option('--forceminsuccess', default=False, action="store_true",
                               help="""if true, minimizer must be successful or code will crash.
 Default is to let the MCMC try to find a minimum if minimizer fails""")
@@ -293,19 +307,19 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                           help='parameter range for specified variable')
         parser.add_option('--bounds',default=[],
                           type='string',action='append',
-                          help='variable, lower bound, upper bound.  Overrides MCMC parameter file.')
+                          help='variable, lower bound, upper bound.  Overrides MCMC parameter file.',nargs=3)
         parser.add_option('--guess',default=[],
                           type='string',action='append',
-                          help='parameter guess for specified variable.  Overrides MCMC parameter file')
+                          help='parameter guess for specified variable.  Overrides MCMC parameter file',nargs=2)
         parser.add_option('--prior',default=[],
                           type='string',action='append',
-                          help='parameter prior for specified variable.  Overrides MCMC parameter file')
+                          help='parameter prior for specified variable.  Overrides MCMC parameter file',nargs=3)
         parser.add_option('--bins',default=[],
                           type='string',action='append',
-                          help='number of bins for specified variable.  Overrides MCMC parameter file')
+                          help='number of bins for specified variable.  Overrides MCMC parameter file',nargs=2)
         parser.add_option('--use',default=[],
                           type='string',action='append',
-                          help='use specified variable.  Overrides MCMC parameter file')
+                          help='use specified variable.  Overrides MCMC parameter file',nargs=2)
 
 
         return(parser)
@@ -370,6 +384,9 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         beam.options.use = self.options.use
         beam.options.minmethod = self.options.minmethod
         beam.options.forceminsuccess = self.options.forceminsuccess
+        beam.options.miniter = self.options.miniter
+        beam.options.ninit = self.options.ninit
+        beam.options.ntemps = self.options.ntemps
 
         options.inputfile = '%s.input'%root
         if self.options.masscorr:
