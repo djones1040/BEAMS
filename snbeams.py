@@ -160,6 +160,19 @@ class snbeams:
                               help='Number of walkers for MCMC')
             parser.add_option('--nsteps', default=config.get('dobeams','nsteps'), type="int",
                               help='Number of steps (per walker) for MCMC')
+            parser.add_option('--ninit', default=config.get('dobeams','ninit'), type="int",
+                              help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
+            parser.add_option('--ntemps', default=config.get('dobeams','ninit'), type="int",
+                              help="Number of temperatures for the sampler")
+            parser.add_option('--minmethod', default=config.get('dobeams','minmethod'), type="string",
+                              help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.
+SLSQP is faster.  Try others if using unbounded parameters""")
+            parser.add_option('--miniter', default=config.get('dobeams','miniter'), type="int",
+                              help="""number of minimization iterations - uses basinhopping
+algorithm for miniter > 1""")
+            parser.add_option('--forceminsuccess', default=config.get('dobeams','forceminsuccess'), action="store_true",
+                              help="""if true, minimizer must be successful or code will crash.
+Default is to let the MCMC try to find a minimum if minimizer fails""")
 
         else:
             parser.add_option('--piacol', default='FITPROB', type="string",
@@ -271,7 +284,19 @@ class snbeams:
                               help='Number of walkers for MCMC')
             parser.add_option('--nsteps', default=4000, type="int",
                               help='Number of steps (per walker) for MCMC')
-
+            parser.add_option('--ninit', default=200, type="int",
+                              help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
+            parser.add_option('--ntemps', default=0, type="int",
+                              help="Number of temperatures for the sampler")
+            parser.add_option('--minmethod', default='L-BFGS-B', type="string",
+                              help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.
+SLSQP is faster.  Try others if using unbounded parameters""")
+            parser.add_option('--miniter', default=1, type="int",
+                              help="""number of minimization iterations - uses basinhopping
+algorithm for miniter > 1""")
+            parser.add_option('--forceminsuccess', default=False, action="store_true",
+                              help="""if true, minimizer must be successful or code will crash.
+Default is to let the MCMC try to find a minimum if minimizer fails""")
             
         parser.add_option('-p','--paramfile', default='', type="string",
                           help='fitres file with the SN Ia data')
@@ -282,16 +307,20 @@ class snbeams:
                           help='parameter range for specified variable')
         parser.add_option('--bounds',default=[],
                           type='string',action='append',
-                          help='variable, lower bound, upper bound.  Overrides MCMC parameter file.')
+                          help='variable, lower bound, upper bound.  Overrides MCMC parameter file.',nargs=3)
         parser.add_option('--guess',default=[],
                           type='string',action='append',
-                          help='parameter guess for specified variable.  Overrides MCMC parameter file')
+                          help='parameter guess for specified variable.  Overrides MCMC parameter file',nargs=2)
         parser.add_option('--prior',default=[],
                           type='string',action='append',
-                          help='parameter prior for specified variable.  Overrides MCMC parameter file')
+                          help='parameter prior for specified variable.  Overrides MCMC parameter file',nargs=3)
         parser.add_option('--bins',default=[],
                           type='string',action='append',
-                          help='parameter prior for specified variable.  Overrides MCMC parameter file')
+                          help='number of bins for specified variable.  Overrides MCMC parameter file',nargs=2)
+        parser.add_option('--use',default=[],
+                          type='string',action='append',
+                          help='use specified variable.  Overrides MCMC parameter file',nargs=2)
+
 
         return(parser)
 
@@ -310,7 +339,7 @@ class snbeams:
                                        beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
                                        x0=fr.x0,sigint=self.options.sigint,z=fr.zHD)
 
-        fr = mkfitrescuts(self,fr,mkcuts=mkcuts)
+        fr = self.mkfitrescuts(fr,mkcuts=mkcuts)
 
 
         root = os.path.splitext(fitres)[0]
@@ -352,6 +381,12 @@ class snbeams:
         beam.options.guess = self.options.guess
         beam.options.prior = self.options.prior
         beam.options.bins = self.options.bins
+        beam.options.use = self.options.use
+        beam.options.minmethod = self.options.minmethod
+        beam.options.forceminsuccess = self.options.forceminsuccess
+        beam.options.miniter = self.options.miniter
+        beam.options.ninit = self.options.ninit
+        beam.options.ntemps = self.options.ntemps
 
         options.inputfile = '%s.input'%root
         if self.options.masscorr:
@@ -459,10 +494,10 @@ class snbeams:
                 fr.__dict__[k] = fr.__dict__[k][cols]
 
         # try a random subset of the fulll fitres file
-        if self.options.nsne and self.options.nsne > len(fr.CID):
+        if self.options.nsne and self.options.nsne < len(fr.CID):
             from random import sample
             cols = sample(range(len(fr.CID)),
-                          self.options.nspecsne)
+                          self.options.nsne)
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
     
