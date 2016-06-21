@@ -60,12 +60,18 @@ class BEAMS:
                               help='Number of steps for MCMC')
             parser.add_option('--ninit', default=config.get('dobeams','ninit'), type="int",
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
+            parser.add_option('--ntemps', default=config.get('dobeams','ninit'), type="int",
+                              help="Number of temperatures for the sampler")
+
             parser.add_option('--mcrandstep', default=config.get('dobeams','mcrandstep'), type="float",
                               help="random step size for initializing MCMC")
-            parser.add_option('--minmethod', default=config.get('dobeams','minmethod'), type="float",
+            parser.add_option('--minmethod', default=config.get('dobeams','minmethod'), type="string",
                               help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.  
 SLSQP is faster.  Try others if using unbounded parameters""")
-            parser.add_option('--forceminsuccess', default=map(int,config.get('dobeams','forceminsuccess'))[0], type="store_true",
+            parser.add_option('--miniter', default=config.get('dobeams','miniter'), type="int",
+                              help="""number of minimization iterations - uses basinhopping
+algorithm for miniter > 1""")
+            parser.add_option('--forceminsuccess', default=map(int,config.get('dobeams','forceminsuccess'))[0], action="store_true",
                               help="""if true, minimizer must be successful or code will crash.
 Default is to let the MCMC try to find a minimum if minimizer fails""")
 
@@ -125,12 +131,17 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help='Number of steps for MCMC')
             parser.add_option('--ninit', default=200, type="int",
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
+            parser.add_option('--ntemps', default=0, type="int",
+                              help="Number of temperatures for the sampler")
             parser.add_option('--mcrandstep', default=1e-4, type="float",
                               help="random step size for initializing MCMC")
-            parser.add_option('--minmethod', default='L-BFGS-B', type="float",
+            parser.add_option('--minmethod', default='L-BFGS-B', type="string",
                               help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.  
 SLSQP is faster.  Try others if using unbounded parameters""")
-            parser.add_option('--forceminsuccess', default=False, type="store_true",
+            parser.add_option('--miniter', default=1, type="int",
+                              help="""number of minimization iterations - uses basinhopping
+algorithm for miniter > 1""")
+            parser.add_option('--forceminsuccess', default=False, action="store_true",
                               help="""if true, minimizer must be successful or code will crash.
 Default is to let the MCMC try to find a minimum if minimizer fails""")
 
@@ -163,17 +174,24 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help='fix specified variable to initial guess')
             parser.add_option('--bounds',default=[],
                               type='string',action='append',
-                              help='variable, lower bound, upper bound.  Overrides MCMC parameter file.')
+                              help='variable, lower bound, upper bound.  Overrides MCMC parameter file.',
+                              nargs=3)
             parser.add_option('--guess',default=[],
                               type='string',action='append',
-                              help='parameter guess for specified variable.  Overrides MCMC parameter file')
+                              help='parameter guess for specified variable.  Overrides MCMC parameter file',
+                              nargs=2)
             parser.add_option('--prior',default=[],
                               type='string',action='append',
-                              help='parameter prior for specified variable.  Overrides MCMC parameter file')
+                              help='parameter prior for specified variable.  Overrides MCMC parameter file',
+                              nargs=3)
             parser.add_option('--bins',default=[],
                               type='string',action='append',
-                              help='parameter prior for specified variable.  Overrides MCMC parameter file')
-
+                              help='number of bins for specified variable.  Overrides MCMC parameter file',
+                              nargs=2)
+            parser.add_option('--use',default=[],
+                              type='string',action='append',
+                              help='use specified variable.  Overrides MCMC parameter file',
+                              nargs=2)
 
         parser.add_option('-p','--paramfile', default='', type="string",
                           help='BEAMS parameter file')
@@ -255,7 +273,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                 print(outlinefmt%outvars)
 
     def mcmc(self,inp,zcontrol,guess):
-        from scipy.optimize import minimize
+        from scipy.optimize import minimize,basinhopping
         import emcee
         if not inp.__dict__.has_key('PL'):
             inp.PL = 0
@@ -300,17 +318,21 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                         bounds += ((None,None),)
             else:
                 bounds += ((None,None),)
+        if not usebounds: bounds = None
 
+        if not self.options.ntemps:
+            if self.options.miniter <= 1:
+                md = minimize(lnlikefunc,guess,
+                              args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict),
+                              bounds=bounds,method=self.options.minmethod,options={'maxiter':10000,'maxfev':10000})
+            else:
+                md = basinhopping(lnlikefunc,guess,
+                                  minimizer_kwargs = {'args':(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict),
+                                                      'method':self.options.minmethod,
+                                                      'bounds':bounds},niter=self.options.miniter)
 
-        if usebounds:
-            md = minimize(lnlikefunc,guess,
-                          args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict),
-                          bounds=bounds,method=self.options.minmethod,options={'maxiter':10000})
-        else:
-            md = minimize(lnlikefunc,guess,method=self.options.minmethod,
-                          args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict),options={'maxiter':10000})
-
-        if md.message != 'Optimization terminated successfully.':
+        if md.message != 'Optimization terminated successfully.' and \
+                md.message != 'requested number of basinhopping iterations completed successfully':
             print(md.message)
             if self.options.forceminsuccess:
                 raise RuntimeError('Error : Minimization Failed!!!')
@@ -319,18 +341,42 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 Try some different initial guesses, or let the MCMC try and take care of it""")
 
         # add in the random steps
-        ndim, nwalkers = len(md["x"]), int(self.options.nwalkers)
-        mcstep = np.array([])
-        for i in range(len(md["x"])):
-            mcstep = np.append(mcstep,getparval(i,self.pardict,'mcstep'))
-        pos = [md["x"] + mcstep*np.random.randn(ndim) for i in range(nwalkers)]
+        if not self.options.ntemps:
+            ndim, nwalkers = len(md["x"]), int(self.options.nwalkers)
+            mcstep = np.array([])
+            for i in range(len(md["x"])):
+                mcstep = np.append(mcstep,getparval(i,self.pardict,'mcstep'))
+            pos = [md["x"] + mcstep*np.random.randn(ndim) for i in range(nwalkers)]
+        else:
+            ndim, nwalkers = len(guess), int(self.options.nwalkers)
+            mcstep = np.array([])
+            for i in range(len(guess)):
+                mcstep = np.append(mcstep,getparval(i,self.pardict,'mcstep'))
+            pos = [np.array(guess) + mcstep*np.random.randn(ndim) for i in range(nwalkers)]
 
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob,
-                                        args=(inp,zcontrol,self.pardict),
-                                        threads=int(self.options.nthreads))
-        pos, prob, state = sampler.run_mcmc(pos, self.options.ninit)
-        sampler.reset()
-        sampler.run_mcmc(pos, self.options.nsteps, thin=1)
+
+        if not self.options.ntemps:
+            sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob,
+                                            args=(inp,zcontrol,self.pardict),
+                                            threads=int(self.options.nthreads))
+            pos, prob, state = sampler.run_mcmc(pos, self.options.ninit)
+            sampler.reset()
+            sampler.run_mcmc(pos, self.options.nsteps, thin=1)
+        else:
+            sampler = emcee.PTSampler(self.options.ntemps,nwalkers, ndim, lnlikefunc,
+                                      lnprior,
+                                      args=(inp,zcontrol,self.pardict),
+                                      threads=int(self.options.nthreads))
+            for p, lprob, lnlike in sampler.sample(guess, iterations=self.options.ninit):
+                pass
+            sampler.reset()
+            for p, lprob, lnlike in sampler.sample(p, lnprob0=lprob,
+                                                    lnlike0=lnlike,
+                                                    iterations=self.options.nsteps, thin=10):
+                pass
+            assert sampler.chain.shape == (self.options.ntemps, nwalkers, 
+                                           self.options.nsteps/10, ndim)
+
         print("Mean acceptance fraction: {0:.3f}"
               .format(np.mean(sampler.acceptance_fraction)))
         for a,i in zip(sampler.acor,range(len(sampler.acor))):
@@ -357,27 +403,39 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
             for fixvar in self.options.fix:
                 print('Fixing parameter %s!!'%fixvar)
                 pf.fixed[pf.param == fixvar] = 1
+        if len(self.options.use):
+            for use in self.options.use:
+                usevar,useval = use
+                useval = int(useval)
+                print('use = %i for parameter %s!!'%(useval,usevar))
+                pf.use[pf.param == usevar] = useval
         if len(self.options.bounds):
             for bounds in self.options.bounds:
-                print('Fixing parameter %s!!'%fixvar)
                 boundsvar,lbound,ubound = bounds
+                lbound,ubound = float(lbound),float(ubound)
+                print('%.3f < %s < %.3f !!'%(lbound,boundsvar,ubound))
                 pf.lbound[pf.param == boundsvar] = lbound
                 pf.ubound[pf.param == boundsvar] = ubound
         if len(self.options.guess):
             for guess in self.options.guess:
-                print('Fixing parameter %s!!'%fixvar)
                 guessvar,guessval = guess
+                guessvar = float(guessvar)
+                print('initial guess = %.3f for parameter %s!!'%(
+                        guessval,guessvar))
                 pf.guess[pf.param == guessvar] = guessval
         if len(self.options.prior):
             for prior in self.options.prior:
-                print('Fixing parameter %s!!'%fixvar)
                 priorvar,priormean,priorstd = prior
+                priormean,priorstd = float(priormean),float(priorstd)
+                print('Prior = %.3f +/- %.3f for parameter %s!!'%(
+                        priormean,priorstd,priorvar))
                 pf.prior[pf.param == priorvar] = priormean
                 pf.sigma[pf.param == priorvar] = sigma
         if len(self.options.bins):
             for bins in self.options.bins:
-                print('Fixing parameter %s!!'%fixvar)
                 binvar,nbins = bins
+                nbins = float(nbins)
+                print('%i bins for parameter %s!!'%(nbins,binvar))
                 pf.bins[pf.param == binvar] = nbins
 
 
