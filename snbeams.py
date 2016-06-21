@@ -387,7 +387,8 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         beam.options.miniter = self.options.miniter
         beam.options.ninit = self.options.ninit
         beam.options.ntemps = self.options.ntemps
-
+        beam.options.debug = self.options.debug
+        
         options.inputfile = '%s.input'%root
         if self.options.masscorr:
             beam.options.plcol = 'PL'
