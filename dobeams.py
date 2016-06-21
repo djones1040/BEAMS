@@ -331,13 +331,13 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                                                       'method':self.options.minmethod,
                                                       'bounds':bounds},niter=self.options.miniter)
 
-        if md.message != 'Optimization terminated successfully.' and \
-                md.message != 'requested number of basinhopping iterations completed successfully':
-            print(md.message)
-            if self.options.forceminsuccess:
-                raise RuntimeError('Error : Minimization Failed!!!')
-            else:
-                print("""Warning : Minimization Failed!!!
+            if md.message != 'Optimization terminated successfully.' and \
+                    md.message != 'requested number of basinhopping iterations completed successfully':
+                print(md.message)
+                if self.options.forceminsuccess:
+                    raise RuntimeError('Error : Minimization Failed!!!')
+                else:
+                    print("""Warning : Minimization Failed!!!
 Try some different initial guesses, or let the MCMC try and take care of it""")
 
         # add in the random steps
@@ -363,13 +363,30 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
             sampler.reset()
             sampler.run_mcmc(pos, self.options.nsteps, thin=1)
         else:
+            if self.pardict['popB2mean']['use']:
+                lnlikefunc = threegausslike
+            elif self.pardict['skewB']['use']:
+                lnlikefunc = twogausslike_skew
+            else:
+                lnlikefunc = twogausslike
+
             sampler = emcee.PTSampler(self.options.ntemps,nwalkers, ndim, lnlikefunc,
                                       lnprior,
-                                      args=(inp,zcontrol,self.pardict),
+                                      loglkwargs={'inp':inp,'zcontrol':zcontrol,
+                                                  'usescale':self.pardict['scaleA']['use'],
+                                                  'pardict':self.pardict},
+                                      logpkwargs={'pardict':self.pardict},
                                       threads=int(self.options.nthreads))
-            for p, lprob, lnlike in sampler.sample(guess, iterations=self.options.ninit):
+            p0 = np.zeros([self.options.ntemps,nwalkers,ndim])
+            for g,i in zip(guess,xrange(len(guess))):
+                key = getpar(i,self.pardict)
+                p0[:,:,i] = np.random.uniform(low=g-self.pardict[key]['prior_std'], high=g+self.pardict[key]['prior_std'], 
+                                              size=(self.options.ntemps,nwalkers))
+
+            for p, lprob, lnlike in sampler.sample(p0, iterations=self.options.ninit):
                 pass
             sampler.reset()
+
             for p, lprob, lnlike in sampler.sample(p, lnprob0=lprob,
                                                     lnlike0=lnlike,
                                                     iterations=self.options.nsteps, thin=10):
@@ -384,9 +401,10 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                     getpar(i,self.pardict),a))
 
         samples = sampler.flatchain
+        if self.options.ntemps: samples = samples[0,:]
 
         cov = covmat(samples[:,self.pardict['popAmean']['idx']])
-        print md.message
+        if not self.options.ntemps: print md.message
         return(cov,samples)
 
     def mkParamDict(self,zcontrol):
@@ -623,7 +641,7 @@ def zmodel(x,zcontrol,zHD,pardict,corr=True):
                'skewBmodel':skewBmodel}
     return(outdict)
 
-def twogausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=True):
+def twogausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=False):
 
     if pardict['salt2alpha']['use'] and pardict['salt2beta']['use']:
         muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
@@ -669,7 +687,7 @@ def twogausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=True)
 
     return(lnlike)
 
-def threegausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=True):
+def threegausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=False):
 
     if pardict['salt2alpha']['use'] and pardict['salt2beta']['use']:
         muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
@@ -718,7 +736,7 @@ def threegausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=Tru
 
     return np.sum(sum)
 
-def twogausslike_skew(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=True):
+def twogausslike_skew(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=False):
 
     if pardict['salt2alpha']['use'] and pardict['salt2beta']['use']:
         muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
@@ -767,7 +785,7 @@ def twogausslike_skew(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=
 #        if likeIa > 400: import pdb; pdb.set_trace()
     return(lnlike)
 
-def lnprior(theta,zcntrl=None,pardict=None):
+def lnprior(theta,pardict=None):
     p_theta = 1.0
     for t,i in zip(theta,range(len(theta))):
         prior_mean,prior_std,key = getpriors(i,pardict)
@@ -827,7 +845,7 @@ def lnprob(theta,inp=None,zcontrol=None,
     else:
         lnlikefunc = lambda *args: twogausslike(*args)
 
-    lp = lnprior(theta,zcontrol,pardict)
+    lp = lnprior(theta,pardict)
 
     if not np.isfinite(lp) or np.isnan(lp):
         return -np.inf
