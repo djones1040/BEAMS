@@ -7,8 +7,8 @@ popAstd     0.121 0.121 0.2   1 0 0 0   0  0.01  0.2
 popBmean    1.0   1.0   1.0   1 0 1 5   0 -2  3
 popBstd     1.0   1.0   0.5   1 0 0 5   0  0  0
 # population B guesses and priors for second gaussian (the pop we don't care about)
-popB2mean   0.0   0.0   5.0   0 0 1 5   0 -2  2
-popB2std    1.0   1.0   3.0   0 0 0 5   0  0  0
+popB2mean   0.0   0.0   5.0   0 0 0 0   0 -2  2
+popB2std    1.0   1.0   3.0   0 0 0 0   0  0  2.0
 # the skewness of the pop. B gaussian
 skewB       0.0   0.0   4.0   0 0 0 5   1 -10 10
 # P(Ia) normalization factor: guesses and priors

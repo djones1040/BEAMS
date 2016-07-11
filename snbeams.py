@@ -284,11 +284,11 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help='Number of walkers for MCMC')
             parser.add_option('--nsteps', default=4000, type="int",
                               help='Number of steps (per walker) for MCMC')
-            parser.add_option('--ninit', default=200, type="int",
+            parser.add_option('--ninit', default=1000, type="int",
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
             parser.add_option('--ntemps', default=0, type="int",
                               help="Number of temperatures for the sampler")
-            parser.add_option('--minmethod', default='L-BFGS-B', type="string",
+            parser.add_option('--minmethod', default='SLSQP', type="string",
                               help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.
 SLSQP is faster.  Try others if using unbounded parameters""")
             parser.add_option('--miniter', default=1, type="int",
@@ -387,7 +387,8 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         beam.options.miniter = self.options.miniter
         beam.options.ninit = self.options.ninit
         beam.options.ntemps = self.options.ntemps
-
+        beam.options.debug = self.options.debug
+        
         options.inputfile = '%s.input'%root
         if self.options.masscorr:
             beam.options.plcol = 'PL'
@@ -462,23 +463,23 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
             from random import sample
             cols = sample(range(len(fr.CID[(fr.IDSURVEY != self.options.specidsurvey) & 
                                            (fr.SIM_TYPE_INDEX == 1) &
-                                           (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001)])),
+                                           (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.01)])),
                           self.options.nspecsne)
             fr.SNSPEC[np.where((fr.IDSURVEY != self.options.specidsurvey) & 
                                (fr.SIM_TYPE_INDEX == 1) &
-                               (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))[0][cols]] = 1
+                               (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.01))[0][cols]] = 1
             fr.__dict__[self.options.piacol][np.where((fr.IDSURVEY != self.options.specidsurvey) & 
                                                       (fr.SIM_TYPE_INDEX == 1) &
-                                                      (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))[0][cols]] = 1
+                                                      (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.01))[0][cols]] = 1
 
         # can get the Ia-only likelihood as a consistency check
         if self.options.onlyIa:
-            cols = np.where((fr.SIM_TYPE_INDEX == 1) & (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))
+            cols = np.where((fr.SIM_TYPE_INDEX == 1) & (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.01))
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
         elif self.options.piacol == 'PTRUE_Ia':
             # Hack - bad redshifts are called CC SNe when running 'true' probabilities
-            cols = np.where(np.abs(fr.SIM_ZCMB - fr.zHD) > 0.001)
+            cols = np.where(np.abs(fr.SIM_ZCMB - fr.zHD) > 0.01)
             fr.PTRUE_Ia[cols] = 0
 
         # all those low-z photometric SNe are probably CC SNe?
@@ -489,7 +490,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 
         # try getting rid of the bad redshifts
         if self.options.nobadzsim:
-            cols = np.where((np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))
+            cols = np.where((np.abs(fr.SIM_ZCMB - fr.zHD) < 0.01))
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
 

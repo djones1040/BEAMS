@@ -323,11 +323,12 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         if not self.options.ntemps:
             if self.options.miniter <= 1:
                 md = minimize(lnlikefunc,guess,
-                              args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict),
+                              args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict,self.options.debug),
                               bounds=bounds,method=self.options.minmethod,options={'maxiter':10000,'maxfev':10000})
             else:
                 md = basinhopping(lnlikefunc,guess,
-                                  minimizer_kwargs = {'args':(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict),
+                                  minimizer_kwargs = {'args':(inp,zcontrol,self.pardict['scaleA']['use'],
+                                                              self.pardict,self.options.debug),
                                                       'method':self.options.minmethod,
                                                       'bounds':bounds},niter=self.options.miniter)
 
@@ -357,7 +358,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
 
         if not self.options.ntemps:
             sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob,
-                                            args=(inp,zcontrol,self.pardict),
+                                            args=(inp,zcontrol,self.pardict,self.options.debug),
                                             threads=int(self.options.nthreads))
             pos, prob, state = sampler.run_mcmc(pos, self.options.ninit)
             sampler.reset()
@@ -374,7 +375,8 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                                       lnprior,
                                       loglkwargs={'inp':inp,'zcontrol':zcontrol,
                                                   'usescale':self.pardict['scaleA']['use'],
-                                                  'pardict':self.pardict},
+                                                  'pardict':self.pardict,
+                                                  'debug':self.options.debug},
                                       logpkwargs={'pardict':self.pardict},
                                       threads=int(self.options.nthreads))
             p0 = np.zeros([self.options.ntemps,nwalkers,ndim])
@@ -732,7 +734,7 @@ def threegausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=Fal
                       np.log(PA[PA == 1]*(1-PL[PA == 1])/(np.sqrt(2*np.pi)*\
                                                               np.sqrt(x[pardict['popAstd']['idx']]**2. + \
                                                                           muBerr[PA == 1]**2.)))],axis=0))
-        print len(muA[PA == 1]),likeIa
+        print len(muA[PA == 1]),likeIa,x[pardict['popAstd']['idx']],x[pardict['scaleA']['idx']],x[pardict['salt2beta']['idx']]
 
     return np.sum(sum)
 
@@ -787,6 +789,7 @@ def twogausslike_skew(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=
 
 def lnprior(theta,pardict=None):
     p_theta = 1.0
+#0.1556 0.0075 3.2476 0.0755
     for t,i in zip(theta,range(len(theta))):
         prior_mean,prior_std,key = getpriors(i,pardict)
         p_theta += norm.logpdf(t,prior_mean,prior_std)
@@ -836,7 +839,7 @@ def getpar(idx,pardict):
 
 
 def lnprob(theta,inp=None,zcontrol=None,
-           pardict=None):
+           pardict=None,debug=False):
 
     if pardict['popB2mean']['use']:
         lnlikefunc = lambda *args: threegausslike(*args)
@@ -852,7 +855,7 @@ def lnprob(theta,inp=None,zcontrol=None,
 
     if pardict['scaleA']['use']: usescale = True
     else: usescale = False
-    post = lp + lnlikefunc(theta,inp,zcontrol,usescale,pardict)
+    post = lp + lnlikefunc(theta,inp,zcontrol,usescale,pardict,debug)
     
     if post != post: return -np.inf
     else: return post
