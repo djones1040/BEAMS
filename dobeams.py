@@ -414,7 +414,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         from txtobj import txtobj
         pf = txtobj(self.options.mcmcparamfile)
 
-        if self.options.twogauss: 
+        if self.options.twogauss:
             pf.use[pf.param == 'popB2mean'] = 1
             pf.use[pf.param == 'popB2std'] = 1
         if self.options.skewedgauss:
@@ -788,6 +788,7 @@ def twogausslike_skew(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=
     return(lnlike)
 
 def lnprior(theta,pardict=None):
+
     p_theta = 1.0
     for t,i in zip(theta,range(len(theta))):
         prior_mean,prior_std,key = getpriors(i,pardict)

@@ -138,8 +138,10 @@ class snbeams:
                               help='If working with simulated data, remove the bad redshifts')
             parser.add_option('--zminphot', default=config.get('main','zminphot'), type='float',
                               help='set a minimum redshift for P(Ia) != 1 sample')
-            parser.add_option('--specidsurvey', default=config.get('main','specidsurvey'), type='float',
+            parser.add_option('--specidsurvey', default=config.get('main','specidsurvey'), type='string',
                               help='will fix P(Ia) at 1 for IDSURVEY = this value')
+            parser.add_option('--photidsurvey', default=config.get('main','photidsurvey'), type='float',
+                              help='photometric survey ID, only necessary for zminphot')
             parser.add_option('--nspecsne', default=config.get('main','nspecsne'), type='int',
                               help='a spectroscopic sample to help BEAMS (for sim SNe)')
             parser.add_option('--nsne', default=config.get('main','nsne'), type='int',
@@ -260,9 +262,11 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help='remove the TYPE != 1 SNe from the bunch')
             parser.add_option('--nobadzsim', default=False, action="store_true",
                               help='If working with simulated data, remove the bad redshifts')
-            parser.add_option('--zminphot', default=0.0, type='float',
+            parser.add_option('--zminphot', default=0.08, type='float',
                               help='set a minimum redshift for P(Ia) != 1 sample')
-            parser.add_option('--specidsurvey', default=53, type='float',
+            parser.add_option('--photidsurvey', default=15, type='float',
+                              help='photometric survey ID, only necessary for zminphot')
+            parser.add_option('--specidsurvey', default='53,5,50,61,62,63,64,65,66', type='string',
                               help='will fix P(Ia) at 1 for IDSURVEY = this value')
             parser.add_option('--nspecsne', default=0, type='int',
                               help='a spectroscopic sample to help BEAMS (for sim SNe)')
@@ -284,7 +288,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help='Number of walkers for MCMC')
             parser.add_option('--nsteps', default=4000, type="int",
                               help='Number of steps (per walker) for MCMC')
-            parser.add_option('--ninit', default=200, type="int",
+            parser.add_option('--ninit', default=1000, type="int",
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
             parser.add_option('--ntemps', default=0, type="int",
                               help="Number of temperatures for the sampler")
@@ -455,42 +459,44 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 
         # create the SNSPEC field - these probabilities will be fixed at 1!!
         fr.SNSPEC = np.zeros(len(fr.CID))
-        if self.options.specidsurvey:
-            fr.SNSPEC[fr.IDSURVEY == self.options.specidsurvey] = 1
+        for s in self.options.specidsurvey.split(','):
+            fr.SNSPEC[fr.IDSURVEY == float(s)] = 1
 
         # set a certain number of simulated SNe to be 'confirmed' SN Ia
         if self.options.nspecsne:
             from random import sample
             cols = sample(range(len(fr.CID[(fr.IDSURVEY != self.options.specidsurvey) & 
                                            (fr.SIM_TYPE_INDEX == 1) &
-                                           (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001)])),
+                                           (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.01)])),
                           self.options.nspecsne)
             fr.SNSPEC[np.where((fr.IDSURVEY != self.options.specidsurvey) & 
                                (fr.SIM_TYPE_INDEX == 1) &
-                               (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))[0][cols]] = 1
+                               (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.01))[0][cols]] = 1
             fr.__dict__[self.options.piacol][np.where((fr.IDSURVEY != self.options.specidsurvey) & 
                                                       (fr.SIM_TYPE_INDEX == 1) &
-                                                      (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))[0][cols]] = 1
+                                                      (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.01))[0][cols]] = 1
 
         # can get the Ia-only likelihood as a consistency check
         if self.options.onlyIa:
-            cols = np.where((fr.SIM_TYPE_INDEX == 1) & (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))
+            cols = np.where((fr.SIM_TYPE_INDEX == 1) & (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.01))
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
         elif self.options.piacol == 'PTRUE_Ia':
             # Hack - bad redshifts are called CC SNe when running 'true' probabilities
-            cols = np.where(np.abs(fr.SIM_ZCMB - fr.zHD) > 0.001)
+            cols = np.where(np.abs(fr.SIM_ZCMB - fr.zHD) > 0.01)
             fr.PTRUE_Ia[cols] = 0
 
         # all those low-z photometric SNe are probably CC SNe?
         if self.options.zminphot:
-            cols = np.where((fr.zHD >= self.options.zminphot) | (fr.IDSURVEY == self.options.specidsurvey))
+            print('setting minimum redshift for the photometric sample to z = %.3f'%self.options.zminphot)
+            cols = np.where(((fr.zHD >= self.options.zminphot) & (fr.IDSURVEY == self.options.photidsurvey)) |
+                            (fr.IDSURVEY != self.options.photidsurvey))
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
 
         # try getting rid of the bad redshifts
         if self.options.nobadzsim:
-            cols = np.where((np.abs(fr.SIM_ZCMB - fr.zHD) < 0.001))
+            cols = np.where((np.abs(fr.SIM_ZCMB - fr.zHD) < 0.01))
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
 
@@ -539,20 +545,20 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 # FITOPT:  NONE
 # ---------------------------------------- 
 NVAR: 31 
-VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR z zERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PBAYES_Ia PGAL_Ia PFITPROB_Ia PNN_Ia
+VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PBAYES_Ia PGAL_Ia PFITPROB_Ia PNN_Ia
 # VERSION_SNANA      = v10_39i 
 # VERSION_PHOTOMETRY = PS1_PS1MD 
 # TABLE NAME: FITRES 
 # 
 """
         fitresvars = ["CID","IDSURVEY","TYPE","FIELD",
-                      "zHD","zHDERR","z","zERR","HOST_LOGMASS",
+                      "zHD","zHDERR","HOST_LOGMASS",
                       "HOST_LOGMASS_ERR","SNRMAX1","SNRMAX2",
                       "SNRMAX3","PKMJD","PKMJDERR","x1","x1ERR",
                       "c","cERR","mB","mBERR","x0","x0ERR","COV_x1_c",
                       "COV_x1_x0","COV_c_x0","NDOF","FITCHI2","FITPROB",
                       "PBAYES_Ia","PGAL_Ia","PFITPROB_Ia","PNN_Ia"]
-        fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.5f %.5f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f %.4f %.4f'
+        fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f %.4f %.4f'
 
         name,ext = os.path.splitext(fitresfile)
         outname,outext = os.path.splitext(self.options.outfile)
@@ -693,7 +699,7 @@ examples:
 
     if options.mcsubset:
         outfile_orig = options.outfile[:]
-        for i in range(options.nmcstart,options.nmc):
+        for i in range(options.nmcstart,options.nmc+1):
             frfile = sne.mcsamp(options.fitresfile,i,options.mclowz,options.subsetsize)
             name,ext = os.path.splitext(outfile_orig)
             options.outfile = '%s_mc%i%s'%(name,i,ext)

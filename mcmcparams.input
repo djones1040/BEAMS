@@ -2,19 +2,19 @@
 
 # population A guesses and priors (the pop we care about)
 popAmean    0.0   0.0   0.5   1 0 1 1   0 -1  1
-popAstd     0.121 0.121 0.2   1 0 0 0   0  0.01  0.2
+popAstd     0.122 0.122 0.2   1 0 0 0   0  0.01  0.2
 # population B guesses and priors (the pop we don't care about)
 popBmean    1.0   1.0   1.0   1 0 1 5   0 -2  3
 popBstd     1.0   1.0   0.5   1 0 0 5   0  0  0
 # population B guesses and priors for second gaussian (the pop we don't care about)
-popB2mean   0.0   0.0   5.0   0 0 1 5   0 -2  2
-popB2std    1.0   1.0   3.0   0 0 0 5   0  0  0
+popB2mean   0.0   0.0   2.0   0 0 0 0   0 -2  2
+popB2std    1.0   1.0   3.0   0 0 0 0   0  0  0
 # the skewness of the pop. B gaussian
 skewB       0.0   0.0   4.0   0 0 0 5   1 -10 10
 # P(Ia) normalization factor: guesses and priors
-scaleA      1.0   1.0   0.2   1 0 0 0   0  0  1000
+scaleA      1.0   1.0   0.2   0 0 0 0   0  0  1000
 # linear shift in prior probabilities: guesses and priors
-shift       0.0   0.0   0.2   1 0 0 0   0 -1  1
+shift       0.0   0.0   0.2   0 0 0 0   0 -1  1
 # options to fit to a second-order "step" effect on luminosity.
 # This is the host mass bias for SNe.
 lstep       0.07  0.07  0.023 0 0 0 0   0  0  0
