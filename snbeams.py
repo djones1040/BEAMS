@@ -292,7 +292,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
             parser.add_option('--ntemps', default=0, type="int",
                               help="Number of temperatures for the sampler")
-            parser.add_option('--minmethod', default='L-BFGS-B', type="string",
+            parser.add_option('--minmethod', default='SLSQP', type="string",
                               help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.
 SLSQP is faster.  Try others if using unbounded parameters""")
             parser.add_option('--miniter', default=1, type="int",

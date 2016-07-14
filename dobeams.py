@@ -734,7 +734,7 @@ def threegausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=Fal
                       np.log(PA[PA == 1]*(1-PL[PA == 1])/(np.sqrt(2*np.pi)*\
                                                               np.sqrt(x[pardict['popAstd']['idx']]**2. + \
                                                                           muBerr[PA == 1]**2.)))],axis=0))
-        print len(muA[PA == 1]),likeIa
+        print len(muA[PA == 1]),likeIa,x[pardict['popAstd']['idx']],x[pardict['scaleA']['idx']],x[pardict['salt2beta']['idx']]
 
     return np.sum(sum)
 
@@ -790,6 +790,7 @@ def twogausslike_skew(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=
 def lnprior(theta,pardict=None):
 
     p_theta = 1.0
+#0.1556 0.0075 3.2476 0.0755
     for t,i in zip(theta,range(len(theta))):
         prior_mean,prior_std,key = getpriors(i,pardict)
         p_theta += norm.logpdf(t,prior_mean,prior_std)
