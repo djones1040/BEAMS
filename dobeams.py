@@ -82,6 +82,9 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help='min redshift')
             parser.add_option('--zmax', default=config.get('dobeams','zmax'), type="float",
                               help='max redshift')
+            parser.add_option('--mcrandseed', default=config.get('dobeams','mcrandseed'), type="int",
+                              help='random seed from MC sample')
+
 
             # alternate functional models
             parser.add_option('--twogauss', default=map(int,config.get('dobeams','twogauss'))[0], action="store_true",
@@ -153,6 +156,8 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help='min redshift')
             parser.add_option('--zmax', default=0.7, type="float",
                               help='max redshift')
+            parser.add_option('--mcrandseed', default=0, type="int",
+                              help='random seed from MC sample')
 
             # alternate functional models
             parser.add_option('--twogauss', default=False, action="store_true",
@@ -248,6 +253,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         headerline = "# zCMB "
         for o in outlinevars: headerline += "%s %s_err "%(o,o)
         print >> fout, headerline[:-1]
+        if self.options.mcrandseed: print >> fout, '# MC Sample used random seed: %i'%self.options.mcrandseed
         fout.close()
         if self.options.verbose:
             print("zCMB " + " ".join(outlinevars))
@@ -398,9 +404,9 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
 
         print("Mean acceptance fraction: {0:.3f}"
               .format(np.mean(sampler.acceptance_fraction)))
-        for a,i in zip(sampler.acor,range(len(sampler.acor))):
-            print("autocorrelation time for parameter %s: %s"%(
-                    getpar(i,self.pardict),a))
+#        for a,i in zip(sampler.acor,range(len(sampler.acor))):
+#            print("autocorrelation time for parameter %s: %s"%(
+#                    getpar(i,self.pardict),a))
 
         samples = sampler.flatchain
         if self.options.ntemps: samples = samples[0,:]

@@ -123,6 +123,8 @@ class snbeams:
 
             parser.add_option('--mcsubset', default=config.get('main','mcsubset'), action="store_true",
                               help='generate a random subset of SNe from the fitres file')
+            parser.add_option('--mcrandseed', default=config.get('main','mcrandseed'), type="int",
+                              help='seed for np.random')
             parser.add_option('--subsetsize', default=config.get('main','subsetsize'), type="int",
                               help='number of SNe in each MC subset ')
             parser.add_option('--nmc', default=config.get('main','nmc'), type="int",
@@ -249,6 +251,8 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
             
             parser.add_option('--mcsubset', default=False, action="store_true",
                               help='generate a random subset of SNe from the fitres file')
+            parser.add_option('--mcrandseed', default=None, type="int",
+                              help='seed for np.random')
             parser.add_option('--subsetsize', default=105, type="int",
                               help='number of SNe in each MC subset ')
             parser.add_option('--nmc', default=100, type="int",
@@ -392,6 +396,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         beam.options.ninit = self.options.ninit
         beam.options.ntemps = self.options.ntemps
         beam.options.debug = self.options.debug
+        beam.options.mcrandseed = self.options.mcrandseed
         
         options.inputfile = '%s.input'%root
         if self.options.masscorr:
@@ -545,7 +550,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 # FITOPT:  NONE
 # ---------------------------------------- 
 NVAR: 31 
-VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PBAYES_Ia PGAL_Ia PFITPROB_Ia PNN_Ia
+VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PBAYES_Ia PGAL_Ia PFITPROB_Ia PNN_Ia PTRUE_Ia SIM_TYPE_INDEX SIM_ZCMB
 # VERSION_SNANA      = v10_39i 
 # VERSION_PHOTOMETRY = PS1_PS1MD 
 # TABLE NAME: FITRES 
@@ -557,14 +562,18 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRM
                       "SNRMAX3","PKMJD","PKMJDERR","x1","x1ERR",
                       "c","cERR","mB","mBERR","x0","x0ERR","COV_x1_c",
                       "COV_x1_x0","COV_c_x0","NDOF","FITCHI2","FITPROB",
-                      "PBAYES_Ia","PGAL_Ia","PFITPROB_Ia","PNN_Ia"]
-        fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f %.4f %.4f'
+                      "PBAYES_Ia","PGAL_Ia","PFITPROB_Ia","PNN_Ia",
+                      "PTRUE_Ia","SIM_TYPE_INDEX","SIM_ZCMB"]
+        fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f %.4f %.4f %.4f %i %.5f'
 
         name,ext = os.path.splitext(fitresfile)
         outname,outext = os.path.splitext(self.options.outfile)
         fitresoutfile = '%s_%s_mc%i%s'%(name,outname.split('/')[-1],mciter,ext)
 
         fr = txtobj(fitresfile,fitresheader=True)
+        if not fr.__dict__.has_key('PTRUE_Ia'): fr.PTRUE_Ia = np.array([-99]*len(fr.CID))
+        if not fr.__dict__.has_key('SIM_TYPE_INDEX'): fr.SIM_TYPE_INDEX = np.array([-99]*len(fr.CID))
+        if not fr.__dict__.has_key('SIM_ZCMB'): fr.SIM_ZCMB = np.array([-99]*len(fr.CID))
         if lowzfile:
             frlowz = txtobj(lowzfile,fitresheader=True)    
         # Light curve cuts
@@ -585,8 +594,11 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRM
         for k in fr.__dict__.keys():
             fr.__dict__[k] = fr.__dict__[k][cols]
 
+
+        if self.options.mcrandseed: np.random.seed(self.options.mcrandseed)
         writefitres(fr,np.random.randint(len(fr.CID),size=nsne),fitresoutfile,fitresheader=fitresheader,
                     fitresvars=fitresvars,fitresfmt=fitresfmt)
+
         if lowzfile:
             writefitres(frlowz,range(len(frlowz.CID)),fitresoutfile,append=True,fitresheader=fitresheader,
                         fitresvars=fitresvars,fitresfmt=fitresfmt)
