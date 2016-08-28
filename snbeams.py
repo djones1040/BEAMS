@@ -550,7 +550,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 # FITOPT:  NONE
 # ---------------------------------------- 
 NVAR: 31 
-VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PBAYES_Ia PGAL_Ia PFITPROB_Ia PNN_Ia PTRUE_Ia SIM_TYPE_INDEX SIM_ZCMB
+VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRMAX1 SNRMAX2 SNRMAX3 PKMJD PKMJDERR x1 x1ERR c cERR mB mBERR x0 x0ERR COV_x1_c COV_x1_x0 COV_c_x0 NDOF FITCHI2 FITPROB PBAYES_Ia PGAL_Ia PFITPROB_Ia PNN_Ia PTRUE_Ia PHALF_Ia SIM_TYPE_INDEX SIM_ZCMB
 # VERSION_SNANA      = v10_39i 
 # VERSION_PHOTOMETRY = PS1_PS1MD 
 # TABLE NAME: FITRES 
@@ -563,8 +563,8 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRM
                       "c","cERR","mB","mBERR","x0","x0ERR","COV_x1_c",
                       "COV_x1_x0","COV_c_x0","NDOF","FITCHI2","FITPROB",
                       "PBAYES_Ia","PGAL_Ia","PFITPROB_Ia","PNN_Ia",
-                      "PTRUE_Ia","SIM_TYPE_INDEX","SIM_ZCMB"]
-        fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f %.4f %.4f %.4f %i %.5f'
+                      "PTRUE_Ia","PHALF_Ia","SIM_TYPE_INDEX","SIM_ZCMB"]
+        fitresfmt = 'SN: %s %i %i %s %.5f %.5f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %8.5e %8.5e %8.5e %8.5e %.4f %.4f %8.5e %8.5e %8.5e %8.5e %8.5e %i %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %i %.5f'
 
         name,ext = os.path.splitext(fitresfile)
         outname,outext = os.path.splitext(self.options.outfile)
