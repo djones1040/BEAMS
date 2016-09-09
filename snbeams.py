@@ -136,6 +136,8 @@ class snbeams:
 
             parser.add_option('--onlyIa', default=config.get('main','onlyIa'), action="store_true",
                               help='remove the TYPE != 1 SNe from the bunch')
+            parser.add_option('--onlyCC', default=config.get('main','onlyCC'), action="store_true",
+                              help='remove the TYPE = 1 SNe from the bunch')
             parser.add_option('--nobadzsim', default=config.get('main','nobadzsim'), action="store_true",
                               help='If working with simulated data, remove the bad redshifts')
             parser.add_option('--zminphot', default=config.get('main','zminphot'), type='float',
@@ -264,6 +266,8 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
             
             parser.add_option('--onlyIa', default=False, action="store_true",
                               help='remove the TYPE != 1 SNe from the bunch')
+            parser.add_option('--onlyCC', default=False, action="store_true",
+                              help='remove the TYPE = 1 SNe from the bunch')
             parser.add_option('--nobadzsim', default=False, action="store_true",
                               help='If working with simulated data, remove the bad redshifts')
             parser.add_option('--zminphot', default=0.08, type='float',
@@ -290,7 +294,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help='Number of threads for MCMC')
             parser.add_option('--nwalkers', default=200, type="int",
                               help='Number of walkers for MCMC')
-            parser.add_option('--nsteps', default=4000, type="int",
+            parser.add_option('--nsteps', default=1000, type="int",
                               help='Number of steps (per walker) for MCMC')
             parser.add_option('--ninit', default=1000, type="int",
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
@@ -484,6 +488,10 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         # can get the Ia-only likelihood as a consistency check
         if self.options.onlyIa:
             cols = np.where((fr.SIM_TYPE_INDEX == 1) & (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.01))
+            for k in fr.__dict__.keys():
+                fr.__dict__[k] = fr.__dict__[k][cols]
+        elif self.options.onlyCC:
+            cols = np.where((fr.SIM_TYPE_INDEX != 1) | (np.abs(fr.SIM_ZCMB - fr.zHD) > 0.01))
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
         elif self.options.piacol == 'PTRUE_Ia':

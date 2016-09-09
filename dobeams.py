@@ -388,7 +388,8 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
             p0 = np.zeros([self.options.ntemps,nwalkers,ndim])
             for g,i in zip(guess,xrange(len(guess))):
                 key = getpar(i,self.pardict)
-                p0[:,:,i] = np.random.uniform(low=g-self.pardict[key]['prior_std'], high=g+self.pardict[key]['prior_std'], 
+                p0[:,:,i] = np.random.uniform(low=g-2*self.pardict[key]['prior_std'],
+                                              high=g+2*self.pardict[key]['prior_std'],
                                               size=(self.options.ntemps,nwalkers))
 
             for p, lprob, lnlike in sampler.sample(p0, iterations=self.options.ninit):
@@ -609,7 +610,8 @@ def zmodel(x,zcontrol,zHD,pardict,corr=True):
                     sigB2model[cols] = sigb2
 
 
-
+    if pardict['skewB']['use'] and not pardict['skewB']['bins'] and not pardict['skewB']['zpoly']:
+        skewBmodel = np.zeros(len(zHD)) + x[pardict['skewB']['idx']]
     if pardict['popBmean']['use'] and not pardict['popBmean']['bins'] and not pardict['popBmean']['zpoly']:
         muBmodel = muAmodel + x[pardict['popBmean']['idx']]
     if pardict['popBstd']['use'] and not pardict['popBstd']['bins'] and not pardict['popBstd']['zpoly']:
