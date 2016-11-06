@@ -5,13 +5,11 @@ supernova distances in a sample with a mixture of both.
 
 Dependencies
 
-numpy
-scipy
-emcee (http://dan.iel.fm/emcee/current/user/install/)
+numpy, scipy, emcee (http://dan.iel.fm/emcee/current/user/install/)
 
 There's no real install file yet, just put the BEAMS directory in your PATH.
 
-doBEAMS.py -h
+snbeams.py -h
 
 will provide the rest of the documentation.
 
@@ -33,12 +31,13 @@ will provide the rest of the documentation.
   (distance mod. - 19.36), and a distance modulus covariance matrix.
 
   in python:
+
+     import pylab as plt
+     from astropy.cosmology import Planck13 as cosmo
      from BEAMS.txtobj import txtobj
      true = txtobj('exampledata/PS1_BEAMS.SNIa.out')
      nn = txtobj('exampledata/PS1_BEAMS.NN.out')
 
-     import pylab as plt
-     from astropy.cosmology import Planck13 as cosmo
      plt.errorbar(true.zCMB,true.popAmean-cosmo.distmod(true.zCMB).value,
                   yerr=true.popAmean_err,fmt='o')
      plt.errorbar(nn.zCMB,true.popAmean-cosmo.distmod(nn.zCMB).value,
