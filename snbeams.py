@@ -74,6 +74,9 @@ class snbeams:
             parser.add_option(
                 '--pkmjderrmax', default=config.get('main','pkmjderrmax'),type="float",
                 help='Peculiar velocity error (default=%default)')
+            parser.add_option('--cutwin',default=config.get('main','cutwin'),
+                              type='string',action='append',
+                              help='parameter range for specified variable',nargs=3)
 
             # SALT2 parameters and intrinsic dispersion
             parser.add_option('--salt2alpha', default=config.get('main','salt2alpha'), type="float",
@@ -136,12 +139,18 @@ class snbeams:
 
             parser.add_option('--onlyIa', default=config.get('main','onlyIa'), action="store_true",
                               help='remove the TYPE != 1 SNe from the bunch')
+            parser.add_option('--pcutval', default=config.get('main','pcutmethod'),type="float",
+                              help="""the traditional method - make a cut on probability and 
+then everything with P(Ia) > that cut is reset to P(Ia) = 1""")
             parser.add_option('--onlyCC', default=config.get('main','onlyCC'), action="store_true",
                               help='remove the TYPE = 1 SNe from the bunch')
             parser.add_option('--nobadzsim', default=config.get('main','nobadzsim'), action="store_true",
                               help='If working with simulated data, remove the bad redshifts')
             parser.add_option('--zminphot', default=config.get('main','zminphot'), type='float',
                               help='set a minimum redshift for P(Ia) != 1 sample')
+            parser.add_option('--zbreak', default=config.get('main','zbreak'), type='float',
+                              help="""put a break in the control points model at z near set value so low-z results 
+and phot results are have uncorrelated distances""")
             parser.add_option('--specidsurvey', default=config.get('main','specidsurvey'), type='string',
                               help='will fix P(Ia) at 1 for IDSURVEY = this value')
             parser.add_option('--photidsurvey', default=config.get('main','photidsurvey'), type='float',
@@ -204,6 +213,9 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
             parser.add_option(
                 '--pkmjderrmax', default=2.0,type="float",
                 help='Peculiar velocity error (default=%default)')
+            parser.add_option('--cutwin',default=[],
+                              type='string',action='append',
+                              help='parameter range for specified variable',nargs=3)
 
             # SALT2 parameters and intrinsic dispersion
             parser.add_option('--salt2alpha', default=0.147, type="float",#0.147
@@ -232,7 +244,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help='Number of threads for MCMC')
             parser.add_option('--zmin', default=0.01, type="float",
                               help='minimum redshift')
-            parser.add_option('--zmax', default=1.0, type="float",
+            parser.add_option('--zmax', default=0.7, type="float",
                               help='maximum redshift')
 
             parser.add_option('--nbins', default=25, type="int",
@@ -266,12 +278,19 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
             
             parser.add_option('--onlyIa', default=False, action="store_true",
                               help='remove the TYPE != 1 SNe from the bunch')
+            parser.add_option('--pcutval', default=None,type="float",
+                              help="""the traditional method - make a cut on probability and 
+then everything with P(Ia) > that cut is reset to P(Ia) = 1""")
             parser.add_option('--onlyCC', default=False, action="store_true",
                               help='remove the TYPE = 1 SNe from the bunch')
             parser.add_option('--nobadzsim', default=False, action="store_true",
                               help='If working with simulated data, remove the bad redshifts')
             parser.add_option('--zminphot', default=0.08, type='float',
                               help='set a minimum redshift for P(Ia) != 1 sample')
+            parser.add_option('--zbreak', default=None, type='float',
+                              help="""low-z/high-z break for binnings""")
+            parser.add_option('--nlowzbins', default=3, type='float',
+                              help="""number of low-z bins""")
             parser.add_option('--photidsurvey', default=15, type='float',
                               help='photometric survey ID, only necessary for zminphot')
             parser.add_option('--specidsurvey', default='53,5,50,61,62,63,64,65,66', type='string',
@@ -294,9 +313,9 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help='Number of threads for MCMC')
             parser.add_option('--nwalkers', default=200, type="int",
                               help='Number of walkers for MCMC')
-            parser.add_option('--nsteps', default=1000, type="int",
+            parser.add_option('--nsteps', default=1500, type="int",
                               help='Number of steps (per walker) for MCMC')
-            parser.add_option('--ninit', default=1000, type="int",
+            parser.add_option('--ninit', default=1500, type="int",
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
             parser.add_option('--ntemps', default=0, type="int",
                               help="Number of temperatures for the sampler")
@@ -353,7 +372,6 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 
         fr = self.mkfitrescuts(fr,mkcuts=mkcuts)
 
-
         root = os.path.splitext(fitres)[0]
         
         # Prior SN Ia probabilities
@@ -401,7 +419,9 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         beam.options.ntemps = self.options.ntemps
         beam.options.debug = self.options.debug
         beam.options.mcrandseed = self.options.mcrandseed
-        
+        beam.zbreak = self.options.zbreak
+        beam.nlowzbins = self.options.nlowzbins        
+
         options.inputfile = '%s.input'%root
         if self.options.masscorr:
             beam.options.plcol = 'PL'
@@ -466,6 +486,20 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
 
+        if len(self.options.cutwin):
+            cols = np.arange(len(fr.CID))
+            for cutopt in self.options.cutwin:
+                i,min,max = cutopt[0],cutopt[1],cutopt[2]; min,max = float(min),float(max)
+                if not fr.__dict__.has_key(i):
+                    if i not in self.options.histvar:
+                        print('Warning : key %s not in fitres file %s! Ignoring for this file...'%(i,fitresfile))
+                    else:
+                        raise exceptions.RuntimeError('Error : key %s not in fitres file %s!'%(i,fitresfile))
+                else:
+                    cols = cols[np.where((fr.__dict__[i][cols] >= min) & (fr.__dict__[i][cols] <= max))]
+            for k in fr.__dict__.keys():
+                fr.__dict__[k] = fr.__dict__[k][cols]
+
         # create the SNSPEC field - these probabilities will be fixed at 1!!
         fr.SNSPEC = np.zeros(len(fr.CID))
         for s in self.options.specidsurvey.split(','):
@@ -498,6 +532,13 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
             # Hack - bad redshifts are called CC SNe when running 'true' probabilities
             cols = np.where(np.abs(fr.SIM_ZCMB - fr.zHD) > 0.01)
             fr.PTRUE_Ia[cols] = 0
+
+        # reset everything with P(Ia) > pcutval to P(Ia) = 1 and remove everything else
+        if self.options.pcutval:
+            cols = np.where(fr.__dict__[self.options.piacol] >= self.options.pcutval)
+            for k in fr.__dict__.keys():
+                fr.__dict__[k] = fr.__dict__[k][cols]
+            fr.__dict__[self.options.piacol][:] = 1
 
         # all those low-z photometric SNe are probably CC SNe?
         if self.options.zminphot:
@@ -607,15 +648,79 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRM
             fr.__dict__[k] = fr.__dict__[k][cols]
 
 
-        if self.options.mcrandseed: np.random.seed(self.options.mcrandseed)
-        writefitres(fr,np.random.randint(len(fr.CID),size=nsne),fitresoutfile,fitresheader=fitresheader,
-                    fitresvars=fitresvars,fitresfmt=fitresfmt)
-
-        if lowzfile:
-            writefitres(frlowz,range(len(frlowz.CID)),fitresoutfile,append=True,fitresheader=fitresheader,
+        import random
+        if self.options.mcrandseed: random.seed(self.options.mcrandseed)
+        try:
+            cols = random.sample(range(len(fr.CID)),nsne)
+            writefitres(fr,cols,
+                        fitresoutfile,fitresheader=fitresheader,
                         fitresvars=fitresvars,fitresfmt=fitresfmt)
+        except ValueError:
+            print('Warning : crashed because not enough SNe!  Making only a low-z file...')
+            if lowzfile:
+                writefitres(frlowz,random.sample(range(len(frlowz.CID)),250),
+                            fitresoutfile,append=False,fitresheader=fitresheader,
+                            fitresvars=fitresvars,fitresfmt=fitresfmt)
+            return(fitresoutfile)
+        if lowzfile:
+            try:
+                writefitres(frlowz,random.sample(range(len(frlowz.CID)),250),
+                            fitresoutfile,append=True,fitresheader=fitresheader,
+                            fitresvars=fitresvars,fitresfmt=fitresfmt)
+            except:
+                frlowz.PHALF_Ia = np.ones(len(frlowz.CID))
+                writefitres(frlowz,range(len(frlowz.CID)),
+                            fitresoutfile,append=True,fitresheader=fitresheader,
+                            fitresvars=fitresvars,fitresfmt=fitresfmt)
+
 
         return(fitresoutfile)
+
+def combwithlowz(highzroot,lowzroot,outroot):
+    import os
+
+    # append the fitres files
+    fin = open('%s.fitres'%highzroot,'r')
+    os.system('cp %s.fitres %s.fitres'%(lowzroot,outroot))
+    fout = open('%s.fitres'%outroot,'a')
+    for line in fin:
+        if not line.startswith('#') and \
+                not line.startswith('VARNAMES:') and \
+                not line.startswith('NVAR:'):
+            print >> fout, line.replace('\n','')
+    fin.close(); fout.close()
+
+    # append the output files
+    fin = open('%s.out'%highzroot,'r')
+    os.system('cp %s.out %s.out'%(lowzroot,outroot))
+    fout = open('%s.out'%outroot,'a')
+    for line in fin:
+        if not line.startswith('#'):
+            print >> fout, line.replace('\n','')
+    fin.close(); fout.close()
+    
+    # append the covmat
+    covhighz = np.loadtxt('%s.covmat'%highzroot,unpack=True)
+    covlowz = np.loadtxt('%s.covmat'%lowzroot,unpack=True)
+    lenlowz = np.sqrt(len(covlowz)-1)
+    covhighz = covhighz[1:].reshape(np.sqrt(len(covhighz)-1),
+                                    np.sqrt(len(covhighz)-1))
+    covlowz = covlowz[1:].reshape(np.sqrt(len(covlowz)-1),
+                                  np.sqrt(len(covlowz)-1))
+    fout = open('%s.covmat'%outroot,'w')
+    print >> fout, '%i'%(len(covhighz)+len(covlowz))
+    shape = len(covhighz)+len(covlowz)
+    for i in range(shape):
+        for j in range(shape):
+            if j < lenlowz and i < lenlowz:
+                print >> fout, '%8.5e'%covlowz[j,i]
+            elif j < lenlowz and i >= lenlowz:
+                print >> fout, '%8.5e'%0
+            elif j >= lenlowz and i < lenlowz:
+                print >> fout, '%8.5e'%0
+            else:
+                print >> fout, '%8.5e'%covhighz[j-lenlowz,i-lenlowz]
+    fout.close()
 
 
 def gauss(x,x0,sigma):

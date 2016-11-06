@@ -84,7 +84,10 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help='max redshift')
             parser.add_option('--mcrandseed', default=config.get('dobeams','mcrandseed'), type="int",
                               help='random seed from MC sample')
-
+            parser.add_option('--zbreak', default=config.get('dobeams','zbreak'), type='float',
+                              help="""break between low-z and high-z, for binning purposes""")
+            parser.add_option('--nlowzbins', default=config.get('dobeams','zbreak'), type='float',
+                              help="""number of low-z bins""")
 
             # alternate functional models
             parser.add_option('--twogauss', default=map(int,config.get('dobeams','twogauss'))[0], action="store_true",
@@ -158,7 +161,11 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help='max redshift')
             parser.add_option('--mcrandseed', default=0, type="int",
                               help='random seed from MC sample')
-
+            parser.add_option('--zbreak', default=None, type='float',
+                              help="""break between low-z and high-z, for binning purposes""")
+            parser.add_option('--nlowzbins', default=3, type='float',
+                              help="""number of low-z bins""")
+            
             # alternate functional models
             parser.add_option('--twogauss', default=False, action="store_true",
                               help='two gaussians for pop. B')
@@ -212,8 +219,8 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 
 
         inp = txtobj(inputfile)
-        inp.PA = inp.__dict__[self.options.pacol]
-
+        inp.PA = inp.__dict__[self.options.pacol]            
+        
         if not len(inp.PA):
             import exceptions
             raise exceptions.RuntimeError('Warning : no data in input file!!')            
@@ -223,7 +230,17 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
             print('Warning : files %s exists!!  Not clobbering'%self.options.outputfile)
 
         # run the MCMC
-        zcontrol = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nzbins)
+        if not self.options.zbreak:
+            zcontrol = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nzbins)
+        else:
+            zcontrol = \
+                np.unique(np.append(np.logspace(np.log10(self.options.zmin),
+                                                np.log10(self.options.zbreak),
+                                                num=self.options.nlowzbins),
+                                    np.logspace(np.log10(self.options.zbreak),
+                                                np.log10(self.options.zmax),
+                                                num=self.options.nzbins - self.options.nlowzbins + 1)))
+
         pardict,guess = self.mkParamDict(zcontrol)
         if self.pardict.has_key('lstep') and self.pardict['lstep']['use']:
             inp.PL = inp.__dict__[self.options.plcol]
@@ -247,7 +264,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         coverr = lambda samp: np.sqrt(np.sum((samp-np.mean(samp))*(samp-np.mean(samp)))/len(samp))
 
         outlinevars = ['popAmean','popAstd','popBmean','popBstd','popB2mean','popB2std','skewB',
-                       'scaleA','shift','lstep','salt2alpha','salt2beta']
+                       'scaleA','shift','lstep','salt2alpha','salt2beta','salt2beta_1']
         outlinefmt = " ".join(["%.4f"]*(1+len(outlinevars)*2))
         fout = open(self.options.outputfile,'w')
         headerline = "# zCMB "
@@ -395,7 +412,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
             for p, lprob, lnlike in sampler.sample(p0, iterations=self.options.ninit):
                 pass
             sampler.reset()
-
+            print('initialization steps finished!!')
             for p, lprob, lnlike in sampler.sample(p, lnprob0=lprob,
                                                     lnlike0=lnlike,
                                                     iterations=self.options.nsteps, thin=10):
@@ -533,7 +550,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
 
 def zmodel(x,zcontrol,zHD,pardict,corr=True):
     if not corr: from astropy.cosmology import Planck13 as cosmo
-
+        
     muAmodel = np.zeros(len(zHD))
     if pardict['popBmean']['bins'] or pardict['popBmean']['zpoly']:
         muBmodel = np.zeros(len(zHD))
@@ -554,7 +571,6 @@ def zmodel(x,zcontrol,zHD,pardict,corr=True):
     # Ia redshift/distance model
     for zb,zb1,i in zip(zcontrol[:-1],zcontrol[1:],range(len(zcontrol))):
         mua,mua1 = x[pardict['popAmean']['idx'][i]],x[pardict['popAmean']['idx'][i+1]]
-
         cols = np.where((zHD >= zb) & (zHD < zb1))[0]
         if not corr: cosmod = cosmo.distmod(zHD[cols]).value; cosbin = cosmo.distmod(zb).value
         alpha = np.log10(zHD[cols]/zb)/np.log10(zb1/zb)
@@ -653,7 +669,13 @@ def zmodel(x,zcontrol,zHD,pardict,corr=True):
 
 def twogausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=False):
 
-    if pardict['salt2alpha']['use'] and pardict['salt2beta']['use']:
+    if pardict['salt2alpha']['use'] and pardict['salt2beta_1']['use']:
+        muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+                             cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                             alpha=x[pardict['salt2alpha']['idx']],
+                             beta=x[pardict['salt2beta']['idx']]+x[pardict['salt2beta_1']['idx']]*inp.zHD,
+                             x0=inp.x0,z=inp.zHD)
+    elif pardict['salt2alpha']['use'] and pardict['salt2beta']['use']:
         muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                              cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
                              alpha=x[pardict['salt2alpha']['idx']],beta=x[pardict['salt2beta']['idx']],
@@ -699,7 +721,13 @@ def twogausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=False
 
 def threegausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=False):
 
-    if pardict['salt2alpha']['use'] and pardict['salt2beta']['use']:
+    if pardict['salt2alpha']['use'] and pardict['salt2beta_1']['use']:
+        muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+                             cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                             alpha=x[pardict['salt2alpha']['idx']],
+                             beta=x[pardict['salt2beta']['idx']]+x[pardict['salt2beta_1']['idx']]*inp.zHD,
+                             x0=inp.x0,z=inp.zHD)
+    elif pardict['salt2alpha']['use'] and pardict['salt2beta']['use']:
         muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                              cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
                              alpha=x[pardict['salt2alpha']['idx']],beta=x[pardict['salt2beta']['idx']],
@@ -748,7 +776,13 @@ def threegausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=Fal
 
 def twogausslike_skew(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=False):
 
-    if pardict['salt2alpha']['use'] and pardict['salt2beta']['use']:
+    if pardict['salt2alpha']['use'] and pardict['salt2beta_1']['use']:
+        muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+                             cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                             alpha=x[pardict['salt2alpha']['idx']],
+                             beta=x[pardict['salt2beta']['idx']]+x[pardict['salt2beta_1']['idx']]*inp.zHD,
+                             x0=inp.x0,z=inp.zHD)
+    elif pardict['salt2alpha']['use'] and pardict['salt2beta']['use']:
         muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                              cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
                              alpha=x[pardict['salt2alpha']['idx']],beta=x[pardict['salt2beta']['idx']],
