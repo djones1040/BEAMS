@@ -27,106 +27,60 @@ class BEAMS:
                           help='open output file in append mode')
 
         if config:
-            # Input file
-            parser.add_option('--pacol', default=config.get('dobeams','pacol'), type="string",
-                              help='column in input file used as prior P(A)')
-            parser.add_option('--mucol', default=config.get('dobeams','mucol'), type="string",
-                              help='column name in input file header for distance modulus')
-            parser.add_option('--muerrcol', default=config.get('dobeams','muerrcol'), type="string",
-                              help='column name in input file header for distance modulus errors')
-            parser.add_option('--zcol', default=config.get('dobeams','zcol'), type="string",
-                              help='column name in input file header for z')
-
-            # options to fit to a second-order "step" effect on luminosity.
-            # This is the host mass bias for SNe.
-            parser.add_option('--plcol', default=config.get('dobeams','plcol'), type="string",
-                              help='column in input file used as probability for an additional luminosity correction P(L)')
-
-            parser.add_option('--salt2alpha', default=config.get('dobeams','salt2alpha'), type="float",
+            parser.add_option('--salt2alpha', default=config.get('lightcurve','salt2alpha'), type="float",
                               help='SALT2 alpha parameter from a spectroscopic sample (default=%default)')
-            parser.add_option('--salt2alphaerr', default=config.get('dobeams','salt2alphaerr'), type="float",
-                              help='nominal SALT2 alpha uncertainty from a spectroscopic sample (default=%default)')
-            parser.add_option('--salt2beta', default=config.get('dobeams','salt2beta'), type="float",
+            parser.add_option('--salt2beta', default=config.get('lightcurve','salt2beta'), type="float",
                               help='nominal SALT2 beta parameter from a spec. sample (default=%default)')
-            parser.add_option('--salt2betaerr', default=config.get('dobeams','salt2betaerr'), type="float",
-                              help='nominal SALT2 beta uncertainty from a spec. sample (default=%default)')        
+
+            parser.add_option('--zrange', default=map(float,config.get('lightcurve','zrange').split(',')), type="float",
+                              help='redshift range')
 
             # output and number of threads
-            parser.add_option('--nthreads', default=config.get('dobeams','nthreads'), type="int",
+            parser.add_option('--nthreads', default=config.get('mcmc','nthreads'), type="int",
                               help='Number of threads for MCMC')
-            parser.add_option('--nwalkers', default=config.get('dobeams','nwalkers'), type="int",
+            parser.add_option('--nwalkers', default=config.get('mcmc','nwalkers'), type="int",
                               help='Number of walkers for MCMC')
-            parser.add_option('--nsteps', default=config.get('dobeams','nsteps'), type="int",
+            parser.add_option('--nsteps', default=config.get('mcmc','nsteps'), type="int",
                               help='Number of steps for MCMC')
-            parser.add_option('--ninit', default=config.get('dobeams','ninit'), type="int",
+            parser.add_option('--ninit', default=config.get('mcmc','ninit'), type="int",
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
-            parser.add_option('--ntemps', default=config.get('dobeams','ninit'), type="int",
+            parser.add_option('--ntemps', default=config.get('mcmc','ninit'), type="int",
                               help="Number of temperatures for the sampler")
 
-            parser.add_option('--mcrandstep', default=config.get('dobeams','mcrandstep'), type="float",
+            parser.add_option('--mcrandstep', default=config.get('mcmc','mcrandstep'), type="float",
                               help="random step size for initializing MCMC")
-            parser.add_option('--minmethod', default=config.get('dobeams','minmethod'), type="string",
+            parser.add_option('--minmethod', default=config.get('mcmc','minmethod'), type="string",
                               help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.  
 SLSQP is faster.  Try others if using unbounded parameters""")
-            parser.add_option('--miniter', default=config.get('dobeams','miniter'), type="int",
+            parser.add_option('--miniter', default=config.get('mcmc','miniter'), type="int",
                               help="""number of minimization iterations - uses basinhopping
 algorithm for miniter > 1""")
-            parser.add_option('--forceminsuccess', default=map(int,config.get('dobeams','forceminsuccess'))[0], action="store_true",
+            parser.add_option('--forceminsuccess', default=config.getboolean('mcmc','forceminsuccess'), action="store_true",
                               help="""if true, minimizer must be successful or code will crash.
 Default is to let the MCMC try to find a minimum if minimizer fails""")
 
 
-            parser.add_option('--nzbins', default=config.get('dobeams','nzbins'), type="int",
+            parser.add_option('--nzbins', default=config.get('mcmc','nzbins'), type="int",
                               help='Number of z bins')
-            parser.add_option('--zmin', default=config.get('dobeams','zmin'), type="float",
-                              help='min redshift')
-            parser.add_option('--zmax', default=config.get('dobeams','zmax'), type="float",
-                              help='max redshift')
-            parser.add_option('--mcrandseed', default=config.get('dobeams','mcrandseed'), type="int",
+            parser.add_option('--mcrandseed', default=config.get('bootstrap','mcrandseed'), type="int",
                               help='random seed from MC sample')
-            parser.add_option('--zbreak', default=config.get('dobeams','zbreak'), type='float',
-                              help="""break between low-z and high-z, for binning purposes""")
-            parser.add_option('--nlowzbins', default=config.get('dobeams','zbreak'), type='float',
-                              help="""number of low-z bins""")
 
             # alternate functional models
-            parser.add_option('--twogauss', default=map(int,config.get('dobeams','twogauss'))[0], action="store_true",
+            parser.add_option('--twogauss', default=config.getboolean('models','twogauss'), action="store_true",
                               help='two gaussians for pop. B')
-            parser.add_option('--skewedgauss', default=map(int,config.get('dobeams','skewedgauss'))[0], action="store_true",
+            parser.add_option('--skewedgauss', default=config.getboolean('models','skewedgauss'), action="store_true",
                               help='skewed gaussian for pop. B')
-            parser.add_option('--zCCdist', default=map(int,config.get('dobeams','zCCdist'))[0], action="store_true",
-                              help='fit for different CC SN parameters at each redshift control point')
 
-            parser.add_option('-i','--inputfile', default=config.get('dobeams','inputfile'), type="string",
+            parser.add_option('-i','--inputfile', default=config.get('inputdata','inputfile'), type="string",
                               help='file with the input data')
-            parser.add_option('-o','--outputfile', default=config.get('dobeams','outputfile'), type="string",
+            parser.add_option('-o','--outputfile', default=config.get('inputdata','outputfile'), type="string",
                               help='Output file with the derived parameters for each redshift bin')
 
         else:
-            # Input file
-            parser.add_option('--pacol', default='PA', type="string",
-                              help='column in input file used as prior P(A)')
-            parser.add_option('--mucol', default='mu', type="string",
-                              help='column name in input file header for residuals')
-            parser.add_option('--muerrcol', default='mu_err', type="string",
-                              help='column name in input file header for residual errors')
-            parser.add_option('--zcol', default='z', type="string",
-                              help='column name in input file header for z')
-
-            # column with info allowing fit to a second-order "step" effect on luminosity.
-            # This is the host mass bias for SNe.
-            parser.add_option('--plcol', default='PL', type="string",
-                              help='column in input file used as probability for an additional luminosity correction P(L) (default=%default)')
-        
             parser.add_option('--salt2alpha', default=0.147, type="float",
                               help='SALT2 alpha parameter from a spectroscopic sample (default=%default)')
-            parser.add_option('--salt2alphaerr', default=0.01, type="float",
-                              help='nominal SALT2 alpha uncertainty from a spectroscopic sample (default=%default)')
             parser.add_option('--salt2beta', default=3.13, type="float",
-                              help='nominal SALT2 beta parameter from a spec. sample (default=%default)')
-            parser.add_option('--salt2betaerr', default=0.12, type="float",
-                              help='nominal SALT2 beta uncertainty from a spec. sample (default=%default)')
-            
+                              help='nominal SALT2 beta parameter from a spec. sample (default=%default)')            
         
             # output and number of threads
             parser.add_option('--nthreads', default=20, type="int",
@@ -155,10 +109,8 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 
             parser.add_option('--nzbins', default=30, type="int",
                               help='Number of z bins')
-            parser.add_option('--zmin', default=0.02, type="float",
+            parser.add_option('--zrange', default=(0.01,0.7), type="float",
                               help='min redshift')
-            parser.add_option('--zmax', default=0.7, type="float",
-                              help='max redshift')
             parser.add_option('--mcrandseed', default=0, type="int",
                               help='random seed from MC sample')
             parser.add_option('--zbreak', default=None, type='float',
@@ -171,10 +123,6 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help='two gaussians for pop. B')
             parser.add_option('--skewedgauss', default=False, action="store_true",
                               help='skewed gaussian for pop. B')
-
-            parser.add_option('--zCCdist', default=False, action="store_true",
-                              help='fit for different CC parameters at each redshift control point')
-
 
             parser.add_option('-i','--inputfile', default='BEAMS.input', type="string",
                               help='file with the input data')
@@ -219,7 +167,6 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 
 
         inp = txtobj(inputfile)
-        inp.PA = inp.__dict__[self.options.pacol]            
         
         if not len(inp.PA):
             import exceptions
@@ -230,20 +177,9 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
             print('Warning : files %s exists!!  Not clobbering'%self.options.outputfile)
 
         # run the MCMC
-        if not self.options.zbreak:
-            zcontrol = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nzbins)
-        else:
-            zcontrol = \
-                np.unique(np.append(np.logspace(np.log10(self.options.zmin),
-                                                np.log10(self.options.zbreak),
-                                                num=self.options.nlowzbins),
-                                    np.logspace(np.log10(self.options.zbreak),
-                                                np.log10(self.options.zmax),
-                                                num=self.options.nzbins - self.options.nlowzbins + 1)))
+        zcontrol = np.logspace(np.log10(self.options.zrange[0]),np.log10(self.options.zrange[1]),num=self.options.nzbins)
 
         pardict,guess = self.mkParamDict(zcontrol)
-        if self.pardict.has_key('lstep') and self.pardict['lstep']['use']:
-            inp.PL = inp.__dict__[self.options.plcol]
 
         cov,samples = self.mcmc(inp,zcontrol,guess)
 
@@ -309,11 +245,11 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         else:
             lnlikefunc = lambda *args: -twogausslike(*args)
 
-        inp.mu,inp.muerr = salt2mu_aberr(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
-                                         cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
-                                         alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
-                                         beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
-                                         x0=inp.x0,z=inp.zHD)
+        inp.mu,inp.muerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
+                                   cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
+                                   alpha=self.options.salt2alpha,
+                                   beta=self.options.salt2beta,
+                                   x0=inp.x0,z=inp.zHD)
         inp.residerr = inp.muerr[:]
         inp.resid = inp.mu - cosmo.distmod(inp.zHD).value
 
@@ -695,7 +631,7 @@ def twogausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=False
         PA[PA < 0] = 0
     if usescale:
         PA[snspec != 1] = x[pardict['scaleA']['idx']]*PA[snspec != 1]/(1 - PA[snspec != 1] + x[pardict['scaleA']['idx']]*PA[snspec != 1])
-
+        
     modeldict = zmodel(x,zcontrol,zHD,pardict)
     
     if pardict['lstep']['use']:

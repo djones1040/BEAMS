@@ -13,7 +13,6 @@ class txtobj:
                  useloadtxt=True,fitresheader=False,
                  delimiter=' ',skiprows=0,tabsep=False):
         if cmpheader: hdr = pyfits.getheader(filename)
-        if fitresheader: skiprows=6
 
         coldefs = np.array([])
         if cmpheader:
@@ -27,14 +26,18 @@ class txtobj:
                 if l.startswith('#'):
                     coldefs = np.append(coldefs,filter(None,l.split(' '))[2])
         elif fitresheader:
+            skiprows=0
             fin = open(filename,'r')
             lines = fin.readlines()
             for l in lines:
+                skiprows += 1
                 if l.startswith('VARNAMES:'):
                     l = l.replace('\n','')
                     coldefs = np.array(filter(None,l.split(' ')))
                     coldefs = coldefs[np.where((coldefs != 'VARNAMES:') & (coldefs != '\n') & (coldefs != '#'))]
                     break
+                elif l.startswith('SN: '): break
+
         else:
             fin = open(filename,'r')
             lines = fin.readlines()
