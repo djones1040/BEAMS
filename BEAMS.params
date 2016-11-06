@@ -27,6 +27,10 @@ nstepsinit = 200
 ninit = 50
 mcrandstep = 1e-4
 
+# binning
+zbreak = 0.08
+nlowzbins = 3
+
 # sig
 sigIabounds = 0.075,0.085
 
