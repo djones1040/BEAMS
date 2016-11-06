@@ -48,8 +48,7 @@ will provide the rest of the documentation.
      plt.xlabel('$z$')
      plt.ylabel('Hubble Residual')
 
-  the results look great!  Unfortunately, you really need to use the
-  parallel-tempered ensemble sampler - or turn of the scale and shift
-  parameters in mcmc.params - and use many more steps if you want to
-  trust the results.
-  
+  the results look great!  Unfortunately, they don't mean anything yet.
+  You really need to use the parallel-tempered ensemble sampler - or 
+  turn of the scale and shift parameters in mcmc.params - and use many 
+  more steps if you want to trust the results.
