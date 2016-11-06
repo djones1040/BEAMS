@@ -1,12 +1,6 @@
 #!/usr/bin/env python
 # D. Jones - 5/14/14
-# diffimmagstats.py --cmpfile=/datascope/ps1sn1/data/v10.0/GPC1v3/eventsv1/workspace/PSc360052/tmpl/g/PSc360052.md04s047.g.stack_44.sw.icmp --psffile=/datascope/ps1sn1/data/v10.0/GPC1v3/eventsv1/workspace/PSc360052/g/PSc360052.md04s047.g.ut091126f.648816_44.sw.dao.psf.fits --diffim=/datascope/ps1sn1/data/v10.0/GPC1v3/eventsv1/workspace/PSc360052_tmpl/g/PSc360052.md04s047.g.ut091126f.648816_44_md04s047.g.stack_44.diff.fits
-"""Calculate increase in uncertainty due
-to bright host galaxies
 
-Usage: diffimmagstats.py --cmpfile=cmpfile --psffile=psffile --diffim=diffimfile
-
-"""
 import glob
 import os
 import numpy as np
