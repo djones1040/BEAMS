@@ -569,7 +569,6 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         from astropy.cosmology import Planck13 as cosmo
 
         from txtobj import txtobj
-        from iterstat import iterstat
 
         fout = open(outfile,'w')
         print >> fout, fitresheader
