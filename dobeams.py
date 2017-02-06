@@ -264,7 +264,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         coverr = lambda samp: np.sqrt(np.sum((samp-np.mean(samp))*(samp-np.mean(samp)))/len(samp))
 
         outlinevars = ['popAmean','popAstd','popBmean','popBstd','popB2mean','popB2std','skewB',
-                       'scaleA','shift','lstep','salt2alpha','salt2beta','salt2beta_1']
+                       'scaleA','shift','lstep','lstep_1','salt2alpha','salt2beta','salt2beta_1','salt2beta_2slope']
         outlinefmt = " ".join(["%.4f"]*(1+len(outlinevars)*2))
         fout = open(self.options.outputfile,'w')
         headerline = "# zCMB "
@@ -675,6 +675,19 @@ def twogausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=False
                              alpha=x[pardict['salt2alpha']['idx']],
                              beta=x[pardict['salt2beta']['idx']]+x[pardict['salt2beta_1']['idx']]*inp.zHD,
                              x0=inp.x0,z=inp.zHD)
+    elif pardict['salt2alpha']['use'] and pardict['salt2beta_2slope']['use']:
+        muA,muAerr = np.zeros(len(inp.x1)),np.zeros(len(inp.x1))
+        hc = inp.c > -0.1; lc = inp.c <= -0.1
+        muA[hc],muAerr[hc] = salt2mu(x1=inp.x1[hc],x1err=inp.x1ERR[hc],c=inp.c[hc],cerr=inp.cERR[hc],mb=inp.mB[hc],mberr=inp.mBERR[hc],
+                             cov_x1_c=inp.COV_x1_c[hc],cov_x1_x0=inp.COV_x1_x0[hc],cov_c_x0=inp.COV_c_x0[hc],
+                             alpha=x[pardict['salt2alpha']['idx']],
+                             beta=x[pardict['salt2beta']['idx']],
+                             x0=inp.x0[hc],z=inp.zHD[hc])
+        muA[lc],muAerr[lc] = salt2mu(x1=inp.x1[lc],x1err=inp.x1ERR[lc],c=inp.c[lc],cerr=inp.cERR[lc],mb=inp.mB[lc],mberr=inp.mBERR[lc],
+                             cov_x1_c=inp.COV_x1_c[lc],cov_x1_x0=inp.COV_x1_x0[lc],cov_c_x0=inp.COV_c_x0[lc],
+                             alpha=x[pardict['salt2alpha']['idx']],
+                             beta=x[pardict['salt2beta_2slope']['idx']],
+                             x0=inp.x0[lc],z=inp.zHD[lc])
     elif pardict['salt2alpha']['use'] and pardict['salt2beta']['use']:
         muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                              cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
@@ -699,8 +712,14 @@ def twogausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=False
     modeldict = zmodel(x,zcontrol,zHD,pardict)
     
     if pardict['lstep']['use']:
-        lsteplike = -(muA-modeldict['muAmodel']+x[pardict['lstep']['idx']])**2./(2.0*(muAerr**2.+x[pardict['popAstd']['idx']]**2.)) + \
-            np.log(PA*PL/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2.+muBerr**2.))),
+        if pardict['lstep_1']['use']:
+            lsteplike = -(muA-modeldict['muAmodel']-(x[pardict['lstep']['idx']] + \
+                                                         x[pardict['lstep_1']['idx']]*zHD))**2./(2.0*(muAerr**2.+x[pardict['popAstd']['idx']]**2.)) + \
+                                                         np.log(PA*PL/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2.+muBerr**2.)))
+        else:
+            lsteplike = -(muA-modeldict['muAmodel']-x[pardict['lstep']['idx']])**2./(2.0*(muAerr**2.+x[pardict['popAstd']['idx']]**2.)) + \
+                np.log(PA*PL/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2.+muBerr**2.)))
+
     else: lsteplike = np.zeros(len(muA)) - np.inf
 
     lnliketmp = logsumexp([-(muA-modeldict['muAmodel'])**2./(2.0*(muAerr**2.+x[pardict['popAstd']['idx']]**2.)) + \
@@ -711,9 +730,17 @@ def twogausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=False
     lnlike = np.sum(lnliketmp)
 
     if debug:
-        likeIa = np.sum(logsumexp([-(muA[PA == 1] - modeldict['muAmodel'][PA == 1])**2./(2.0*(muAerr[PA == 1]**2.+x[pardict['popAstd']['idx']]**2.)) + \
-                                              np.log(PA[PA == 1]*(1-PL[PA == 1])/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2. + \
-                                                                                                               muBerr[PA == 1]**2.)))],axis=0))
+        if pardict['lstep']['use']:
+            likeIa = np.sum(logsumexp([-(muA[PA == 1] - modeldict['muAmodel'][PA == 1])**2./(2.0*(muAerr[PA == 1]**2.+x[pardict['popAstd']['idx']]**2.)) + \
+                                            np.log(PA[PA == 1]*(1-PL[PA == 1])/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2. + \
+                                                                                                             muBerr[PA == 1]**2.))),
+                                        -(muA[PA == 1] - modeldict['muAmodel'][PA == 1] - x[pardict['lstep']['idx']])**2./(2.0*(muAerr[PA == 1]**2.+x[pardict['popAstd']['idx']]**2.)) + \
+                                            np.log(PA[PA == 1]*PL[PA == 1]/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2. + \
+                                                                                                         muBerr[PA == 1]**2.)))],axis=0))
+        else:
+            likeIa = np.sum(logsumexp([-(muA[PA == 1] - modeldict['muAmodel'][PA == 1])**2./(2.0*(muAerr[PA == 1]**2.+x[pardict['popAstd']['idx']]**2.)) + \
+                                            np.log(PA[PA == 1]*(1-PL[PA == 1])/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2. + \
+                                                                                                             muBerr[PA == 1]**2.)))],axis=0))
 
         print len(muA[PA == 1]),likeIa,x[pardict['popAstd']['idx']],x[pardict['scaleA']['idx']],x[pardict['salt2beta']['idx']]
 
@@ -727,6 +754,19 @@ def threegausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=Fal
                              alpha=x[pardict['salt2alpha']['idx']],
                              beta=x[pardict['salt2beta']['idx']]+x[pardict['salt2beta_1']['idx']]*inp.zHD,
                              x0=inp.x0,z=inp.zHD)
+    elif pardict['salt2alpha']['use'] and pardict['salt2beta_2slope']['use']:
+        muA,muAerr = np.zeros(len(inp.x1)),np.zeros(len(inp.x1))
+        hc = inp.c > -0.1; lc = inp.c <= -0.1
+        muA[hc],muAerr[hc] = salt2mu(x1=inp.x1[hc],x1err=inp.x1ERR[hc],c=inp.c[hc],cerr=inp.cERR[hc],mb=inp.mB[hc],mberr=inp.mBERR[hc],
+                             cov_x1_c=inp.COV_x1_c[hc],cov_x1_x0=inp.COV_x1_x0[hc],cov_c_x0=inp.COV_c_x0[hc],
+                             alpha=x[pardict['salt2alpha']['idx']],
+                             beta=x[pardict['salt2beta']['idx']],
+                             x0=inp.x0[hc],z=inp.zHD[hc])
+        muA[lc],muAerr[lc] = salt2mu(x1=inp.x1[lc],x1err=inp.x1ERR[lc],c=inp.c[lc],cerr=inp.cERR[lc],mb=inp.mB[lc],mberr=inp.mBERR[lc],
+                             cov_x1_c=inp.COV_x1_c[lc],cov_x1_x0=inp.COV_x1_x0[lc],cov_c_x0=inp.COV_c_x0[lc],
+                             alpha=x[pardict['salt2alpha']['idx']],
+                             beta=x[pardict['salt2beta_2slope']['idx']],
+                             x0=inp.x0[lc],z=inp.zHD[lc])
     elif pardict['salt2alpha']['use'] and pardict['salt2beta']['use']:
         muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                              cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
@@ -751,8 +791,14 @@ def threegausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=Fal
     modeldict = zmodel(x,zcontrol,zHD,pardict)
     
     if pardict['lstep']['use']:
-        lsteplike = -(muA-modeldict['muAmodel']+x[pardict['lstep']['idx']])**2./(2.0*(muAerr**2.+x[pardict['popAstd']['idx']]**2.)) + \
-            np.log(PA*PL/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2.+muBerr**2.))),
+        if pardict['lstep_1']['use']:
+            lsteplike = -(muA-modeldict['muAmodel']-(x[pardict['lstep']['idx']] + \
+                                                         x[pardict['lstep_1']['idx']]*zHD))**2./(2.0*(muAerr**2.+x[pardict['popAstd']['idx']]**2.)) + \
+                                                         np.log(PA*PL/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2.+muBerr**2.)))
+        else:
+            lsteplike = -(muA-modeldict['muAmodel']-x[pardict['lstep']['idx']])**2./(2.0*(muAerr**2.+x[pardict['popAstd']['idx']]**2.)) + \
+                np.log(PA*PL/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2.+muBerr**2.)))
+
     else: lsteplike = np.zeros(len(muA)) - np.inf
 
     sum = logsumexp([-(muA-modeldict['muAmodel'])**2./(2.0*(muAerr**2.+x[pardict['popAstd']['idx']]**2.)) + \
@@ -782,6 +828,19 @@ def twogausslike_skew(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=
                              alpha=x[pardict['salt2alpha']['idx']],
                              beta=x[pardict['salt2beta']['idx']]+x[pardict['salt2beta_1']['idx']]*inp.zHD,
                              x0=inp.x0,z=inp.zHD)
+    elif pardict['salt2alpha']['use'] and pardict['salt2beta_2slope']['use']:
+        muA,muAerr = np.zeros(len(inp.x1)),np.zeros(len(inp.x1))
+        hc = inp.c > -0.1; lc = inp.c <= -0.1
+        muA[hc],muAerr[hc] = salt2mu(x1=inp.x1[hc],x1err=inp.x1ERR[hc],c=inp.c[hc],cerr=inp.cERR[hc],mb=inp.mB[hc],mberr=inp.mBERR[hc],
+                             cov_x1_c=inp.COV_x1_c[hc],cov_x1_x0=inp.COV_x1_x0[hc],cov_c_x0=inp.COV_c_x0[hc],
+                             alpha=x[pardict['salt2alpha']['idx']],
+                             beta=x[pardict['salt2beta']['idx']],
+                             x0=inp.x0[hc],z=inp.zHD[hc])
+        muA[lc],muAerr[lc] = salt2mu(x1=inp.x1[lc],x1err=inp.x1ERR[lc],c=inp.c[lc],cerr=inp.cERR[lc],mb=inp.mB[lc],mberr=inp.mBERR[lc],
+                             cov_x1_c=inp.COV_x1_c[lc],cov_x1_x0=inp.COV_x1_x0[lc],cov_c_x0=inp.COV_c_x0[lc],
+                             alpha=x[pardict['salt2alpha']['idx']],
+                             beta=x[pardict['salt2beta_2slope']['idx']],
+                             x0=inp.x0[lc],z=inp.zHD[lc])
     elif pardict['salt2alpha']['use'] and pardict['salt2beta']['use']:
         muA,muAerr = salt2mu(x1=inp.x1,x1err=inp.x1ERR,c=inp.c,cerr=inp.cERR,mb=inp.mB,mberr=inp.mBERR,
                              cov_x1_c=inp.COV_x1_c,cov_x1_x0=inp.COV_x1_x0,cov_c_x0=inp.COV_c_x0,
@@ -807,18 +866,24 @@ def twogausslike_skew(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=
 
     gaussA = -(muA-modeldict['muAmodel'])**2./(2.0*(muAerr**2.+x[pardict['popAstd']['idx']]**2.)) + \
         np.log(PA*(1-PL)/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2.+muBerr**2.)))
+
     if pardict['lstep']['use']:
-        gaussAhm = -(muA-modeldict['muAmodel']-x[pardict['lstep']['idx']])**2./(2.0*(muAerr**2.+x[pardict['popAstd']['idx']]**2.)) + \
-            np.log((PA*PL)/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2.+muBerr**2.)))
-    else:
-        gaussAhm = np.zeros(len(muA)) - np.inf
+        if pardict['lstep_1']['use']:
+            lsteplike = -(muA-modeldict['muAmodel']-(x[pardict['lstep']['idx']] + \
+                                                         x[pardict['lstep_1']['idx']]*zHD))**2./(2.0*(muAerr**2.+x[pardict['popAstd']['idx']]**2.)) + \
+                                                         np.log(PA*PL/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2.+muBerr**2.)))
+        else:
+            lsteplike = -(muA-modeldict['muAmodel']-x[pardict['lstep']['idx']])**2./(2.0*(muAerr**2.+x[pardict['popAstd']['idx']]**2.)) + \
+                np.log(PA*PL/(np.sqrt(2*np.pi)*np.sqrt(x[pardict['popAstd']['idx']]**2.+muBerr**2.)))
+
+    else: lsteplike = np.zeros(len(muA)) - np.inf
 
     normB = (1-PA)/(np.sqrt(2*np.pi)*np.sqrt(modeldict['sigBmodel']**2.+muBerr**2.))
     gaussB = -(muB-modeldict['muBmodel'])**2./(2*(modeldict['sigBmodel']**2.+muBerr**2.))
     skewB = 1 + erf(modeldict['skewBmodel']*(muB-modeldict['muBmodel'])/np.sqrt(2*(modeldict['sigBmodel']**2.+muBerr**2.)))
     #skewB[skewB == 0] = 1e-10
     skewgaussB = gaussB + np.log(normB*skewB)
-    lnlike = np.sum(logsumexp([gaussA,gaussAhm,skewgaussB],axis=0))
+    lnlike = np.sum(logsumexp([gaussA,lsteplik,skewgaussB],axis=0))
     if debug:
         likeIa = np.sum(logsumexp([-(muA[PA == 1] - modeldict['muAmodel'][PA == 1])**2./ \
                                         (2.0*(muAerr[PA == 1]**2.+x[pardict['popAstd']['idx']]**2.)) + \
@@ -835,7 +900,9 @@ def lnprior(theta,pardict=None):
 #0.1556 0.0075 3.2476 0.0755
     for t,i in zip(theta,range(len(theta))):
         prior_mean,prior_std,key = getpriors(i,pardict)
-        p_theta += norm.logpdf(t,prior_mean,prior_std)
+        # don't allow distance prior
+        if key != 'popAmean':
+            p_theta += norm.logpdf(t,prior_mean,prior_std)
 
         if key == 'scaleA' and pardict['scaleA']['use'] and pardict['scaleA']['idx'] == i:
             if t < 0: return -np.inf

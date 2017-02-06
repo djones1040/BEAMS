@@ -18,7 +18,10 @@ shift       0.0   0.0   0.2   1 0 0 0   0 -1  1
 # options to fit to a second-order "step" effect on luminosity.
 # This is the host mass bias for SNe.
 lstep       0.07  0.07  0.023 0 0 0 0   0  0  0
+lstep_1     0.00  0.00  0.14  0 0 0 0   0 -0.3 0.3
 # SALT2 SN parameters: guesses and priors
 salt2alpha  0.147 0.147 0.05  1 0 0 0   0  0.1 0.2
 salt2beta   3.13  3.13  0.5   1 0 0 0   0  2.5 4.0
-salt2beta_1 0.00  0.00  0.5   0 0 0 0   0 -1.0 1.0
+salt2beta_1 0.00  0.00  2.0   0 0 0 0   0 -2.0 2.0
+# allow a c > 0.1 slope and this parameter, a c < 0.1 slope
+salt2beta_2slope 3.13  3.13  3.0   0 0 0 0   0  0  0
