@@ -1,45 +1,123 @@
 # BEAMS example parameter file
 
-# columns names in the input file, identified in the file header
-[all]
-pacol = PA
-residcol = resid
-residerrcol = resid_err
+[inputdata]
+# file that gives info about BEAMS free parameters
+mcmcparamfile = mcmcparams.input
 
-# luminosity step correction
-plcol = PL
-lstep = 0
-lstepguess = 0.07
-lstepprior = 0.07,0.023
-lstepfixed = 0
+# input file in FITRES format (see example data)
+inputfile = exampledata/PS1_SIM_example.FITRES
+outputfile = exampledata/PS1_BEAMS_example.out
 
-# default alpha and beta for distances
+# P(Ia) column in fitres file
+piacol = PNN_Ia
+# column with spec-confirmed SNe having value = 1, others = 0
+specconfcol = SNSPEC
+
+# another way to specify spec/phot SNe by using the IDSURVEY
+# keyword in FITRES file
+specidsurvey = 53,5,50,61,62,63,64,65,66
+photidsurvey = 15
+
+# photometric SNe don't contribute any value at
+# low-z, so they can often be excluded based on the
+# photidsurvey keyword
+zminphot = 0.08
+
+[sim]
+# options to test BEAMS when using simulated data
+
+# if true, remove sim SNe with bad redshifts based on
+# the SIM_ZCMB keyword in the FITRES file
+nobadzsim = false
+# if true, remove SNe with SIM_TYPE_INDEX != 1 and bad
+# redshifts from the bunch
+onlyIa = false
+# remove all SNe Ia with correct redshifts
+onlyCC = false
+# this test allows BEAMS to use the traditional method of
+# making a cut on P(Ia) and treating all SNe with
+# P(Ia) > pcutval as bona fide SNe Ia.
+pcutval = false
+
+[models]
+# if true, use two gaussian and skewed gaussian models
+# for the CC SN population
+twogauss = false
+skewedgauss = false
+
+[lightcurve]
+crange = -0.3,0.3
+x1range = -3,3
+fitprobmin = 0.001
+x1errmax = 1
+pkmjderrmax = 2
+zrange = 0.01,0.7
+
+# these nuisance parameters are only used
+# to remove SNe with NaN uncertainties
 salt2alpha = 0.147
-salt2alphaerr = 0.01
 salt2beta = 3.13
-salt2betaerr = 0.12
+sigint = 0
 
-# params for the MCMC
+# cutwin options have format variable, min, max
+# used to restrict range of additional parameters
+cutwin = 
+
+# if true, uses x1 and c parameters to define ellipse cut
+# instead of a box cut
+x1cellipse = false
+
+[mass]
+# these options allow BEAMS to simultaneously
+# fit for the host mass bias (e.g. Sullivan+2010).
+# These have not yet been tested.
+masscorr = false
+masscorrfixed = false
+masscorrmag = 0.07,0.023
+
+[mcmc]
+# emcee options - see their documentation
 nthreads = 8
-nwalkers = 100
-nsteps = 1000
-nstepsinit = 200
-ninit = 50
+nwalkers = 200
+nsteps = 1500
+ninit = 1500
+# if ntemps > 0, uses emcee's parallel-tempered
+# ensemble sampler with specified number of
+# temperatures
+ntemps = 0
+# random step size for initializing MCMC
 mcrandstep = 1e-4
 
-# binning
-zbreak = 0.08
-nlowzbins = 3
+# minimization parameters for scipy.optimize.minimize
+# these are ignored if ntemps > 0
+minmethod = L-BFGS-B
+miniter = 1
 
-# sig
-sigIabounds = 0.075,0.085
+# sometimes the minimizer does good enough for the MCMC,
+# even if it says it fails.  To force it to succeed, set
+# forceminsuccess = 1
+forceminsuccess = false
 
-# model changes
-twogauss = 0
-skewedgauss = 0
-simcc = 
-snpars = 0
+# number of log(z) bins.  Must match MCMC parameter file
+nzbins = 25
 
-# files
-inputfile = BEAMS.input
-outputfile = beamsCosmo.out
+[bootstrap]
+# options for taking bootstrap subsets from
+# a big FITRES file.  Number of low-z SNe is
+# fixed atm.
+
+# if mcsubset = 1, take bootstrap subsets
+mcsubset = False
+# random seed
+mcrandseed = 0
+# size of non-low-z SNe
+subsetsize = 1000
+# number of MC samples
+nmc = 25
+# start at this sample
+nmcstart = 1
+# file with low-z SNe
+mclowzfile = 
+# number of low-z SNe to include
+nmclowz = 250
+

@@ -1,4 +1,3 @@
-import BEAMS
-import doSNBEAMS
-import SNCosmo
-import doBEAMS
+import snbeams
+import dobeams
+import txtobj
