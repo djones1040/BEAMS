@@ -130,6 +130,8 @@ class snbeams:
                               help='seed for np.random')
             parser.add_option('--subsetsize', default=config.get('main','subsetsize'), type="int",
                               help='number of SNe in each MC subset ')
+            parser.add_option('--lowzsubsetsize', default=config.get('main','lowzsubsetsize'), type="int",
+                              help='number of low-z SNe in each MC subset ')
             parser.add_option('--nmc', default=config.get('main','nmc'), type="int",
                               help='number of MC samples ')
             parser.add_option('--nmcstart', default=config.get('main','nmcstart'), type="int",
@@ -269,6 +271,8 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help='seed for np.random')
             parser.add_option('--subsetsize', default=105, type="int",
                               help='number of SNe in each MC subset ')
+            parser.add_option('--lowzsubsetsize', default=250, type="int",
+                              help='number of low-z SNe in each MC subset ')
             parser.add_option('--nmc', default=100, type="int",
                               help='number of MC samples ')
             parser.add_option('--nmcstart', default=1, type="int",
@@ -293,7 +297,7 @@ then everything with P(Ia) > that cut is reset to P(Ia) = 1""")
                               help="""number of low-z bins""")
             parser.add_option('--photidsurvey', default=15, type='float',
                               help='photometric survey ID, only necessary for zminphot')
-            parser.add_option('--specidsurvey', default='53,5,50,61,62,63,64,65,66', type='string',
+            parser.add_option('--specidsurvey', default='53,5,50,61,62,63,64,65,66,151', type='string',
                               help='will fix P(Ia) at 1 for IDSURVEY = this value')
             parser.add_option('--nspecsne', default=0, type='int',
                               help='a spectroscopic sample to help BEAMS (for sim SNe)')
@@ -421,19 +425,23 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         beam.options.mcrandseed = self.options.mcrandseed
         beam.zbreak = self.options.zbreak
         beam.nlowzbins = self.options.nlowzbins        
+        beam.options.salt2alpha = self.options.salt2alpha
+        beam.options.salt2beta = self.options.salt2beta
 
         options.inputfile = '%s.input'%root
         if self.options.masscorr:
             beam.options.plcol = 'PL'
             import scipy.stats
-            cols = np.where(fr.HOST_LOGMASS > 0)
-            for k in fr.__dict__.keys():
-                fr.__dict__[k] = fr.__dict__[k][cols]
+            #cols = np.where(fr.HOST_LOGMASS > 0)
+            #for k in fr.__dict__.keys():
+            #    fr.__dict__[k] = fr.__dict__[k][cols]
             fr.PL = np.zeros(len(fr.CID))
             for i in range(len(fr.CID)):
-                if fr.HOST_LOGMASS_ERR[i] == 0: fr.HOST_LOGMASS_ERR[i] = 1e-5
+                if fr.HOST_LOGMASS_ERR[i] <= 0: fr.HOST_LOGMASS_ERR[i] = 1e-5
                 fr.PL[i] = scipy.stats.norm.cdf(10,fr.HOST_LOGMASS[i],fr.HOST_LOGMASS_ERR[i])
-            P_Ia = P_Ia[cols]            
+                
+            #P_Ia = P_Ia[cols]            
+            
 
         if self.options.masscorrfixed: beam.options.lstepfixed = True
 
@@ -589,7 +597,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                     outvars += (0,)
             print >> fout, fitresfmt%outvars
 
-    def mcsamp(self,fitresfile,mciter,lowzfile,nsne):
+    def mcsamp(self,fitresfile,mciter,lowzfile,nsne,nlowzsne):
         import os
         from txtobj import txtobj
         import numpy as np
@@ -629,20 +637,25 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRM
             if not frlowz.__dict__.has_key('SIM_ZCMB'): frlowz.SIM_ZCMB = np.array([-99]*len(fr.CID))
 
         # Light curve cuts
+        sf = -2.5/(fr.x0*np.log(10.0))
+        invvars = 1./(fr.mBERR**2.+ self.options.salt2alpha**2. * fr.x1ERR**2. + \
+                          self.options.salt2beta**2. * fr.cERR**2. +  2.0 * self.options.salt2alpha * (fr.COV_x1_x0*sf) - \
+                          2.0 * self.options.salt2beta * (fr.COV_c_x0*sf) - \
+                          2.0 * self.options.salt2alpha*self.options.salt2beta * (fr.COV_x1_c) )
         if self.options.x1cellipse:
             # I'm just going to assume cmax = abs(cmin) and same for x1
             cols = np.where((fr.x1**2./self.options.x1range[0]**2. + fr.c**2./self.options.crange[0]**2. < 1) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax*(1+fr.zHD)) &
                             (fr.FITPROB >= self.options.fitprobmin) &
                             (fr.zHD > self.options.zmin) & (fr.zHD < self.options.zmax) &
-                            (fr.__dict__[self.options.piacol] >= 0))
+                            (fr.__dict__[self.options.piacol] >= 0) & (invvars > 0))
         else:
             cols = np.where((fr.x1 > self.options.x1range[0]) & (fr.x1 < self.options.x1range[1]) &
                             (fr.c > self.options.crange[0]) & (fr.c < self.options.crange[1]) &
                             (fr.x1ERR < self.options.x1errmax) & (fr.PKMJDERR < self.options.pkmjderrmax*(1+fr.zHD)) &
                             (fr.FITPROB >= self.options.fitprobmin) &
                             (fr.zHD > self.options.zmin) & (fr.zHD < self.options.zmax) &
-                            (fr.__dict__[self.options.piacol] >= 0))
+                            (fr.__dict__[self.options.piacol] >= 0) & (invvars > 0))
         for k in fr.__dict__.keys():
             fr.__dict__[k] = fr.__dict__[k][cols]
 
@@ -657,13 +670,13 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRM
         except ValueError:
             print('Warning : crashed because not enough SNe!  Making only a low-z file...')
             if lowzfile:
-                writefitres(frlowz,random.sample(range(len(frlowz.CID)),250),
+                writefitres(frlowz,random.sample(range(len(frlowz.CID)),nlowzsne),
                             fitresoutfile,append=False,fitresheader=fitresheader,
                             fitresvars=fitresvars,fitresfmt=fitresfmt)
             return(fitresoutfile)
         if lowzfile:
             try:
-                writefitres(frlowz,random.sample(range(len(frlowz.CID)),250),
+                writefitres(frlowz,random.sample(range(len(frlowz.CID)),nlowzsne),
                             fitresoutfile,append=True,fitresheader=fitresheader,
                             fitresvars=fitresvars,fitresfmt=fitresfmt)
             except:
@@ -828,7 +841,7 @@ examples:
     if options.mcsubset:
         outfile_orig = options.outfile[:]
         for i in range(options.nmcstart,options.nmc+1):
-            frfile = sne.mcsamp(options.fitresfile,i,options.mclowz,options.subsetsize)
+            frfile = sne.mcsamp(options.fitresfile,i,options.mclowz,options.subsetsize,options.lowzsubsetsize)
             name,ext = os.path.splitext(outfile_orig)
             options.outfile = '%s_mc%i%s'%(name,i,ext)
             sne.main(frfile)

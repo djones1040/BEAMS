@@ -4,24 +4,31 @@
 popAmean    0.0   0.0   0.25  1 0 1 1   0 -1  1
 popAstd     0.1   0.1   0.1   1 0 0 0   0  0.01  0.2
 # population B guesses and priors (the pop we don't care about)
-popBmean    2.0   2.0   3.0   1 0 1 5   0 -2  3
+popBmean    2.0   2.0   3.0   1 0 1 5   0 -4  6
 popBstd     2.0   2.0   2.0   1 0 0 5   0  0  0
 # population B guesses and priors for second gaussian (the pop we don't care about)
 popB2mean   0.0   0.0   2.0   0 0 1 5   0 -2  2
 popB2std    1.0   1.0   3.0   0 0 0 5   0  0  2.0
 # the skewness of the pop. B gaussian
-skewB       0.0   0.0   0.1   0 0 0 5   0 -10 10
+skewB       0.0   0.0   0.1   0 0 0 10  0 -10 10
 # P(Ia) normalization factor: guesses and priors
 scaleA      1.0   1.0   0.2   1 0 0 0   0  0  1000
 # linear shift in prior probabilities: guesses and priors
 shift       0.0   0.0   0.2   1 0 0 0   0 -1  1
 # options to fit to a second-order "step" effect on luminosity.
 # This is the host mass bias for SNe.
-lstep       0.07  0.07  0.023 0 0 0 0   0  0  0
+lstep       0.07  0.07  0.07  0 0 0 0   0  0  0
 lstep_1     0.00  0.00  0.14  0 0 0 0   0 -0.3 0.3
 # SALT2 SN parameters: guesses and priors
-salt2alpha  0.147 0.147 0.05  1 0 0 0   0  0.1 0.2
-salt2beta   3.13  3.13  0.5   1 0 0 0   0  2.5 4.0
-salt2beta_1 0.00  0.00  2.0   0 0 0 0   0 -2.0 2.0
+salt2alpha  0.141 0.141 0.05  1 0 0 0   0  0.1 0.2
+salt2beta   3.101  3.101  0.5   1 0 0 0   0  2.5 4.0
+salt2alpha_CC 0.141  0.141  0.05   0 0 0 0   0  0.1 0.2
+salt2beta_CC  3.101  3.101  0.50   0 0 0 0   0  2.5 4.0
+salt2alpha_1 0.00  0.00  0.0   0 0 0 0   0 -0.2 0.2
+salt2beta_1  0.00  0.00  2.0   0 0 0 0   0 -2.0 2.0
+# allow an offset between beta in the photometric survey
+# and the spectroscopic surveys
+# necesssary in PS1 due to observational biases
+salt2beta_poff  -0.14 -0.14  0.01  0 1 0 0   0  -0.25  -0.1
 # allow a c > 0.1 slope and this parameter, a c < 0.1 slope
 salt2beta_2slope 3.13  3.13  3.0   0 0 0 0   0  0  0
