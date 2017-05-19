@@ -923,8 +923,8 @@ def lnprior(theta,pardict=None):
     for t,i in zip(theta,range(len(theta))):
         prior_mean,prior_std,lbound,ubound,key = getpriors(i,pardict)
         # don't allow distance prior
-        #if key != 'popAmean':
-        p_theta += norm.logpdf(t,prior_mean,prior_std)
+        if key != 'popAmean':
+            p_theta += norm.logpdf(t,prior_mean,prior_std)
 
         if key == 'scaleA' and pardict['scaleA']['use'] and pardict['scaleA']['idx'] == i:
             if t < 0: return -np.inf
