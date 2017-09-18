@@ -1028,7 +1028,7 @@ def salt2mu(x1=None,x1err=None,
             mb=None,mberr=None,
             cov_x1_c=None,cov_x1_x0=None,cov_c_x0=None,
             alpha=None,beta=None,
-            M=None,x0=None,sigint=None,z=None,peczerr=0.0005):
+            M=None,x0=None,sigint=None,z=None,peczerr=0.00083):
 
     sf = -2.5/(x0*np.log(10.0))
     cov_mb_c = cov_c_x0*sf
@@ -1049,7 +1049,7 @@ def salt2mu_aberr(x1=None,x1err=None,
                   cov_x1_c=None,cov_x1_x0=None,cov_c_x0=None,
                   alpha=None,beta=None,
                   alphaerr=None,betaerr=None,
-                  M=None,x0=None,sigint=None,z=None,peczerr=0.0005):
+                  M=None,x0=None,sigint=None,z=None,peczerr=0.00083):
     from uncertainties import ufloat, correlated_values, correlated_values_norm
     alphatmp,betatmp = alpha,beta
     alpha,beta = ufloat(alpha,alphaerr),ufloat(beta,betaerr)

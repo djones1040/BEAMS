@@ -92,14 +92,18 @@ class snbeams:
 
             # Mass options
             parser.add_option(
-                '--masscorr', default=config.get('main','masscorr'),action="store_true",
+                '--masscorr', default=config.get('mass','masscorr'),action="store_true",
                 help='If true, perform mass correction (default=%default)')
             parser.add_option(
-                '--masscorrfixed', default=config.get('main','masscorrfixed'),action="store_true",
+                '--masscorrfixed', default=config.get('mass','masscorrfixed'),action="store_true",
                 help='If true, perform fixed mass correction (default=%default)')
             parser.add_option(
                 '--masscorrmag', default=(0.07,0.023),type="float",
                 help="""mass corr. and uncertainty (default=%default)""",nargs=2)
+            parser.add_option(
+                '--masscorrdivide', default=config.get('mass','masscorrdivide'),type="float",
+                help="""location of low-mass/high-mass split (default=%default)""")
+
 
             parser.add_option('--nthreads', default=config.get('main','nthreads'), type="int",
                               help='Number of threads for MCMC')
@@ -241,6 +245,9 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
             parser.add_option(
                 '--masscorrmag', default=(0.07,0.023),type="float",
                 help="""mass corr. and uncertainty (default=%default)""",nargs=2)
+            parser.add_option(
+                '--masscorrdivide', default=10,type="float",
+                help="""location of low-mass/high-mass split (default=%default)""")
             
             parser.add_option('--nthreads', default=8, type="int",
                               help='Number of threads for MCMC')
@@ -317,7 +324,7 @@ then everything with P(Ia) > that cut is reset to P(Ia) = 1""")
                               help='Number of threads for MCMC')
             parser.add_option('--nwalkers', default=200, type="int",
                               help='Number of walkers for MCMC')
-            parser.add_option('--nsteps', default=1500, type="int",
+            parser.add_option('--nsteps', default=3000, type="int",
                               help='Number of steps (per walker) for MCMC')
             parser.add_option('--ninit', default=1500, type="int",
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
@@ -438,7 +445,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
             fr.PL = np.zeros(len(fr.CID))
             for i in range(len(fr.CID)):
                 if fr.HOST_LOGMASS_ERR[i] <= 0: fr.HOST_LOGMASS_ERR[i] = 1e-5
-                fr.PL[i] = scipy.stats.norm.cdf(10,fr.HOST_LOGMASS[i],fr.HOST_LOGMASS_ERR[i])
+                fr.PL[i] = scipy.stats.norm.cdf(self.options.masscorrdivide,fr.HOST_LOGMASS[i],fr.HOST_LOGMASS_ERR[i])
                 
             #P_Ia = P_Ia[cols]            
             
@@ -755,7 +762,7 @@ def salt2mu(x1=None,x1err=None,
             cov_x1_c=None,cov_x1_x0=None,cov_c_x0=None,
             alpha=None,beta=None,
             alphaerr=None,betaerr=None,
-            M=None,x0=None,sigint=None,z=None,peczerr=0.0005):
+            M=None,x0=None,sigint=None,z=None,peczerr=0.00083):
     from uncertainties import ufloat, correlated_values, correlated_values_norm
     alphatmp,betatmp = alpha,beta
     alpha,beta = ufloat(alpha,alphaerr),ufloat(beta,betaerr)
