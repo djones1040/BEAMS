@@ -340,7 +340,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                                                   'pardict':self.pardict,
                                                   'debug':self.options.debug},
                                       logpkwargs={'pardict':self.pardict},
-                                      threads=int(self.options.nthreads),a=1.4)
+                                      threads=int(self.options.nthreads))
             p0 = np.zeros([self.options.ntemps,nwalkers,ndim])
             for g,i in zip(guess,xrange(len(guess))):
                 key = getpar(i,self.pardict)
