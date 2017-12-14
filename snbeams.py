@@ -366,7 +366,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 
         return(parser)
 
-    def main(self,fitres,mkcuts=True):
+    def main(self,fitres,mkcuts=False):
         from txtobj import txtobj
         from astropy.cosmology import Planck13 as cosmo
 
@@ -500,6 +500,10 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 
             for k in fr.__dict__.keys():
                 fr.__dict__[k] = fr.__dict__[k][cols]
+        else:
+            cols = np.where((fr.__dict__[self.options.piacol] >= 0) & (self.options.piacol <= 1))
+            for k in fr.__dict__.keys():
+                fr.__dict__[k] = fr.__dict__[k][cols]                
 
         if len(self.options.cutwin):
             cols = np.arange(len(fr.CID))
@@ -854,4 +858,3 @@ examples:
             sne.main(frfile)
     else:
         sne.main(options.fitresfile)
-
