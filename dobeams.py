@@ -289,7 +289,6 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 				md = minimize(lnlikefunc,guess,
 							  args=(inp,zcontrol,self.pardict['scaleA']['use'],self.pardict,self.options.debug),
 							  bounds=bounds,method=self.options.minmethod,options={'maxiter':10000,'maxfev':10000})
-				import pdb; pdb.set_trace()
 			else:
 				md = basinhopping(lnlikefunc,guess,
 								  minimizer_kwargs = {'args':(inp,zcontrol,self.pardict['scaleA']['use'],
