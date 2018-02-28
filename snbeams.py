@@ -51,9 +51,9 @@ class snbeams:
                           help='clobber output image')
 
         if config:
-            parser.add_option('--piacol', default=config.get('main','piacol'), type="string",
+            parser.add_option('--piacol', default=config.get('inputdata','piacol'), type="string",
                               help='Column in FITRES file used as guess at P(Ia)')
-            parser.add_option('--specconfcol', default=config.get('main','specconfcol'), type="string",
+            parser.add_option('--specconfcol', default=config.get('inputdata','specconfcol'), type="string",
                               help='Column in FITRES file indicating spec.-confirmed SNe with 1')
 
             # Light curve cut parameters
@@ -63,135 +63,135 @@ class snbeams:
             parser.add_option(
                 '--x1range', default=list(map(float,config.get('main','crange').split(','))),type="float",
                 help='Peculiar velocity error (default=%default)',nargs=2)
-            parser.add_option('--x1cellipse',default=config.get('main','x1cellipse'),action="store_true",
-                          help='Elliptical, not box, cut in x1 and c')
+            parser.add_option('--x1cellipse',default=config.getboolean('lightcurve','x1cellipse'),
+                              action="store_true",
+                              help='Elliptical, not box, cut in x1 and c')
             parser.add_option(
-                '--fitprobmin', default=config.get('main','fitprobmin'),type="float",
+                '--fitprobmin', default=config.get('lightcurve','fitprobmin'),type="float",
                 help='Peculiar velocity error (default=%default)')
             parser.add_option(
-                '--x1errmax', default=config.get('main','x1errmax'),type="float",
+                '--x1errmax', default=config.get('lightcurve','x1errmax'),type="float",
                 help='Peculiar velocity error (default=%default)')
             parser.add_option(
-                '--pkmjderrmax', default=config.get('main','pkmjderrmax'),type="float",
+                '--pkmjderrmax', default=config.get('lightcurve','pkmjderrmax'),type="float",
                 help='Peculiar velocity error (default=%default)')
-            parser.add_option('--cutwin',default=config.get('main','cutwin'),
+            parser.add_option('--cutwin',default=config.get('lightcurve','cutwin'),
                               type='string',action='append',
                               help='parameter range for specified variable',nargs=3)
 
             # SALT2 parameters and intrinsic dispersion
-            parser.add_option('--salt2alpha', default=config.get('main','salt2alpha'), type="float",
+            parser.add_option('--salt2alpha', default=config.get('lightcurve','salt2alpha'),
+                              type="float",
                               help='SALT2 alpha parameter from a spectroscopic sample (default=%default)')
-            parser.add_option('--salt2alphaerr', default=config.get('main','salt2alphaerr'), type="float",
+            parser.add_option('--salt2alphaerr', default=config.get('lightcurve','salt2alphaerr'),
+                              type="float",
                               help='nominal SALT2 alpha uncertainty from a spectroscopic sample (default=%default)')
-            parser.add_option('--salt2beta', default=config.get('main','salt2beta'), type="float",
+            parser.add_option('--salt2beta', default=config.get('lightcurve','salt2beta'),
+                              type="float",
                               help='nominal SALT2 beta parameter from a spec. sample (default=%default)')
-            parser.add_option('--salt2betaerr', default=config.get('main','salt2betaerr'), type="float",
+            parser.add_option('--salt2betaerr', default=config.get('lightcurve','salt2betaerr'),
+                              type="float",
                               help='nominal SALT2 beta uncertainty from a spec. sample (default=%default)')
-            parser.add_option('--sigint', default=config.get('main','sigint'), type="float",
+            parser.add_option('--sigint', default=config.get('lightcurve','sigint'),
+                              type="float",
                               help='nominal intrinsic dispersion, MCMC fits for this if not specified (default=%default)')
 
             # Mass options
             parser.add_option(
-                '--masscorr', default=config.get('mass','masscorr'),action="store_true",
+                '--masscorr', default=config.getboolean('mass','masscorr'),action="store_true",
                 help='If true, perform mass correction (default=%default)')
             parser.add_option(
-                '--masscorrfixed', default=config.get('mass','masscorrfixed'),action="store_true",
+                '--masscorrfixed', default=config.getboolean('mass','masscorrfixed'),action="store_true",
                 help='If true, perform fixed mass correction (default=%default)')
             parser.add_option(
-                '--masscorrmag', default=(0.07,0.023),type="float",
-                help="""mass corr. and uncertainty (default=%default)""",nargs=2)
+                '--masscorrmag', default=config.get('mass','masscorrmag'),type="float",
+                help="""mass corr. and uncertainty (default=%default)""")
+            parser.add_option(
+                '--masscorrmagerr', default=config.get('mass','masscorrmagerr'),type="float",
+                help="""mass corr. and uncertainty (default=%default)""")
             parser.add_option(
                 '--masscorrdivide', default=config.get('mass','masscorrdivide'),type="float",
                 help="""location of low-mass/high-mass split (default=%default)""")
 
 
-            parser.add_option('--nthreads', default=config.get('main','nthreads'), type="int",
+            parser.add_option('--nthreads', default=config.get('mcmc','nthreads'), type="int",
                               help='Number of threads for MCMC')
-            parser.add_option('--zmin', default=config.get('main','zmin'), type="float",
+            parser.add_option('--zmin', default=config.get('lightcurve','zmin'), type="float",
                               help='minimum redshift')
-            parser.add_option('--zmax', default=config.get('main','zmax'), type="float",
+            parser.add_option('--zmax', default=config.get('lightcurve','zmax'), type="float",
                               help='maximum redshift')
 
-            parser.add_option('--nbins', default=config.get('main','nbins'), type="int",
+            parser.add_option('--nbins', default=config.get('mcmc','nbins'), type="int",
                               help='number of bins in log redshift space')
-            parser.add_option('--equalbins', default=config.get('main','equalbins'), action="store_true",
+            parser.add_option('--equalbins', default=config.getboolean('mcmc','equalbins'), action="store_true",
                               help='if set, every bin contains the same number of SNe')
 
-            parser.add_option('-f','--fitresfile', default=config.get('main','fitresfile'), type="string",
+            parser.add_option('-f','--fitresfile', default=config.get('inputdata','fitresfile'), type="string",
                               help='fitres file with the SN Ia data')
-            parser.add_option('-o','--outfile', default=config.get('main','outfile'), type="string",
+            parser.add_option('-o','--outfile', default=config.get('inputdata','outfile'), type="string",
                               help='Output file with the derived parameters for each redshift bin')
 
-            parser.add_option('--usefitresmu', default=config.get('main','usefitresmu'), action="store_true",
-                              help='Use the distance modulus given in the fitres file')
-
-            parser.add_option('-p','--paramdefaultfile', default=config.get('main','paramdefaultfile'), type="string",
-                              help='default parameter file to populate with SNCosmo options')
-
-            parser.add_option('--mcsubset', default=config.get('main','mcsubset'), action="store_true",
+            parser.add_option('--mcsubset', default=config.getboolean('bootstrap','mcsubset'), action="store_true",
                               help='generate a random subset of SNe from the fitres file')
-            parser.add_option('--mcrandseed', default=config.get('main','mcrandseed'), type="int",
+            parser.add_option('--mcrandseed', default=config.get('bootstrap','mcrandseed'), type="int",
                               help='seed for np.random')
-            parser.add_option('--subsetsize', default=config.get('main','subsetsize'), type="int",
+            parser.add_option('--subsetsize', default=config.get('bootstrap','subsetsize'), type="int",
                               help='number of SNe in each MC subset ')
-            parser.add_option('--lowzsubsetsize', default=config.get('main','lowzsubsetsize'), type="int",
+            parser.add_option('--lowzsubsetsize', default=config.get('bootstrap','lowzsubsetsize'), type="int",
                               help='number of low-z SNe in each MC subset ')
-            parser.add_option('--nmc', default=config.get('main','nmc'), type="int",
+            parser.add_option('--nmc', default=config.get('bootstrap','nmc'), type="int",
                               help='number of MC samples ')
-            parser.add_option('--nmcstart', default=config.get('main','nmcstart'), type="int",
+            parser.add_option('--nmcstart', default=config.get('bootstrap','nmcstart'), type="int",
                               help='start at this MC sample')
-            parser.add_option('--mclowz', default=config.get('main','mclowz'), type="string",
-                              help='low-z SNe, to be appended to the MC sample')
+            parser.add_option('--mclowz', default=config.get('bootstrap','mclowz'), type="string",
+                              help='low-z SN file, to be appended to the MC sample')
 
-            parser.add_option('--onlyIa', default=config.get('main','onlyIa'), action="store_true",
+            parser.add_option('--onlyIa', default=config.getboolean('sim','onlyIa'), action="store_true",
                               help='remove the TYPE != 1 SNe from the bunch')
-            parser.add_option('--pcutval', default=config.get('main','pcutmethod'),type="float",
+            parser.add_option('--pcutval', default=config.get('sim','pcutval'),type="float",
                               help="""the traditional method - make a cut on probability and 
 then everything with P(Ia) > that cut is reset to P(Ia) = 1""")
-            parser.add_option('--onlyCC', default=config.get('main','onlyCC'), action="store_true",
+            parser.add_option('--onlyCC', default=config.getboolean('sim','onlyCC'), action="store_true",
                               help='remove the TYPE = 1 SNe from the bunch')
-            parser.add_option('--nobadzsim', default=config.get('main','nobadzsim'), action="store_true",
+            parser.add_option('--nobadzsim', default=config.getboolean('sim','nobadzsim'), action="store_true",
                               help='If working with simulated data, remove the bad redshifts')
-            parser.add_option('--zminphot', default=config.get('main','zminphot'), type='float',
+            parser.add_option('--zminphot', default=config.get('inputdata','zminphot'), type='float',
                               help='set a minimum redshift for P(Ia) != 1 sample')
-            parser.add_option('--zbreak', default=config.get('main','zbreak'), type='float',
-                              help="""put a break in the control points model at z near set value so low-z results 
-and phot results are have uncorrelated distances""")
-            parser.add_option('--specidsurvey', default=config.get('main','specidsurvey'), type='string',
+            parser.add_option('--specidsurvey', default=config.get('inputdata','specidsurvey'), type='string',
                               help='will fix P(Ia) at 1 for IDSURVEY = this value')
-            parser.add_option('--photidsurvey', default=config.get('main','photidsurvey'), type='float',
+            parser.add_option('--photidsurvey', default=config.get('inputdata','photidsurvey'), type='float',
                               help='photometric survey ID, only necessary for zminphot')
-            parser.add_option('--nspecsne', default=config.get('main','nspecsne'), type='int',
+            parser.add_option('--nspecsne', default=config.get('sim','nspecsne'), type='int',
                               help='a spectroscopic sample to help BEAMS (for sim SNe)')
-            parser.add_option('--nsne', default=config.get('main','nsne'), type='int',
+            parser.add_option('--nsne', default=config.get('inputdata','nsne'), type='int',
                               help='maximum number of SNe to fit')
 
             # alternate functional models
-            parser.add_option('--twogauss', default=config.get('main','twogauss'), action="store_true",
+            parser.add_option('--twogauss', default=config.getboolean('models','twogauss'), action="store_true",
                               help='two gaussians for pop. B')
-            parser.add_option('--skewedgauss', default=config.get('main','skewedgauss'), action="store_true",
+            parser.add_option('--skewedgauss', default=config.getboolean('models','skewedgauss'), action="store_true",
                               help='skewed gaussian for pop. B')
+
             parser.add_option('--zCCdist', default=list(map(int,config.get('main','zCCdist')))[0], action="store_true",
-                              help='fit for different CC SN parameters at each redshift control point')
 
             # emcee options
-            parser.add_option('--nthreads', default=config.get('dobeams','nthreads'), type="int",
+            parser.add_option('--nthreads', default=config.get('mcmc','nthreads'), type="int",
                               help='Number of threads for MCMC')
-            parser.add_option('--nwalkers', default=config.get('dobeams','nwalkers'), type="int",
+            parser.add_option('--nwalkers', default=config.get('mcmc','nwalkers'), type="int",
                               help='Number of walkers for MCMC')
-            parser.add_option('--nsteps', default=config.get('dobeams','nsteps'), type="int",
+            parser.add_option('--nsteps', default=config.get('mcmc','nsteps'), type="int",
                               help='Number of steps (per walker) for MCMC')
-            parser.add_option('--ninit', default=config.get('dobeams','ninit'), type="int",
+            parser.add_option('--ninit', default=config.get('mcmc','ninit'), type="int",
                               help="Number of steps before the samples wander away from the initial values and are 'burnt in'")
-            parser.add_option('--ntemps', default=config.get('dobeams','ninit'), type="int",
+            parser.add_option('--ntemps', default=config.get('mcmc','ntemps'), type="int",
                               help="Number of temperatures for the sampler")
-            parser.add_option('--minmethod', default=config.get('dobeams','minmethod'), type="string",
+            parser.add_option('--minmethod', default=config.get('mcmc','minmethod'), type="string",
                               help="""minimization method for scipy.optimize.  L-BFGS-B is probably the best, but slow.
 SLSQP is faster.  Try others if using unbounded parameters""")
-            parser.add_option('--miniter', default=config.get('dobeams','miniter'), type="int",
+            parser.add_option('--miniter', default=config.get('mcmc','miniter'), type="int",
                               help="""number of minimization iterations - uses basinhopping
 algorithm for miniter > 1""")
-            parser.add_option('--forceminsuccess', default=config.get('dobeams','forceminsuccess'), action="store_true",
+            parser.add_option('--forceminsuccess', default=config.getboolean('mcmc','forceminsuccess'), action="store_true",
                               help="""if true, minimizer must be successful or code will crash.
 Default is to let the MCMC try to find a minimum if minimizer fails""")
 
@@ -243,8 +243,11 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                 '--masscorrfixed', default=False,action="store_true",
                 help='If true, perform fixed mass correction (default=%default)')
             parser.add_option(
-                '--masscorrmag', default=(0.07,0.023),type="float",
-                help="""mass corr. and uncertainty (default=%default)""",nargs=2)
+                '--masscorrmag', default=0.07,type="float",
+                help="""mass corr. and uncertainty (default=%default)""")
+            parser.add_option(
+                '--masscorrmagerr', default=0.023,type="float",
+                help="""mass corr. and uncertainty (default=%default)""")
             parser.add_option(
                 '--masscorrdivide', default=10,type="float",
                 help="""location of low-mass/high-mass split (default=%default)""")
@@ -265,13 +268,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                               help='fitres file with the SN Ia data')
             parser.add_option('-o','--outfile', default='beamsCosmo.out', type="string",
                               help='Output file with the derived parameters for each redshift bin')
-            
-            parser.add_option('--usefitresmu', default=False, action="store_true",
-                              help='Use the distance modulus given in the fitres file')
-            
-            parser.add_option('-p','--paramdefaultfile', default='BEAMS.params', type="string",
-                              help='default parameter file to populate with SNCosmo options')
-            
+                        
             parser.add_option('--mcsubset', default=False, action="store_true",
                               help='generate a random subset of SNe from the fitres file')
             parser.add_option('--mcrandseed', default=None, type="int",
@@ -285,7 +282,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
             parser.add_option('--nmcstart', default=1, type="int",
                               help='start at this MC sample')
             parser.add_option('--mclowz', default="", type="string",
-                              help='low-z SNe, to be appended to the MC sample')
+                              help='low-z SN file, to be appended to the MC sample')
             
             parser.add_option('--onlyIa', default=False, action="store_true",
                               help='remove the TYPE != 1 SNe from the bunch')
@@ -298,10 +295,6 @@ then everything with P(Ia) > that cut is reset to P(Ia) = 1""")
                               help='If working with simulated data, remove the bad redshifts')
             parser.add_option('--zminphot', default=0.08, type='float',
                               help='set a minimum redshift for P(Ia) != 1 sample')
-            parser.add_option('--zbreak', default=None, type='float',
-                              help="""low-z/high-z break for binnings""")
-            parser.add_option('--nlowzbins', default=3, type='float',
-                              help="""number of low-z bins""")
             parser.add_option('--photidsurvey', default=15, type='float',
                               help='photometric survey ID, only necessary for zminphot')
             parser.add_option('--specidsurvey', default='53,5,50,61,62,63,64,65,66,151', type='string',
@@ -429,12 +422,10 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         beam.options.ntemps = self.options.ntemps
         beam.options.debug = self.options.debug
         beam.options.mcrandseed = self.options.mcrandseed
-        beam.zbreak = self.options.zbreak
-        beam.nlowzbins = self.options.nlowzbins        
         beam.options.salt2alpha = self.options.salt2alpha
         beam.options.salt2beta = self.options.salt2beta
 
-        options.inputfile = '%s.input'%root
+        options.fitresfile = '%s.input'%root
         if self.options.masscorr:
             beam.options.plcol = 'PL'
             import scipy.stats
@@ -465,9 +456,9 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 
         beam.options.append = False
         beam.options.clobber = self.options.clobber
-        beam.options.outputfile = self.options.outfile
+        beam.options.outfile = self.options.outfile
         beam.options.equalbins = self.options.equalbins
-        beam.main(options.inputfile)
+        beam.main(options.fitresfile)
         bms = txtobj(self.options.outfile)
         self.writeBinCorrFitres('%s.fitres'%self.options.outfile.split('.')[0],bms,fr=fr)
         return
@@ -840,7 +831,8 @@ examples:
     parser = sne.add_options(usage=usagestring)
     options,  args = parser.parse_args()
     if options.paramfile:
-        config = configparser.ConfigParser()
+        import ConfigParser
+        config = ConfigParser.ConfigParser()
         config.read(options.paramfile)
     else: config=None
     parser = sne.add_options(usage=usagestring,config=config)

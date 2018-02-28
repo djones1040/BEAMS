@@ -31,8 +31,9 @@ class BEAMS:
                               help='SALT2 alpha parameter from a spectroscopic sample (default=%default)')
             parser.add_option('--salt2beta', default=config.get('lightcurve','salt2beta'), type="float",
                               help='nominal SALT2 beta parameter from a spec. sample (default=%default)')
-
-            parser.add_option('--zrange', default=list(map(float,config.get('lightcurve','zrange').split(','))), type="float",
+            parser.add_option('--zmin', default=config.get('lightcurve','zmin'), type="float",
+                              help='redshift range')
+            parser.add_option('--zmax', default=config.get('lightcurve','zmax'), type="float",
                               help='redshift range')
 
             # output and number of threads
@@ -60,7 +61,7 @@ algorithm for miniter > 1""")
 Default is to let the MCMC try to find a minimum if minimizer fails""")
 
 
-            parser.add_option('--nzbins', default=config.get('mcmc','nzbins'), type="int",
+            parser.add_option('--nbins', default=config.get('mcmc','nbins'), type="int",
                               help='Number of z bins')
             parser.add_option('--mcrandseed', default=config.get('bootstrap','mcrandseed'), type="int",
                               help='random seed from MC sample')
@@ -71,9 +72,9 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
             parser.add_option('--skewedgauss', default=config.getboolean('models','skewedgauss'), action="store_true",
                               help='skewed gaussian for pop. B')
 
-            parser.add_option('-i','--inputfile', default=config.get('inputdata','inputfile'), type="string",
+            parser.add_option('-f','--fitresfile', default=config.get('inputdata','fitresfile'), type="string",
                               help='file with the input data')
-            parser.add_option('-o','--outputfile', default=config.get('inputdata','outputfile'), type="string",
+            parser.add_option('-o','--outfile', default=config.get('inputdata','outfile'), type="string",
                               help='Output file with the derived parameters for each redshift bin')
 
         else:
@@ -107,16 +108,14 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 
 
 
-            parser.add_option('--nzbins', default=30, type="int",
+            parser.add_option('--nbins', default=30, type="int",
                               help='Number of z bins')
-            parser.add_option('--zrange', default=(0.01,0.7), type="float",
+            parser.add_option('--zmin', default=0.01, type="float",
+                              help='min redshift')
+            parser.add_option('--zmax', default=0.7, type="float",
                               help='min redshift')
             parser.add_option('--mcrandseed', default=0, type="int",
                               help='random seed from MC sample')
-            parser.add_option('--zbreak', default=None, type='float',
-                              help="""break between low-z and high-z, for binning purposes""")
-            parser.add_option('--nlowzbins', default=3, type='float',
-                              help="""number of low-z bins""")
             
             # alternate functional models
             parser.add_option('--twogauss', default=False, action="store_true",
@@ -124,9 +123,9 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
             parser.add_option('--skewedgauss', default=False, action="store_true",
                               help='skewed gaussian for pop. B')
 
-            parser.add_option('-i','--inputfile', default='BEAMS.input', type="string",
+            parser.add_option('-f','--fitresfile', default='BEAMS.input', type="string",
                               help='file with the input data')
-            parser.add_option('-o','--outputfile', default='beamsCosmo.out', type="string",
+            parser.add_option('-o','--outfile', default='beamsCosmo.out', type="string",
                               help='Output file with the derived parameters for each redshift bin')
 
             parser.add_option('--fix',default=[],
@@ -173,17 +172,18 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
             raise exceptions.RuntimeError('Warning : no data in input file!!')            
 
         # open the output file
-        if os.path.exists(self.options.outputfile) and not self.options.clobber:
-            print(('Warning : files %s exists!!  Not clobbering'%self.options.outputfile))
+        if os.path.exists(self.options.outfile) and not self.options.clobber:
+            print('Warning : files %s exists!!  Not clobbering'%self.options.outfile)
+
 
         # run the MCMC
-        zcontrol = np.logspace(np.log10(self.options.zrange[0]),np.log10(self.options.zrange[1]),num=self.options.nzbins)
+        zcontrol = np.logspace(np.log10(self.options.zmin),np.log10(self.options.zmax),num=self.options.nbins)
 
         pardict,guess = self.mkParamDict(zcontrol)
 
         cov,samples = self.mcmc(inp,zcontrol,guess)
 
-        root,ext = os.path.splitext(self.options.outputfile)
+        root,ext = os.path.splitext(self.options.outfile)
         fout = open('%s.covmat'%root,'w')
         print('%i'%len(cov), file=fout)
         shape = np.shape(cov)[0]
@@ -203,7 +203,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                        'scaleA','shift','lstep','lstep_1','salt2alpha','salt2beta','salt2alpha_CC','salt2beta_CC',
                        'salt2beta_1','salt2alpha_1','salt2beta_poff','salt2beta_2slope']
         outlinefmt = " ".join(["%.4f"]*(1+len(outlinevars)*2))
-        fout = open(self.options.outputfile,'w')
+        fout = open(self.options.outfile,'w')
         headerline = "# zCMB "
         for o in outlinevars: headerline += "%s %s_err "%(o,o)
         print(headerline[:-1], file=fout)
@@ -225,8 +225,13 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                         mean,err = np.mean(samples[:,idx]),np.std(samples[:,idx])
                     outvars += (mean,err,)
                 else: outvars += (-99,-99,)
+<<<<<<< HEAD
             fout = open(self.options.outputfile,'a')
             print(outlinefmt%outvars, file=fout)
+=======
+            fout = open(self.options.outfile,'a')
+            print >> fout, outlinefmt%outvars
+>>>>>>> 4beed1728a5008312866e814c295974d50355ee6
             fout.close()
                 
             if self.options.verbose:
