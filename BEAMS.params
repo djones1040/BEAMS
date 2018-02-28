@@ -74,6 +74,7 @@ x1cellipse = false
 masscorr = false
 masscorrfixed = false
 masscorrmag = 0.07,0.023
+masscorrdivide = 10
 
 [mcmc]
 # emcee options - see their documentation

@@ -32,7 +32,7 @@ class BEAMS:
             parser.add_option('--salt2beta', default=config.get('lightcurve','salt2beta'), type="float",
                               help='nominal SALT2 beta parameter from a spec. sample (default=%default)')
 
-            parser.add_option('--zrange', default=map(float,config.get('lightcurve','zrange').split(',')), type="float",
+            parser.add_option('--zrange', default=list(map(float,config.get('lightcurve','zrange').split(','))), type="float",
                               help='redshift range')
 
             # output and number of threads
@@ -174,7 +174,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 
         # open the output file
         if os.path.exists(self.options.outputfile) and not self.options.clobber:
-            print('Warning : files %s exists!!  Not clobbering'%self.options.outputfile)
+            print(('Warning : files %s exists!!  Not clobbering'%self.options.outputfile))
 
         # run the MCMC
         zcontrol = np.logspace(np.log10(self.options.zrange[0]),np.log10(self.options.zrange[1]),num=self.options.nzbins)
@@ -185,16 +185,16 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 
         root,ext = os.path.splitext(self.options.outputfile)
         fout = open('%s.covmat'%root,'w')
-        print >> fout, '%i'%len(cov)
+        print('%i'%len(cov), file=fout)
         shape = np.shape(cov)[0]
         for i in range(shape):
             outline = ''
             for j in range(shape):
                 outline += '%8.5e '%cov[j,i]
                 if i != j:
-                    print >> fout, '%8.5e'%cov[j,i]#outline
+                    print('%8.5e'%cov[j,i], file=fout)#outline
                 else:
-                    print >> fout, '%8.5e'%0 #outline
+                    print('%8.5e'%0, file=fout) #outline
         fout.close()
 
         coverr = lambda samp: np.sqrt(np.sum((samp-np.mean(samp))*(samp-np.mean(samp)))/len(samp))
@@ -206,13 +206,13 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         fout = open(self.options.outputfile,'w')
         headerline = "# zCMB "
         for o in outlinevars: headerline += "%s %s_err "%(o,o)
-        print >> fout, headerline[:-1]
-        if self.options.mcrandseed: print >> fout, '# MC Sample used random seed: %i'%self.options.mcrandseed
+        print(headerline[:-1], file=fout)
+        if self.options.mcrandseed: print('# MC Sample used random seed: %i'%self.options.mcrandseed, file=fout)
         fout.close()
         if self.options.verbose:
-            print("zCMB " + " ".join(outlinevars))
+            print(("zCMB " + " ".join(outlinevars)))
 
-        for z,i in zip(zcontrol,range(len(zcontrol))):
+        for z,i in zip(zcontrol,list(range(len(zcontrol)))):
             outvars = (z,)
             for v in outlinevars:
                 if self.pardict[v]["use"]:
@@ -226,16 +226,16 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                     outvars += (mean,err,)
                 else: outvars += (-99,-99,)
             fout = open(self.options.outputfile,'a')
-            print >> fout, outlinefmt%outvars
+            print(outlinefmt%outvars, file=fout)
             fout.close()
                 
             if self.options.verbose:
-                print(outlinefmt%outvars)
+                print((outlinefmt%outvars))
 
     def mcmc(self,inp,zcontrol,guess):
         from scipy.optimize import minimize,basinhopping
         import emcee
-        if not inp.__dict__.has_key('PL'):
+        if 'PL' not in inp.__dict__:
             inp.PL = 0
 
         # minimize, not maximize
@@ -256,7 +256,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 
                         
         bounds,usebounds = (),False
-        for i in xrange(len(guess)): 
+        for i in range(len(guess)): 
             key = getpar(i,self.pardict)
             if (not hasattr(self.pardict[key]['bounds'][0],"__len__") and not hasattr(self.pardict[key]['bounds'][1],"__len__") \
                     and not self.pardict[key]['bounds'][0] and not self.pardict[key]['bounds'][1]):
@@ -297,7 +297,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 
             if md.message != 'Optimization terminated successfully.' and \
                     md.message != 'requested number of basinhopping iterations completed successfully':
-                print(md.message)
+                print((md.message))
                 if self.options.forceminsuccess:
                     raise RuntimeError('Error : Minimization Failed!!!')
                 else:
@@ -342,7 +342,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                                       logpkwargs={'pardict':self.pardict},
                                       threads=int(self.options.nthreads))
             p0 = np.zeros([self.options.ntemps,nwalkers,ndim])
-            for g,i in zip(guess,xrange(len(guess))):
+            for g,i in zip(guess,range(len(guess))):
                 key = getpar(i,self.pardict)
                 p0[:,:,i] = np.random.uniform(low=g-2*self.pardict[key]['prior_std'],
                                               high=g+2*self.pardict[key]['prior_std'],
@@ -359,8 +359,8 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
             assert sampler.chain.shape == (self.options.ntemps, nwalkers, 
                                            self.options.nsteps/10, ndim)
 
-        print("Mean acceptance fraction: {0:.3f}"
-              .format(np.mean(sampler.acceptance_fraction)))
+        print(("Mean acceptance fraction: {0:.3f}"
+              .format(np.mean(sampler.acceptance_fraction))))
 #        for a,i in zip(sampler.acor,range(len(sampler.acor))):
 #            print("autocorrelation time for parameter %s: %s"%(
 #                    getpar(i,self.pardict),a))
@@ -369,7 +369,7 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
         if self.options.ntemps: samples = samples[0,:]
 
         cov = covmat(samples[:,self.pardict['popAmean']['idx']])
-        if not self.options.ntemps: print md.message
+        if not self.options.ntemps: print(md.message)
         return(cov,samples)
 
     def mkParamDict(self,zcontrol):
@@ -384,47 +384,47 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
             pf.use[pf.param == 'skewB'] = 1
         if len(self.options.fix):
             for fixvar in self.options.fix:
-                print('Fixing parameter %s!!'%fixvar)
+                print(('Fixing parameter %s!!'%fixvar))
                 pf.fixed[pf.param == fixvar] = 1
         if len(self.options.use):
             for use in self.options.use:
                 usevar,useval = use
                 useval = int(useval)
-                print('use = %i for parameter %s!!'%(useval,usevar))
+                print(('use = %i for parameter %s!!'%(useval,usevar)))
                 pf.use[pf.param == usevar] = useval
         if len(self.options.bounds):
             for bounds in self.options.bounds:
                 boundsvar,lbound,ubound = bounds
                 lbound,ubound = float(lbound),float(ubound)
-                print('%.3f < %s < %.3f !!'%(lbound,boundsvar,ubound))
+                print(('%.3f < %s < %.3f !!'%(lbound,boundsvar,ubound)))
                 pf.lbound[pf.param == boundsvar] = lbound
                 pf.ubound[pf.param == boundsvar] = ubound
         if len(self.options.guess):
             for guess in self.options.guess:
                 guessvar,guessval = guess
                 guessvar = float(guessvar)
-                print('initial guess = %.3f for parameter %s!!'%(
-                        guessval,guessvar))
+                print(('initial guess = %.3f for parameter %s!!'%(
+                        guessval,guessvar)))
                 pf.guess[pf.param == guessvar] = guessval
         if len(self.options.prior):
             for prior in self.options.prior:
                 priorvar,priormean,priorstd = prior
                 priormean,priorstd = float(priormean),float(priorstd)
-                print('Prior = %.3f +/- %.3f for parameter %s!!'%(
-                        priormean,priorstd,priorvar))
+                print(('Prior = %.3f +/- %.3f for parameter %s!!'%(
+                        priormean,priorstd,priorvar)))
                 pf.prior[pf.param == priorvar] = priormean
                 pf.sigma[pf.param == priorvar] = sigma
         if len(self.options.bins):
             for bins in self.options.bins:
                 binvar,nbins = bins
                 nbins = float(nbins)
-                print('%i bins for parameter %s!!'%(nbins,binvar))
+                print(('%i bins for parameter %s!!'%(nbins,binvar)))
                 pf.bins[pf.param == binvar] = nbins
 
 
         self.pardict = {}
         idx = 0
-        for par,i in zip(pf.param,xrange(len(pf.param))):
+        for par,i in zip(pf.param,range(len(pf.param))):
             self.pardict[par] = {'guess':pf.guess[i],'prior_mean':pf.prior[i],
                                  'prior_std':pf.sigma[i],'fixed':pf.fixed[i],
                                  'use':pf.use[i],'addcosmo':pf.addcosmo[i],
@@ -447,8 +447,8 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                         self.pardict[par]['guess'] = pf.guess[i] + cosmo.distmod(zcontrolCC).value
                         self.pardict[par]['prior_mean'] = pf.prior[i] + cosmo.distmod(zcontrolCC).value
                         self.pardict[par]['idx'] = idx + np.arange(len(zcontrolCC))
-                        self.pardict[par]['bounds'] = (pf.lbound[i] + cosmo.distmod(zcontrol).value,
-                                                       pf.ubound[i] + cosmo.distmod(zcontrol).value)
+                        self.pardict[par]['bounds'] = (pf.lbound[i] + cosmo.distmod(zcontrolCC).value,
+                                                       pf.ubound[i] + cosmo.distmod(zcontrolCC).value)
 
                         if pf.use[i]: idx += len(zcontrolCC)
                 elif pf.bins[i]:
@@ -462,8 +462,8 @@ Try some different initial guesses, or let the MCMC try and take care of it""")
                         self.pardict[par]['guess'] = np.zeros(len(zcontrolCC)) + pf.guess[i]
                         self.pardict[par]['prior_mean'] = np.zeros(len(zcontrolCC)) + pf.prior[i]
                         self.pardict[par]['idx'] = idx + np.arange(len(zcontrolCC))
-                        self.pardict[par]['bounds'] = (np.array([pf.lbound[i]]*pf.bins[i]),
-                                                       np.array([pf.ubound[i]]*pf.bins[i]))
+                        self.pardict[par]['bounds'] = (np.array([pf.lbound[i]]*int(pf.bins[i])),
+                                                       np.array([pf.ubound[i]]*int(pf.bins[i])))
                         if pf.use[i]: idx += len(zcontrolCC)
                 elif pf.zpoly[i]:
                     self.pardict[par]['guess'] = np.append(pf.guess[i],np.array([0.]*int(pf.zpoly[i])))
@@ -513,7 +513,7 @@ def zmodel(x,zcontrol,zHD,pardict,corr=True):
     else: skewBmodel = None
 
     # Ia redshift/distance model
-    for zb,zb1,i in zip(zcontrol[:-1],zcontrol[1:],range(len(zcontrol))):
+    for zb,zb1,i in zip(zcontrol[:-1],zcontrol[1:],list(range(len(zcontrol)))):
         mua,mua1 = x[pardict['popAmean']['idx'][i]],x[pardict['popAmean']['idx'][i+1]]
         cols = np.where((zHD >= zb) & (zHD < zb1))[0]
         if not corr: cosmod = cosmo.distmod(zHD[cols]).value; cosbin = cosmo.distmod(zb).value
@@ -526,7 +526,7 @@ def zmodel(x,zcontrol,zHD,pardict,corr=True):
     # Ia dispersion
     if pardict['popAstd']['use'] and pardict['popAstd']['bins']:
         zcontrolIastd = np.logspace(np.log10(min(zcontrol)),np.log10(max(zcontrol)),len(pardict['popAstd']['idx']))
-        for zb,zb1,i in zip(zcontrolIastd[:-1],zcontrolIastd[1:],range(len(zcontrolIastd))):
+        for zb,zb1,i in zip(zcontrolIastd[:-1],zcontrolIastd[1:],list(range(len(zcontrolIastd)))):
             cols = np.where((zHD >= zb) & (zHD < zb1))[0]
             if not corr: cosmod = cosmo.distmod(zHD[cols]).value; cosbin = cosmo.distmod(zb).value
             alpha = np.log10(zHD[cols]/zb)/np.log10(zb1/zb)
@@ -542,7 +542,7 @@ def zmodel(x,zcontrol,zHD,pardict,corr=True):
     # CC redshift/distance model - need same # of bins for everything CC-related ATM
     if pardict['popBmean']['use'] and pardict['popBmean']['bins']:
         zcontrolCC = np.logspace(np.log10(min(zcontrol)),np.log10(max(zcontrol)),len(pardict['popBmean']['idx']))
-        for zb,zb1,i in zip(zcontrolCC[:-1],zcontrolCC[1:],range(len(zcontrol))):
+        for zb,zb1,i in zip(zcontrolCC[:-1],zcontrolCC[1:],list(range(len(zcontrol)))):
             cols = np.where((zHD >= zb) & (zHD < zb1))[0]
             if not corr: cosmod = cosmo.distmod(zHD[cols]).value; cosbin = cosmo.distmod(zb).value
             alpha = np.log10(zHD[cols]/zb)/np.log10(zb1/zb)
@@ -568,7 +568,7 @@ def zmodel(x,zcontrol,zHD,pardict,corr=True):
     # second gaussian - allowing for different # of bins
     if pardict['popB2mean']['use'] and pardict['popB2mean']['bins']:
         zcontrolCC = np.logspace(np.log10(min(zcontrol)),np.log10(max(zcontrol)),len(pardict['popB2mean']['idx']))
-        for zb,zb1,i in zip(zcontrolCC[:-1],zcontrolCC[1:],range(len(zcontrol))):
+        for zb,zb1,i in zip(zcontrolCC[:-1],zcontrolCC[1:],list(range(len(zcontrol)))):
             cols = np.where((zHD >= zb) & (zHD < zb1))[0]
             if not corr: cosmod = cosmo.distmod(zHD[cols]).value; cosbin = cosmo.distmod(zb).value
             alpha = np.log10(zHD[cols]/zb)/np.log10(zb1/zb)
@@ -596,11 +596,11 @@ def zmodel(x,zcontrol,zHD,pardict,corr=True):
         muBmodel = 1*muAmodel
         sigBmodel = 0
         for i,j in zip(pardict['popBmean']['idx'],
-                       range(len(pardict['popBmean']['idx'])-1)):
+                       list(range(len(pardict['popBmean']['idx'])-1))):
             muBmodel += x[pardict['popBmean']['idx'][j]]*zHD**j/(1+pardict['popBmean']['idx'][-1]*zHD)
     if pardict['popBstd']['use'] and pardict['popBstd']['zpoly']:
         for i,j in zip(pardict['popBstd']['idx'],
-                       range(len(pardict['popBstd']['idx']))):
+                       list(range(len(pardict['popBstd']['idx'])))):
             sigBmodel += x[pardict['popBstd']['idx'][j]]*zHD**j/(1+pardict['popBstd']['idx'][-1]*zHD)
 
     if pardict['popB2mean']['use'] and not pardict['popB2mean']['bins'] and not pardict['popB2mean']['zpoly']:
@@ -611,11 +611,11 @@ def zmodel(x,zcontrol,zHD,pardict,corr=True):
         muB2model = 1*muAmodel
         sigB2model = 0
         for i,j in zip(pardict['popB2mean']['idx'],
-                       range(len(pardict['popB2mean']['idx'])-1)):
+                       list(range(len(pardict['popB2mean']['idx'])-1))):
             muB2model += x[pardict['popB2mean']['idx'][j]]*zHD**j/(1+pardict['popB2mean']['idx'][-1]*zHD)
     if pardict['popB2std']['use'] and pardict['popB2std']['zpoly']:
         for i,j in zip(pardict['popB2std']['idx'],
-                       range(len(pardict['popB2std']['idx']))):
+                       list(range(len(pardict['popB2std']['idx'])))):
             sigB2model += x[pardict['popB2std']['idx'][j]]*zHD**j/(1+pardict['popB2std']['idx'][-1]*zHD)
 
 
@@ -793,7 +793,7 @@ def twogausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=False
                                             np.log(PA[PA == 1]*(1-PL[PA == 1])/(np.sqrt(2*np.pi)*np.sqrt(modeldict['sigAmodel'][PA == 1]**2. + \
                                                                                                              muBerr[PA == 1]**2.)))],axis=0))
 
-        print len(muA[PA == 1]),likeIa,x[pardict['popAstd']['idx']],x[pardict['scaleA']['idx']],x[pardict['salt2beta']['idx']]
+        print(len(muA[PA == 1]),likeIa,x[pardict['popAstd']['idx']],x[pardict['scaleA']['idx']],x[pardict['salt2beta']['idx']])
 
     return(lnlike)
 
@@ -853,7 +853,7 @@ def threegausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=Fal
                       np.log(PA[PA == 1]*(1-PL[PA == 1])/(np.sqrt(2*np.pi)*\
                                                               np.sqrt(modeldict['sigAmodel'][PA == 1]**2. + \
                                                                           muBerr[PA == 1]**2.)))],axis=0))
-        print len(muA[PA == 1]),likeIa,x[pardict['popAstd']['idx']],x[pardict['scaleA']['idx']],x[pardict['salt2beta']['idx']]
+        print(len(muA[PA == 1]),likeIa,x[pardict['popAstd']['idx']],x[pardict['scaleA']['idx']],x[pardict['salt2beta']['idx']])
 
     return np.sum(sum)
 
@@ -913,14 +913,14 @@ def twogausslike_skew(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=
                                         np.log(PA[PA == 1]*(1-PL[PA == 1])/(np.sqrt(2*np.pi)*\
                                                                                        np.sqrt(modeldict['sigAmodel'][PA == 1]**2. + \
                                                                                                    muBerr[PA == 1]**2.)))],axis=0))
-        print len(muA[PA == 1]),likeIa,x[pardict['salt2beta']['idx']]
+        print(len(muA[PA == 1]),likeIa,x[pardict['salt2beta']['idx']])
 
     return(lnlike)
 
 def lnprior(theta,pardict=None):
 
     p_theta = 1.0
-    for t,i in zip(theta,range(len(theta))):
+    for t,i in zip(theta,list(range(len(theta)))):
         prior_mean,prior_std,lbound,ubound,key = getpriors(i,pardict)
         # don't allow distance prior
         if key != 'popAmean':
@@ -935,7 +935,7 @@ def lnprior(theta,pardict=None):
     return(p_theta)
 
 def getpriors(idx,pardict):
-    for k in pardict.keys():
+    for k in list(pardict.keys()):
         if hasattr(pardict[k]['idx'],"__len__"):
             if idx in pardict[k]['idx']:
                 return(pardict[k]['prior_mean'][pardict[k]['idx'] == idx][0],
@@ -952,7 +952,7 @@ def getpriors(idx,pardict):
     return()
 
 def getparval(idx,pardict,valkey):
-    for k in pardict.keys():
+    for k in list(pardict.keys()):
         if hasattr(pardict[k]['idx'],"__len__"):
             if hasattr(pardict[k][valkey],"__len__"):
                 if idx in pardict[k]['idx']:
@@ -966,7 +966,7 @@ def getparval(idx,pardict,valkey):
     return()
 
 def getpar(idx,pardict):
-    for k in pardict.keys():
+    for k in list(pardict.keys()):
         if hasattr(pardict[k]['idx'],"__len__"):
             if idx in pardict[k]['idx']:
                 return(k)
@@ -1109,7 +1109,7 @@ examples:
     import exceptions
     import os
     import optparse
-    import ConfigParser
+    import configparser
 
     beam = BEAMS()
 
@@ -1118,7 +1118,7 @@ examples:
     parser = beam.add_options(usage=usagestring)
     options,  args = parser.parse_args()
     if options.paramfile:
-        config = ConfigParser.ConfigParser()
+        config = configparser.ConfigParser()
         config.read(options.paramfile)
     else: config=None
     parser = beam.add_options(usage=usagestring,config=config)

@@ -58,10 +58,10 @@ class snbeams:
 
             # Light curve cut parameters
             parser.add_option(
-                '--crange', default=map(float,config.get('main','crange').split(',')),type="float",
+                '--crange', default=list(map(float,config.get('main','crange').split(','))),type="float",
                 help='Peculiar velocity error (default=%default)',nargs=2)
             parser.add_option(
-                '--x1range', default=map(float,config.get('main','crange').split(',')),type="float",
+                '--x1range', default=list(map(float,config.get('main','crange').split(','))),type="float",
                 help='Peculiar velocity error (default=%default)',nargs=2)
             parser.add_option('--x1cellipse',default=config.get('main','x1cellipse'),action="store_true",
                           help='Elliptical, not box, cut in x1 and c')
@@ -171,7 +171,7 @@ and phot results are have uncorrelated distances""")
                               help='two gaussians for pop. B')
             parser.add_option('--skewedgauss', default=config.get('main','skewedgauss'), action="store_true",
                               help='skewed gaussian for pop. B')
-            parser.add_option('--zCCdist', default=map(int,config.get('main','zCCdist'))[0], action="store_true",
+            parser.add_option('--zCCdist', default=list(map(int,config.get('main','zCCdist')))[0], action="store_true",
                               help='fit for different CC SN parameters at each redshift control point')
 
             # emcee options
@@ -382,7 +382,6 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                                        x0=fr.x0,sigint=self.options.sigint,z=fr.zHD)
 
         fr = self.mkfitrescuts(fr,mkcuts=mkcuts)
-
         root = os.path.splitext(fitres)[0]
         
         # Prior SN Ia probabilities
@@ -394,7 +393,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                     P_Ia[i] = 1
 
         from dobeams import BEAMS
-        import ConfigParser, sys
+        import configparser, sys
         sys.argv = ['./doBEAMS.py']
         beam = BEAMS()
         parser = beam.add_options()
@@ -402,7 +401,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         options.paramfile = self.options.paramfile
 
         if options.paramfile:
-            config = ConfigParser.ConfigParser()
+            config = configparser.ConfigParser()
             config.read(options.paramfile)
         else: config=None
         parser = beam.add_options(config=config)
@@ -452,15 +451,14 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 
         if self.options.masscorrfixed: beam.options.lstepfixed = True
 
-        beam.options.zmin = self.options.zmin
-        beam.options.zmax = self.options.zmax
+        beam.options.zrange = (self.options.zmin,self.options.zmax)
         beam.options.nzbins = self.options.nbins
 
         # make the BEAMS input file
         fout = open('%s.input'%root,'w')
         fr.PA = fr.__dict__[self.options.piacol]
         if not self.options.masscorr: fr.PL = np.zeros(len(fr.PA))
-        writefitres(fr,range(len(fr.PA)),'%s.input'%root,
+        writefitres(fr,list(range(len(fr.PA))),'%s.input'%root,
                     fitresheader=fitresheaderbeams,
                     fitresfmt=fitresfmtbeams,
                     fitresvars=fitresvarsbeams)
@@ -498,25 +496,33 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                                 (fr.zHD > self.options.zmin) & (fr.zHD < self.options.zmax) &
                                 (fr.__dict__[self.options.piacol] >= 0) & (invvars > 0))
 
-            for k in fr.__dict__.keys():
+            for k in list(fr.__dict__.keys()):
                 fr.__dict__[k] = fr.__dict__[k][cols]
         else:
-            cols = np.where((fr.__dict__[self.options.piacol] >= 0) & (self.options.piacol <= 1))
-            for k in fr.__dict__.keys():
+            sf = -2.5/(fr.x0*np.log(10.0))
+            invvars = 1./(fr.mBERR**2.+ self.options.salt2alpha**2. * fr.x1ERR**2. + \
+                              self.options.salt2beta**2. * fr.cERR**2. +  2.0 * self.options.salt2alpha * (fr.COV_x1_x0*sf) - \
+                              2.0 * self.options.salt2beta * (fr.COV_c_x0*sf) - \
+                              2.0 * self.options.salt2alpha*self.options.salt2beta * (fr.COV_x1_c) )
+
+            cols = np.where((fr.__dict__[self.options.piacol] >= 0) & (invvars > 0) &
+                            (fr.zHD >= self.options.zmin) & (fr.zHD <= self.options.zmax))
+
+            for k in list(fr.__dict__.keys()):
                 fr.__dict__[k] = fr.__dict__[k][cols]                
 
         if len(self.options.cutwin):
             cols = np.arange(len(fr.CID))
             for cutopt in self.options.cutwin:
                 i,min,max = cutopt[0],cutopt[1],cutopt[2]; min,max = float(min),float(max)
-                if not fr.__dict__.has_key(i):
+                if i not in fr.__dict__:
                     if i not in self.options.histvar:
-                        print('Warning : key %s not in fitres file %s! Ignoring for this file...'%(i,fitresfile))
+                        print(('Warning : key %s not in fitres file %s! Ignoring for this file...'%(i,fitresfile)))
                     else:
-                        raise exceptions.RuntimeError('Error : key %s not in fitres file %s!'%(i,fitresfile))
+                        raise RuntimeError('Error : key %s not in fitres file %s!'%(i,fitresfile))
                 else:
                     cols = cols[np.where((fr.__dict__[i][cols] >= min) & (fr.__dict__[i][cols] <= max))]
-            for k in fr.__dict__.keys():
+            for k in list(fr.__dict__.keys()):
                 fr.__dict__[k] = fr.__dict__[k][cols]
 
         # create the SNSPEC field - these probabilities will be fixed at 1!!
@@ -527,9 +533,9 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         # set a certain number of simulated SNe to be 'confirmed' SN Ia
         if self.options.nspecsne:
             from random import sample
-            cols = sample(range(len(fr.CID[(fr.IDSURVEY != self.options.specidsurvey) & 
+            cols = sample(list(range(len(fr.CID[(fr.IDSURVEY != self.options.specidsurvey) & 
                                            (fr.SIM_TYPE_INDEX == 1) &
-                                           (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.01)])),
+                                           (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.01)]))),
                           self.options.nspecsne)
             fr.SNSPEC[np.where((fr.IDSURVEY != self.options.specidsurvey) & 
                                (fr.SIM_TYPE_INDEX == 1) &
@@ -541,11 +547,11 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         # can get the Ia-only likelihood as a consistency check
         if self.options.onlyIa:
             cols = np.where((fr.SIM_TYPE_INDEX == 1) & (np.abs(fr.SIM_ZCMB - fr.zHD) < 0.01))
-            for k in fr.__dict__.keys():
+            for k in list(fr.__dict__.keys()):
                 fr.__dict__[k] = fr.__dict__[k][cols]
         elif self.options.onlyCC:
             cols = np.where((fr.SIM_TYPE_INDEX != 1) | (np.abs(fr.SIM_ZCMB - fr.zHD) > 0.01))
-            for k in fr.__dict__.keys():
+            for k in list(fr.__dict__.keys()):
                 fr.__dict__[k] = fr.__dict__[k][cols]
         elif self.options.piacol == 'PTRUE_Ia':
             # Hack - bad redshifts are called CC SNe when running 'true' probabilities
@@ -555,30 +561,30 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         # reset everything with P(Ia) > pcutval to P(Ia) = 1 and remove everything else
         if self.options.pcutval:
             cols = np.where(fr.__dict__[self.options.piacol] >= self.options.pcutval)
-            for k in fr.__dict__.keys():
+            for k in list(fr.__dict__.keys()):
                 fr.__dict__[k] = fr.__dict__[k][cols]
             fr.__dict__[self.options.piacol][:] = 1
 
         # all those low-z photometric SNe are probably CC SNe?
         if self.options.zminphot:
-            print('setting minimum redshift for the photometric sample to z = %.3f'%self.options.zminphot)
+            print(('setting minimum redshift for the photometric sample to z = %.3f'%self.options.zminphot))
             cols = np.where(((fr.zHD >= self.options.zminphot) & (fr.IDSURVEY == self.options.photidsurvey)) |
                             (fr.IDSURVEY != self.options.photidsurvey))
-            for k in fr.__dict__.keys():
+            for k in list(fr.__dict__.keys()):
                 fr.__dict__[k] = fr.__dict__[k][cols]
 
         # try getting rid of the bad redshifts
         if self.options.nobadzsim:
             cols = np.where((np.abs(fr.SIM_ZCMB - fr.zHD) < 0.01))
-            for k in fr.__dict__.keys():
+            for k in list(fr.__dict__.keys()):
                 fr.__dict__[k] = fr.__dict__[k][cols]
 
         # try a random subset of the fulll fitres file
         if self.options.nsne and self.options.nsne < len(fr.CID):
             from random import sample
-            cols = sample(range(len(fr.CID)),
+            cols = sample(list(range(len(fr.CID))),
                           self.options.nsne)
-            for k in fr.__dict__.keys():
+            for k in list(fr.__dict__.keys()):
                 fr.__dict__[k] = fr.__dict__[k][cols]
     
         return(fr)
@@ -590,7 +596,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
         from txtobj import txtobj
 
         fout = open(outfile,'w')
-        print >> fout, fitresheader
+        print(fitresheader, file=fout)
 
         for i in range(self.options.nbins):
 
@@ -606,7 +612,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
                     outvars += (bms.popAmean_err[i],)
                 else:
                     outvars += (0,)
-            print >> fout, fitresfmt%outvars
+            print(fitresfmt%outvars, file=fout)
 
     def mcsamp(self,fitresfile,mciter,lowzfile,nsne,nlowzsne):
         import os
@@ -638,14 +644,14 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRM
         fitresoutfile = '%s_%s_mc%i%s'%(name,outname.split('/')[-1],mciter,ext)
 
         fr = txtobj(fitresfile,fitresheader=True)
-        if not fr.__dict__.has_key('PTRUE_Ia'): fr.PTRUE_Ia = np.array([-99]*len(fr.CID))
-        if not fr.__dict__.has_key('SIM_TYPE_INDEX'): fr.SIM_TYPE_INDEX = np.array([-99]*len(fr.CID))
-        if not fr.__dict__.has_key('SIM_ZCMB'): fr.SIM_ZCMB = np.array([-99]*len(fr.CID))
+        if 'PTRUE_Ia' not in fr.__dict__: fr.PTRUE_Ia = np.array([-99]*len(fr.CID))
+        if 'SIM_TYPE_INDEX' not in fr.__dict__: fr.SIM_TYPE_INDEX = np.array([-99]*len(fr.CID))
+        if 'SIM_ZCMB' not in fr.__dict__: fr.SIM_ZCMB = np.array([-99]*len(fr.CID))
         if lowzfile:
             frlowz = txtobj(lowzfile,fitresheader=True)    
-            if not frlowz.__dict__.has_key('PTRUE_Ia'): frlowz.PTRUE_Ia = np.array([-99]*len(fr.CID))
-            if not frlowz.__dict__.has_key('SIM_TYPE_INDEX'): frlowz.SIM_TYPE_INDEX = np.array([-99]*len(fr.CID))
-            if not frlowz.__dict__.has_key('SIM_ZCMB'): frlowz.SIM_ZCMB = np.array([-99]*len(fr.CID))
+            if 'PTRUE_Ia' not in frlowz.__dict__: frlowz.PTRUE_Ia = np.array([-99]*len(fr.CID))
+            if 'SIM_TYPE_INDEX' not in frlowz.__dict__: frlowz.SIM_TYPE_INDEX = np.array([-99]*len(fr.CID))
+            if 'SIM_ZCMB' not in frlowz.__dict__: frlowz.SIM_ZCMB = np.array([-99]*len(fr.CID))
 
         # Light curve cuts
         sf = -2.5/(fr.x0*np.log(10.0))
@@ -667,32 +673,32 @@ VARNAMES:  CID IDSURVEY TYPE FIELD zHD zHDERR HOST_LOGMASS HOST_LOGMASS_ERR SNRM
                             (fr.FITPROB >= self.options.fitprobmin) &
                             (fr.zHD > self.options.zmin) & (fr.zHD < self.options.zmax) &
                             (fr.__dict__[self.options.piacol] >= 0) & (invvars > 0))
-        for k in fr.__dict__.keys():
+        for k in list(fr.__dict__.keys()):
             fr.__dict__[k] = fr.__dict__[k][cols]
 
 
         import random
         if self.options.mcrandseed: random.seed(self.options.mcrandseed)
         try:
-            cols = random.sample(range(len(fr.CID)),nsne)
+            cols = random.sample(list(range(len(fr.CID))),nsne)
             writefitres(fr,cols,
                         fitresoutfile,fitresheader=fitresheader,
                         fitresvars=fitresvars,fitresfmt=fitresfmt)
         except ValueError:
             print('Warning : crashed because not enough SNe!  Making only a low-z file...')
             if lowzfile:
-                writefitres(frlowz,random.sample(range(len(frlowz.CID)),nlowzsne),
+                writefitres(frlowz,random.sample(list(range(len(frlowz.CID))),nlowzsne),
                             fitresoutfile,append=False,fitresheader=fitresheader,
                             fitresvars=fitresvars,fitresfmt=fitresfmt)
             return(fitresoutfile)
         if lowzfile:
             try:
-                writefitres(frlowz,random.sample(range(len(frlowz.CID)),nlowzsne),
+                writefitres(frlowz,random.sample(list(range(len(frlowz.CID))),nlowzsne),
                             fitresoutfile,append=True,fitresheader=fitresheader,
                             fitresvars=fitresvars,fitresfmt=fitresfmt)
             except:
                 frlowz.PHALF_Ia = np.ones(len(frlowz.CID))
-                writefitres(frlowz,range(len(frlowz.CID)),
+                writefitres(frlowz,list(range(len(frlowz.CID))),
                             fitresoutfile,append=True,fitresheader=fitresheader,
                             fitresvars=fitresvars,fitresfmt=fitresfmt)
 
@@ -710,7 +716,7 @@ def combwithlowz(highzroot,lowzroot,outroot):
         if not line.startswith('#') and \
                 not line.startswith('VARNAMES:') and \
                 not line.startswith('NVAR:'):
-            print >> fout, line.replace('\n','')
+            print(line.replace('\n',''), file=fout)
     fin.close(); fout.close()
 
     # append the output files
@@ -719,7 +725,7 @@ def combwithlowz(highzroot,lowzroot,outroot):
     fout = open('%s.out'%outroot,'a')
     for line in fin:
         if not line.startswith('#'):
-            print >> fout, line.replace('\n','')
+            print(line.replace('\n',''), file=fout)
     fin.close(); fout.close()
     
     # append the covmat
@@ -731,18 +737,18 @@ def combwithlowz(highzroot,lowzroot,outroot):
     covlowz = covlowz[1:].reshape(np.sqrt(len(covlowz)-1),
                                   np.sqrt(len(covlowz)-1))
     fout = open('%s.covmat'%outroot,'w')
-    print >> fout, '%i'%(len(covhighz)+len(covlowz))
+    print('%i'%(len(covhighz)+len(covlowz)), file=fout)
     shape = len(covhighz)+len(covlowz)
     for i in range(shape):
         for j in range(shape):
             if j < lenlowz and i < lenlowz:
-                print >> fout, '%8.5e'%covlowz[j,i]
+                print('%8.5e'%covlowz[j,i], file=fout)
             elif j < lenlowz and i >= lenlowz:
-                print >> fout, '%8.5e'%0
+                print('%8.5e'%0, file=fout)
             elif j >= lenlowz and i < lenlowz:
-                print >> fout, '%8.5e'%0
+                print('%8.5e'%0, file=fout)
             else:
-                print >> fout, '%8.5e'%covhighz[j-lenlowz,i-lenlowz]
+                print('%8.5e'%covhighz[j-lenlowz,i-lenlowz], file=fout)
     fout.close()
 
 
@@ -800,7 +806,7 @@ def writefitres(fitresobj,cols,outfile,append=False,fitresheader=None,
     import os
     if not append:
         fout = open(outfile,'w')
-        print >> fout, fitresheader
+        print(fitresheader, file=fout)
     else:
         fout = open(outfile,'a')
 
@@ -808,7 +814,7 @@ def writefitres(fitresobj,cols,outfile,append=False,fitresheader=None,
         outvars = ()
         for v in fitresvars:
             outvars += (fitresobj.__dict__[v][c],)
-        print >> fout, fitresfmt%outvars
+        print(fitresfmt%outvars, file=fout)
 
     fout.close()                
 
@@ -826,7 +832,6 @@ USAGE: snbeams.py [options]
 examples:
 """
 
-    import exceptions
     import os
     import optparse
 
@@ -835,7 +840,7 @@ examples:
     parser = sne.add_options(usage=usagestring)
     options,  args = parser.parse_args()
     if options.paramfile:
-        config = ConfigParser.ConfigParser()
+        config = configparser.ConfigParser()
         config.read(options.paramfile)
     else: config=None
     parser = sne.add_options(usage=usagestring,config=config)

@@ -4,8 +4,7 @@
 import glob
 import os
 import numpy as np
-import exceptions
-import pyfits
+#import pyfits
 
 class txtobj:
     def __init__(self,filename,allstring=False,
@@ -16,7 +15,7 @@ class txtobj:
 
         coldefs = np.array([])
         if cmpheader:
-            for k,v in zip(hdr.keys(),hdr.values()):
+            for k,v in zip(list(hdr.keys()),list(hdr.values())):
                 if 'COLTBL' in k and k != 'NCOLTBL':
                     coldefs = np.append(coldefs,v)
         elif sexheader:
@@ -24,7 +23,7 @@ class txtobj:
             lines = fin.readlines()
             for l in lines:
                 if l.startswith('#'):
-                    coldefs = np.append(coldefs,filter(None,l.split(' '))[2])
+                    coldefs = np.append(coldefs,[_f for _f in l.split(' ') if _f][2])
         elif fitresheader:
             skiprows=0
             fin = open(filename,'r')
@@ -33,7 +32,7 @@ class txtobj:
                 skiprows += 1
                 if l.startswith('VARNAMES:'):
                     l = l.replace('\n','')
-                    coldefs = np.array(filter(None,l.split(' ')))
+                    coldefs = np.array([_f for _f in l.split(' ') if _f])
                     coldefs = coldefs[np.where((coldefs != 'VARNAMES:') & (coldefs != '\n') & (coldefs != '#'))]
                     break
                 elif l.startswith('SN: '): break
@@ -42,11 +41,11 @@ class txtobj:
             fin = open(filename,'r')
             lines = fin.readlines()
             if not tabsep:
-                coldefs = np.array(filter(None,lines[0].split(delimiter)))
+                coldefs = np.array([_f for _f in lines[0].split(delimiter) if _f])
                 coldefs = coldefs[np.where(coldefs != '#')]
             else:
                 l = lines[0].replace('\n','')
-                coldefs = np.array(filter(None,l.split('\t')))
+                coldefs = np.array([_f for _f in l.split('\t') if _f])
                 coldefs = coldefs[np.where(coldefs != '#')]
         for i in range(len(coldefs)):
             coldefs[i] = coldefs[i].replace('\n','').replace('\t','').replace(' ','')
@@ -55,42 +54,40 @@ class txtobj:
 
         self.filename = np.array([])
         if useloadtxt:
-            for c,i in zip(coldefs,range(len(coldefs))):
+            for c,i in zip(coldefs,list(range(len(coldefs)))):
                 c = c.replace('\n','')
                 if c:
                     if not delimiter or delimiter == ' ':
-                        try:
+                        if fitresheader:
+                            self.__dict__[c] = np.genfromtxt(filename,unpack=True,usecols=[i+1],skip_header=skiprows)
+                        else:
+                            self.__dict__[c] = np.genfromtxt(filename,unpack=True,usecols=[i],skip_header=skiprows)
+                        if not len(self.__dict__[c][self.__dict__[c] == self.__dict__[c]]):
                             if fitresheader:
-                                self.__dict__[c] = np.loadtxt(filename,unpack=True,usecols=[i+1],skiprows=skiprows)
+                                self.__dict__[c] = np.genfromtxt(filename,unpack=True,usecols=[i+1],dtype=str,skip_header=skiprows)
                             else:
-                                self.__dict__[c] = np.loadtxt(filename,unpack=True,usecols=[i],skiprows=skiprows)
-                        except:
-                            if fitresheader:
-                                self.__dict__[c] = np.loadtxt(filename,unpack=True,usecols=[i+1],dtype='string',skiprows=skiprows)
-                            else:
-                                self.__dict__[c] = np.loadtxt(filename,unpack=True,usecols=[i],dtype='string',skiprows=skiprows)
+                                self.__dict__[c] = np.genfromtxt(filename,unpack=True,usecols=[i],dtype=str,skip_header=skiprows)
                     else:
-                        try:
+                        if fitresheader:
+                            self.__dict__[c] = np.genfromtxt(filename,unpack=True,usecols=[i+1],delimiter=',',skip_header=skiprows)
+                        else:
+                            self.__dict__[c] = np.genfromtxt(filename,unpack=True,usecols=[i],delimiter=',',skip_header=skiprows)
+                        if not len(self.__dict__[c][self.__dict__[c] == self.__dict__[c]]):
                             if fitresheader:
-                                self.__dict__[c] = np.loadtxt(filename,unpack=True,usecols=[i+1],delimiter=',',skiprows=skiprows)
+                                self.__dict__[c] = np.genfromtxt(filename,unpack=True,usecols=[i+1],dtype=str,delimiter=',',skip_header=skiprows)
                             else:
-                                self.__dict__[c] = np.loadtxt(filename,unpack=True,usecols=[i],delimiter=',',skiprows=skiprows)
-                        except:
-                            if fitresheader:
-                                self.__dict__[c] = np.loadtxt(filename,unpack=True,usecols=[i+1],dtype='string',delimiter=',',skiprows=skiprows)
-                            else:
-                                self.__dict__[c] = np.loadtxt(filename,unpack=True,usecols=[i],dtype='string',delimiter=',',skiprows=skiprows)
+                                self.__dict__[c] = np.genfromtxt(filename,unpack=True,usecols=[i],dtype=str,delimiter=',',skip_header=skiprows)
                 try:
                     self.filename = np.array([filename]*len(self.__dict__[c]))
                 except:
-                    for k in self.__dict__.keys(): self.__dict__[k] = np.array([self.__dict__[k]])
+                    for k in list(self.__dict__.keys()): self.__dict__[k] = np.array([self.__dict__[k]])
                     self.filename = np.array([filename]*len(self.__dict__[c]))
         else:
             fin = open(filename,'r')
             count = 0
             for line in fin:
                 if count >= 1 and not line.startswith('#'):
-                    entries = filter(None,line.split(' '))
+                    entries = [_f for _f in line.split(' ') if _f]
                     for e,c in zip(entries,coldefs):
                         e = e.replace('\n','')
                         c = c.replace('\n','')
@@ -121,24 +118,24 @@ class txtobj:
             fin = open(filename,'r')
             for line in fin:
                 if line.startswith('#'):
-                    coldefs = filter(None,line.split('#')[1].split('\n')[0].split(' '))
+                    coldefs = [_f for _f in line.split('#')[1].split('\n')[0].split(' ') if _f]
                     break
             fin.close()
-            for c,i in zip(coldefs,range(len(coldefs))):
+            for c,i in zip(coldefs,list(range(len(coldefs)))):
                 try:
-                    self.__dict__[c] = np.concatenate((self.__dict__[c],np.loadtxt(filename,unpack=True,usecols=[i])))
+                    self.__dict__[c] = np.concatenate((self.__dict__[c],np.genfromtxt(filename,unpack=True,usecols=[i])))
                 except:
-                    self.__dict__[c] = np.concatenate((self.__dict__[c],np.loadtxt(filename,unpack=True,
-                                                                                   usecols=[i],dtype='string')))
-            self.filename = np.append(self.filename,np.array([filename]*len(np.loadtxt(filename,unpack=True,usecols=[i],dtype='string'))))
+                    self.__dict__[c] = np.concatenate((self.__dict__[c],np.genfromtxt(filename,unpack=True,
+                                                                                   usecols=[i],dtype=str)))
+            self.filename = np.append(self.filename,np.array([filename]*len(np.genfromtxt(filename,unpack=True,usecols=[i],dtype=str))))
             
             return()
         fin = open(filename,'r')
         for line in fin:
             if line.startswith('#'):
-                coldefs = filter(None,line.split('#')[1].split('\n')[0].split(' '))
+                coldefs = [_f for _f in line.split('#')[1].split('\n')[0].split(' ') if _f]
             else:
-                entries = filter(None,line.split(' '))
+                entries = [_f for _f in line.split(' ') if _f]
                 for e,c in zip(entries,coldefs):
                     e = e.replace('\n','')
                     c = c.replace('\n','')
