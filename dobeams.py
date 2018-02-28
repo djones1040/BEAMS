@@ -226,7 +226,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 					outvars += (mean,err,)
 				else: outvars += (-99,-99,)
 
-			fout = open(self.options.outputfile,'a')
+			fout = open(self.options.outfile,'a')
 			print(outlinefmt%outvars, file=fout)
 			fout.close()
 				
