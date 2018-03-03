@@ -443,7 +443,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 		if self.options.masscorrfixed: beam.options.lstepfixed = True
 
 		beam.options.zrange = (self.options.zmin,self.options.zmax)
-		beam.options.nzbins = self.options.nbins
+		beam.options.nbins = self.options.nbins
 
 		# make the BEAMS input file
 		fout = open('%s.input'%root,'w')
@@ -496,8 +496,8 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 							  2.0 * self.options.salt2beta * (fr.COV_c_x0*sf) - \
 							  2.0 * self.options.salt2alpha*self.options.salt2beta * (fr.COV_x1_c) )
 
-			cols = np.where((fr.__dict__[self.options.piacol] >= 0) & (invvars > 0) &
-							(fr.zHD >= self.options.zmin) & (fr.zHD <= self.options.zmax))
+			cols = np.where((fr.__dict__[self.options.piacol] >= 0) & (invvars > 0))# &
+							#(fr.zHD >= self.options.zmin) & (fr.zHD <= self.options.zmax))
 
 			for k in list(fr.__dict__.keys()):
 				fr.__dict__[k] = fr.__dict__[k][cols]				 
