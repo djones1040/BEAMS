@@ -108,7 +108,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 
 
 
-			parser.add_option('--nbins', default=30, type="int",
+			parser.add_option('--nbins', default=25, type="int",
 							  help='Number of z bins')
 			parser.add_option('--zmin', default=0.01, type="float",
 							  help='min redshift')

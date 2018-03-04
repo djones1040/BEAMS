@@ -254,9 +254,9 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 			
 			parser.add_option('--nthreads', default=8, type="int",
 							  help='Number of threads for MCMC')
-			parser.add_option('--zmin', default=0.01, type="float",
+			parser.add_option('--zmin', default=0.009, type="float",
 							  help='minimum redshift')
-			parser.add_option('--zmax', default=0.7, type="float",
+			parser.add_option('--zmax', default=0.71, type="float",
 							  help='maximum redshift')
 
 			parser.add_option('--nbins', default=25, type="int",
