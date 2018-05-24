@@ -297,7 +297,7 @@ then everything with P(Ia) > that cut is reset to P(Ia) = 1""")
 							  help='set a minimum redshift for P(Ia) != 1 sample')
 			parser.add_option('--photidsurvey', default=15, type='float',
 							  help='photometric survey ID, only necessary for zminphot')
-			parser.add_option('--specidsurvey', default='53,5,50,61,62,63,64,65,66,151', type='string',
+			parser.add_option('--specidsurvey', default='53,5,50,61,62,63,64,65,66,150,151,152', type='string',
 							  help='will fix P(Ia) at 1 for IDSURVEY = this value')
 			parser.add_option('--nspecsne', default=0, type='int',
 							  help='a spectroscopic sample to help BEAMS (for sim SNe)')
