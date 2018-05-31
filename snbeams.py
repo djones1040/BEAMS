@@ -367,12 +367,12 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 		if self.options.zmin < np.min(fr.zHD): self.options.zmin = np.min(fr.zHD)
 		if self.options.zmax > np.max(fr.zHD): self.options.zmax = np.max(fr.zHD)
 		
-		from dobeams import salt2mu_aberr
-		fr.MU,fr.MUERR = salt2mu_aberr(x1=fr.x1,x1err=fr.x1ERR,c=fr.c,cerr=fr.cERR,mb=fr.mB,mberr=fr.mBERR,
-									   cov_x1_c=fr.COV_x1_c,cov_x1_x0=fr.COV_x1_x0,cov_c_x0=fr.COV_c_x0,
-									   alpha=self.options.salt2alpha,alphaerr=self.options.salt2alphaerr,
-									   beta=self.options.salt2beta,betaerr=self.options.salt2betaerr,
-									   x0=fr.x0,sigint=self.options.sigint,z=fr.zHD)
+		from dobeams import salt2mu
+		fr.MU,fr.MUERR = salt2mu(x1=fr.x1,x1err=fr.x1ERR,c=fr.c,cerr=fr.cERR,mb=fr.mB,mberr=fr.mBERR,
+								 cov_x1_c=fr.COV_x1_c,cov_x1_x0=fr.COV_x1_x0,cov_c_x0=fr.COV_c_x0,
+								 alpha=self.options.salt2alpha,
+								 beta=self.options.salt2beta,
+								 x0=fr.x0,sigint=self.options.sigint,z=fr.zHD)
 
 		fr = self.mkfitrescuts(fr,mkcuts=mkcuts)
 		root = os.path.splitext(fitres)[0]
