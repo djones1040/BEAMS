@@ -64,12 +64,12 @@ class txtobj:
 				c = c.replace('\n','')
 				if c:
 					if not delimiter or delimiter == ' ':
-						self.__dict__[c] = np.genfromtxt(filename,unpack=True,usecols=[i],dtype='string',skip_header=skiprows)
+						self.__dict__[c] = np.genfromtxt(filename,unpack=True,usecols=[i],dtype='str',skip_header=skiprows)
 						try: self.__dict__[c] = self.__dict__[c].astype(float)
 						except: continue
 							
 					else:
-						self.__dict__[c] = np.genfromtxt(filename,unpack=True,usecols=[i],dtype='string',delimiter=delimiter,skip_header=skiprows)
+						self.__dict__[c] = np.genfromtxt(filename,unpack=True,usecols=[i],dtype='str',delimiter=delimiter,skip_header=skiprows)
 						try: self.__dict__[c] = self.__dict__[c].astype(float)
 						except: continue
 
@@ -140,8 +140,8 @@ class txtobj:
 					self.__dict__[c] = np.concatenate((self.__dict__[c],np.genfromtxt(filename,unpack=True,usecols=[i])))
 				except:
 					self.__dict__[c] = np.concatenate((self.__dict__[c],np.genfromtxt(filename,unpack=True,
-																				   usecols=[i],dtype='string')))
-			self.filename = np.append(self.filename,np.array([filename]*len(np.genfromtxt(filename,unpack=True,usecols=[i],dtype='string'))))
+																				   usecols=[i],dtype='str')))
+			self.filename = np.append(self.filename,np.array([filename]*len(np.genfromtxt(filename,unpack=True,usecols=[i],dtype='str'))))
 			
 			return()
 		fin = open(filename,'r')
