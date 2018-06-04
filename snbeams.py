@@ -256,7 +256,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 							  help='Number of threads for MCMC')
 			parser.add_option('--zmin', default=0.009, type="float",
 							  help='minimum redshift')
-			parser.add_option('--zmax', default=0.71, type="float",
+			parser.add_option('--zmax', default=0.70, type="float",
 							  help='maximum redshift')
 
 			parser.add_option('--nbins', default=25, type="int",
@@ -376,7 +376,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 
 		fr = self.mkfitrescuts(fr,mkcuts=mkcuts)
 		root = os.path.splitext(fitres)[0]
-		
+
 		# Prior SN Ia probabilities
 		P_Ia = np.zeros(len(fr.CID))
 		for i in range(len(fr.CID)):
@@ -446,7 +446,6 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 		beam.options.nbins = self.options.nbins
 
 		# make the BEAMS input file
-		fout = open('%s.input'%root,'w')
 		fr.PA = fr.__dict__[self.options.piacol]
 		if not self.options.masscorr: fr.PL = np.zeros(len(fr.PA))
 		writefitres(fr,list(range(len(fr.PA))),'%s.input'%root,
@@ -496,8 +495,8 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 							  2.0 * self.options.salt2beta * (fr.COV_c_x0*sf) - \
 							  2.0 * self.options.salt2alpha*self.options.salt2beta * (fr.COV_x1_c) )
 
-			cols = np.where((fr.__dict__[self.options.piacol] >= 0) & (invvars > 0))# &
-							#(fr.zHD >= self.options.zmin) & (fr.zHD <= self.options.zmax))
+			cols = np.where((fr.__dict__[self.options.piacol] >= 0) & (invvars > 0) &
+							(fr.zHD >= self.options.zmin) & (fr.zHD <= self.options.zmax))
 
 			for k in list(fr.__dict__.keys()):
 				fr.__dict__[k] = fr.__dict__[k][cols]				 
@@ -577,7 +576,7 @@ Default is to let the MCMC try to find a minimum if minimizer fails""")
 						  self.options.nsne)
 			for k in list(fr.__dict__.keys()):
 				fr.__dict__[k] = fr.__dict__[k][cols]
-	
+
 		return(fr)
 
 	def writeBinCorrFitres(self,outfile,bms,skip=0,fr=None):
