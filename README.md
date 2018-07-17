@@ -54,7 +54,8 @@ plt.ylim([-0.1,0.1])
 plt.xlim([0.01,0.7])
 plt.xscale('log')
 plt.xlabel('$z$')
-plt.ylabel('Hubble Residual')```
+plt.ylabel('Hubble Residual')
+```
 
   the results look great!  Unfortunately, they don't mean anything yet.
   You really need to use the parallel-tempered ensemble sampler - or 
