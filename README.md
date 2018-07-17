@@ -29,7 +29,9 @@ will provide the rest of the documentation.
   Results are also most robust with the parallel-tempered ensemble sampler
   (ntemps = 20 works well), but that takes longer to run.  First add the repo
   directory to your $PATH environment variable, and make sure the repo is
-  installed in a directory that is in your PYTHONPATH environment variable.  Then run:
+  installed in a directory that is in your PYTHONPATH environment variable.
+  Copy the exampledata directory, the BEAMS.params and mcmcparams.input files
+  to your local directory and then run:
 
    `snbeams.py -p BEAMS.params -f exampledata/PS1_SIM_example.FITRES -o exampledata/PS1_BEAMS.SNIa.out --onlyIa --piacol PTRUE_Ia --ninit 50 --nsteps 200`
 
