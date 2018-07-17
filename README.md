@@ -29,8 +29,9 @@ will provide the rest of the documentation.
   Results are also most robust with the parallel-tempered ensemble sampler
   (ntemps = 20 works well), but that takes longer to run.
 
-   ./snbeams.py -p BEAMS.params -f exampledata/PS1_SIM_example.FITRES -o exampledata/PS1_BEAMS.SNIa.out --onlyIa --piacol PTRUE_Ia --ninit 50 --nsteps 200
-   ./snbeams.py -p BEAMS.params -f exampledata/PS1_SIM_example.FITRES -o exampledata/PS1_BEAMS.NN.out --piacol PNN_Ia --ninit 50 --nsteps 200
+   `./snbeams.py -p BEAMS.params -f exampledata/PS1_SIM_example.FITRES -o exampledata/PS1_BEAMS.SNIa.out --onlyIa --piacol PTRUE_Ia --ninit 50 --nsteps 200`
+
+   `./snbeams.py -p BEAMS.params -f exampledata/PS1_SIM_example.FITRES -o exampledata/PS1_BEAMS.NN.out --piacol PNN_Ia --ninit 50 --nsteps 200`
 
   BEAMS then produces 3 files, using the fileroot of the output file
   you specify: the basic output file, a file in FITRES format, where the
@@ -39,7 +40,7 @@ will provide the rest of the documentation.
 
   in python:
 
-import pylab as plt
+```import pylab as plt
 from astropy.cosmology import Planck15 as cosmo
 from BEAMS.txtobj import txtobj
 true = txtobj('exampledata/PS1_BEAMS.SNIa.out')
@@ -53,7 +54,7 @@ plt.ylim([-0.1,0.1])
 plt.xlim([0.01,0.7])
 plt.xscale('log')
 plt.xlabel('$z$')
-plt.ylabel('Hubble Residual')
+plt.ylabel('Hubble Residual')```
 
   the results look great!  Unfortunately, they don't mean anything yet.
   You really need to use the parallel-tempered ensemble sampler - or 
