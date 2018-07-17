@@ -795,7 +795,7 @@ def twogausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=False
 																											 muBerr[PA == 1]**2.)))],axis=0))
 
 		print(len(muA[PA == 1]),likeIa,x[pardict['popAstd']['idx']],x[pardict['scaleA']['idx']],x[pardict['salt2beta']['idx']])
-
+		import pdb; pdb.set_trace()
 	return(lnlike)
 
 def threegausslike(x,inp=None,zcontrol=None,usescale=True,pardict=None,debug=False):

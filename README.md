@@ -1,7 +1,13 @@
-These codes perform a Bayesian Estimation of Multiple Species
-(BEAMS) procedure (Kunz, Bassett & Hlozek 2007) on supernova data.
+These codes implement a Bayesian Estimation of Multiple Species
+(BEAMS)-like procedure (Kunz, Bassett & Hlozek 2007) on supernova data.
 We simultaneously determine Type Ia supernova and core-collapse
 supernova distances in a sample with a mixture of both.
+
+This implementation was written by David Jones and is used
+to measure cosmological parameters in:
+
+Jones et al. 2017, ApJ, 843, 6J
+Jones et al. 2018, ApJ, 857, 51J
 
 Dependencies
 
