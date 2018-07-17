@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # D. Jones - 9/1/15
 """BEAMS method for PS1 data"""
+from __future__ import print_function
 import numpy as np
 
 fitresheader = """# VERSION: PS1_PS1MD
@@ -58,10 +59,10 @@ class snbeams:
 
 			# Light curve cut parameters
 			parser.add_option(
-				'--crange', default=list(map(float,config.get('main','crange').split(','))),type="float",
+				'--crange', default=list(map(float,config.get('lightcurve','crange').split(','))),type="float",
 				help='Peculiar velocity error (default=%default)',nargs=2)
 			parser.add_option(
-				'--x1range', default=list(map(float,config.get('main','crange').split(','))),type="float",
+				'--x1range', default=list(map(float,config.get('lightcurve','x1range').split(','))),type="float",
 				help='Peculiar velocity error (default=%default)',nargs=2)
 			parser.add_option('--x1cellipse',default=config.getboolean('lightcurve','x1cellipse'),
 							  action="store_true",
@@ -172,7 +173,7 @@ then everything with P(Ia) > that cut is reset to P(Ia) = 1""")
 			parser.add_option('--skewedgauss', default=config.getboolean('models','skewedgauss'), action="store_true",
 							  help='skewed gaussian for pop. B')
 
-			parser.add_option('--zCCdist', default=list(map(int,config.get('main','zCCdist')))[0], action="store_true",
+			parser.add_option('--zCCdist', default=config.getboolean('models','zCCdist'), action="store_true",
 							  help='fit for different CC parameters at each redshift control point')
 			# emcee options
 			parser.add_option('--nthreads', default=config.get('mcmc','nthreads'), type="int",

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # D. Jones - 9/1/15
 """BEAMS method for PS1 data"""
+from __future__ import print_function
 import numpy as np
 from scipy.misc import logsumexp
 from scipy.special import erf
